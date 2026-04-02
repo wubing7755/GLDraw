@@ -77,21 +77,10 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(glfw)
 
 # =============================================================================
-# GLAD - Generate loader via Python glad v2.x from PyPI
+# GLAD - Generate loader via Python glad v2.x (installed from GitHub)
 # Generates glad.c/glad.h for OpenGL 3.3 Core profile.
 # =============================================================================
 find_package(Python3 COMPONENTS Interpreter REQUIRED)
-
-# Verify Python has glad module
-execute_process(
-    COMMAND ${Python3_EXECUTABLE} -m glad --version
-    RESULT_VARIABLE _glad_check
-    OUTPUT_QUIET ERROR_QUIET
-)
-if(NOT _glad_check EQUAL 0)
-    set(Python3_EXECUTABLE "C:/Python313/python.exe")
-    message(STATUS "Using Windows Python for glad generation")
-endif()
 
 set(GLAD_GEN_DIR "${CMAKE_BINARY_DIR}/_deps/glad-gen")
 file(MAKE_DIRECTORY "${GLAD_GEN_DIR}/include/glad")
