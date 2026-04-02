@@ -1,0 +1,133 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  build:
+    name: Build (${{ matrix.os }}, ${{ matrix.config }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+        config: [Release, Debug]
+        include:
+          - os: windows-latest
+            generator: "Visual Studio 17 2022"
+            cmake_args: "-A x64"
+          - os: ubuntu-latest
+            generator: "Unix Makefiles"
+            cmake_args: ""
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Python (for GLAD generation)
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install GLAD
+        run: pip install glad
+
+      - name: Configure CMake
+        env:
+          CMAKE_GENERATOR: ${{ matrix.generator }}
+          CMAKE_ARGS: ${{ matrix.cmake_args }}
+        run: |
+          cmake -S . -B build \
+            -G "$CMAKE_GENERATOR" \
+            $CMAKE_ARGS \
+            -DCMAKE_BUILD_TYPE=${{ matrix.config }} \
+            -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+
+      - name: Build
+        run: cmake --build build --parallel
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: GLDraw-${{ matrix.os }}-${{ matrix.config }}
+          path: build/bin/GLDraw.exe
+
+  build-mingw:
+    name: Build (MinGW, ${{ matrix.config }})
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        config: [Release, Debug]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install GLAD
+        run: pip install glad
+
+      - name: Configure CMake (MinGW)
+        run: |
+          cmake -S . -B build `
+            -G "MinGW Makefiles" `
+            -DCMAKE_BUILD_TYPE=${{ matrix.config }} `
+            -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+
+      - name: Build
+        run: cmake --build build --parallel
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: GLDraw-MinGW-${{ matrix.config }}
+          path: build/bin/GLDraw.exe
+
+  analyze:
+    name: Static Analysis
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install GLAD
+        run: pip install glad
+
+      - name: Configure CMake
+        run: |
+          cmake -S . -B build \
+            -G "Unix Makefiles" \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+
+      - name: Build
+        run: cmake --build build
+
+      - name: Install clang-tidy
+        run: |
+          if command -v apt-get &> /dev/null; then
+            sudo apt-get update && sudo apt-get install -y clang-tools
+          fi
+
+      - name: Run clang-tidy (if available)
+        run: |
+          if command -v clang-tidy &> /dev/null; then
+            find src -name "*.c" -exec clang-tidy {} \;
+          else
+            echo "clang-tidy not available, skipping"
+          fi
+        shell: bash

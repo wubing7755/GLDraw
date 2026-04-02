@@ -1,0 +1,41 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "CMake: Build",
+            "type": "shell",
+            "command": "cmake",
+            "args": ["--build", "${workspaceFolder}/build"],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": ["$gcc"]
+        },
+        {
+            "label": "CMake: Build (Debug)",
+            "type": "shell",
+            "command": "${workspaceFolder}/vscode_build.sh",
+            "args": ["debug"],
+            "group": "build",
+            "problemMatcher": ["$gcc"],
+            "detail": "Configure and build with Debug settings"
+        },
+        {
+            "label": "CMake: Clean and Build",
+            "type": "shell",
+            "command": "${workspaceFolder}/vscode_build.sh",
+            "group": "build",
+            "problemMatcher": ["$gcc"],
+            "detail": "Clean build folder, then configure and build"
+        },
+        {
+            "label": "CMake: Configure Only",
+            "type": "shell",
+            "command": "${workspaceFolder}/vscode_build.sh",
+            "args": ["configure"],
+            "problemMatcher": ["$gcc"],
+            "detail": "Only configure, do not build"
+        }
+    ]
+}
