@@ -13,7 +13,6 @@ static int s_count = 0;
 void sm_init(void)
 {
     s_count = 0;
-    printf("[ShapeManager] Initialized\n");
 }
 
 void sm_shutdown(void)
@@ -23,17 +22,14 @@ void sm_shutdown(void)
         s_shapes[i] = NULL;
     }
     s_count = 0;
-    printf("[ShapeManager] Shutdown\n");
 }
 
 void sm_add(Shape* s)
 {
     if (s_count >= SHAPE_MAX_LINES) {
-        fprintf(stderr, "[ShapeManager] Max shapes reached (%d)\n", SHAPE_MAX_LINES);
         return;
     }
     s_shapes[s_count++] = s;
-    printf("[ShapeManager] Added shape, total: %d\n", s_count);
 }
 
 void sm_remove_last(void)
@@ -44,7 +40,6 @@ void sm_remove_last(void)
     s_count--;
     shape_destroy(s_shapes[s_count]);
     s_shapes[s_count] = NULL;
-    printf("[ShapeManager] Removed last shape, total: %d\n", s_count);
 }
 
 int sm_count(void)

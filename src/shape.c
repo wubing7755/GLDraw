@@ -27,16 +27,10 @@ Shape* shape_create_line(float x1, float y1, float x2, float y2,
     s->color[2] = b;
     s->color[3] = a;
     s->line_width = line_width;
-
-    printf("[Shape] Created LINE: (%.2f,%.2f) → (%.2f,%.2f)\n",
-           x1, y1, x2, y2);
     return s;
 }
 
 void shape_destroy(Shape* s)
 {
-    if (s) {
-        printf("[Shape] Destroyed LINE\n");
-        free(s);
-    }
+    free(s);
 }

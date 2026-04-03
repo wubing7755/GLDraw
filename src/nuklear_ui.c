@@ -27,12 +27,12 @@ static struct nk_context* g_ctx;
 
 int init_nuklear_ui(GLFWwindow* window)
 {
-    g_ctx = nk_glfw3_init(&g_glfw_ctx, window, NK_GLFW3_INSTALL_CALLBACKS);
+    g_ctx = nk_glfw3_init(&g_glfw_ctx, window, 0 /* NK_GLFW3_INSTALL_CALLBACKS */);
     if (!g_ctx) {
         printf("[Nuklear] Failed to initialize\n");
         return -1;
     }
-    printf("[Nuklear] Initialized (demo panel disabled for Phase 1)\n");
+    printf("[Nuklear] Initialized (callbacks disabled for Phase 1)\n");
 
     struct nk_font_atlas* atlas;
     nk_glfw3_font_stash_begin(&g_glfw_ctx, &atlas);

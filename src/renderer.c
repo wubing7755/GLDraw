@@ -97,6 +97,8 @@ int init_renderer(void)
 
 void render_frame(void)
 {
+    GLenum err;
+
     glClearColor(0.15f, 0.15f, 0.2f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
 
@@ -123,6 +125,10 @@ void render_frame(void)
     glBindVertexArray(s_VAO);
     glDrawArrays(GL_LINES, 0, (GLsizei)vertex_count);
     glBindVertexArray(0);
+
+    while ((err = glGetError()) != GL_NO_ERROR) {
+        fprintf(stderr, "[Renderer] GL error after draw: %d\n", err);
+    }
 }
 
 void cleanup_renderer(void)

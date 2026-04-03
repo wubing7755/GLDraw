@@ -152,9 +152,11 @@ cleanup:
 
 void shader_use(void)
 {
-    if (s_shader_program != 0) {
-        glUseProgram(s_shader_program);
+    if (s_shader_program == 0) {
+        fprintf(stderr, "[Shader] ERROR: shader program is 0!\n");
+        return;
     }
+    glUseProgram(s_shader_program);
 }
 
 void cleanup_shaders(void)
