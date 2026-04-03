@@ -2,10 +2,10 @@
 #include <stdlib.h>
 #include <math.h>
 #include <string.h>
-#include "shape.h"
-#include "shape_impl.h"
-#include "shape_registry.h"
-#include "shape_geometry.h"
+#include <core/shape.h>
+#include <core/shape_impl.h>
+#include <core/shape_registry.h>
+#include <core/shape_geometry.h>
 
 /* =============================================================================
  * Concrete vtable implementations

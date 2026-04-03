@@ -1,6 +1,6 @@
 #include <math.h>
-#include "shape_geometry.h"
-#include "shape_impl.h"  /* for concrete impl types */
+#include <core/shape_geometry.h>
+#include <core/shape_impl.h>  /* for concrete impl types */
 
 /* =============================================================================
  * Geometry implementations per shape type

@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <string.h>
-#include "shape_registry.h"
+#include <core/shape_registry.h>
 
 /* =============================================================================
  * Internal registry table — fixed size array of registered shape types

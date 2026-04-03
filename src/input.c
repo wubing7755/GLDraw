@@ -2,10 +2,10 @@
 #include <stdlib.h>
 #include <GLFW/glfw3.h>
 #include <core/window.h>
-#include "shape.h"
-#include "shape_manager.h"
-#include "shape_registry.h"
-#include "shape_impl.h"
+#include <core/shape.h>
+#include <core/shape_manager.h>
+#include <core/shape_registry.h>
+#include <core/shape_impl.h>
 
 /* =============================================================================
  * Phase 1: Mouse-based line drawing — no vtable, no tool abstraction

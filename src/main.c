@@ -8,8 +8,8 @@
 #include <core/renderer.h>
 #include <core/input.h>
 #include <core/nuklear_ui.h>
-#include "shape_manager.h"
-#include "shape_registry.h"
+#include <core/shape_manager.h>
+#include <core/shape_registry.h>
 
 static double get_time_seconds(void)
 {

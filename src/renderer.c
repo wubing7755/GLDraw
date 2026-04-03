@@ -6,7 +6,7 @@
 
 #include <core/renderer.h>
 #include <core/shader.h>
-#include "shape_manager.h"
+#include <core/shape_manager.h>
 
 static GLuint s_VAO = 0;
 static GLuint s_VBO = 0;
