@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include "shape_manager.h"
+#include <core/shape_manager.h>
 
 /* =============================================================================
  * Phase 1: Dynamic array implementation

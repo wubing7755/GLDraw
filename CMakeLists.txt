@@ -101,6 +101,8 @@ set(SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/app_state.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/shape.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/shape_manager.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/shape_registry.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/shape_geometry.c
 )
 
 # =============================================================================

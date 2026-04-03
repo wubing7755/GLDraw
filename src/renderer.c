@@ -6,7 +6,7 @@
 
 #include <core/renderer.h>
 #include <core/shader.h>
-#include "shape_manager.h"
+#include <core/shape_manager.h>
 
 static GLuint s_VAO = 0;
 static GLuint s_VBO = 0;
@@ -14,26 +14,60 @@ static float* s_vertex_buf = NULL;
 static size_t s_vertex_buf_capacity = 0;
 
 /* =============================================================================
- * Phase 1: Dynamic line rendering — rebuild vertex buffer each frame
+ * Phase 2: Multi-shape rendering using vtable-based geometry
  *
  * Vertex layout per vertex: x, y, r, g, b, a (6 floats = 24 bytes)
- * Each LINE needs 2 vertices (start + end).
+ * Each shape has different vertex counts:
+ *   LINE:   2 vertices (GL_LINES)
+ *   CIRCLE: 64 vertices (GL_LINE_LOOP)
+ *   RECT:   4 vertices (GL_LINE_LOOP)
  *
- * Phase 2 note: Will add vtable-based geometry generation to support
- *               CIRCLE/RECTANGLE without changing this render function.
+ * We track per-shape vertex offset to issue separate draw calls.
  * =============================================================================
  */
 
+typedef struct {
+    int first_vertex;
+    int vert_count;
+} ShapeDrawInfo;
+
+static ShapeDrawInfo* s_draw_infos = NULL;
+static int s_draw_info_capacity = 0;
+
+/* Compute total vertex count for all shapes */
+static size_t compute_total_vertices(void)
+{
+    size_t total = 0;
+    int count = sm_count();
+    for (int i = 0; i < count; i++) {
+        Shape* s = sm_get(i);
+        float* verts = NULL;
+        int vert_count = 0;
+        shape_get_geometry(s, &verts, &vert_count);
+        total += vert_count;
+        free(verts);  /* shape_get_geometry returns malloc'd buffer */
+    }
+    return total;
+}
+
+/* Rebuild vertex buffer from ShapeManager using vtable geometry */
 static void rebuild_vertex_buffer(void)
 {
     int count = sm_count();
     if (count == 0) {
-        s_vertex_buf_capacity = 0;
         return;
     }
 
-    size_t vertex_count = count * 2;  /* 2 vertices per LINE */
-    size_t new_capacity = vertex_count * 6 * sizeof(float);
+    /* Resize draw info array if needed */
+    if (count > s_draw_info_capacity) {
+        free(s_draw_infos);
+        s_draw_infos = (ShapeDrawInfo*)malloc(count * sizeof(ShapeDrawInfo));
+        s_draw_info_capacity = count;
+    }
+
+    /* First pass: compute total vertices needed */
+    size_t total_verts = compute_total_vertices();
+    size_t new_capacity = total_verts * 6 * sizeof(float);
 
     if (new_capacity > s_vertex_buf_capacity) {
         free(s_vertex_buf);
@@ -46,25 +80,39 @@ static void rebuild_vertex_buffer(void)
         s_vertex_buf_capacity = new_capacity;
     }
 
+    /* Second pass: fill buffer and track offsets */
     float* ptr = s_vertex_buf;
+    int current_vert = 0;
+
     for (int i = 0; i < count; i++) {
         Shape* s = sm_get(i);
-        /* Vertex 1: p1 */
-        *ptr++ = s->line.p1[0];
-        *ptr++ = s->line.p1[1];
-        *ptr++ = s->color[0];
-        *ptr++ = s->color[1];
-        *ptr++ = s->color[2];
-        *ptr++ = s->color[3];
+        float* verts = NULL;
+        int vert_count = 0;
+        shape_get_geometry(s, &verts, &vert_count);
 
-        /* Vertex 2: p2 */
-        *ptr++ = s->line.p2[0];
-        *ptr++ = s->line.p2[1];
-        *ptr++ = s->color[0];
-        *ptr++ = s->color[1];
-        *ptr++ = s->color[2];
-        *ptr++ = s->color[3];
+        s_draw_infos[i].first_vertex = current_vert;
+        s_draw_infos[i].vert_count = vert_count;
+
+        for (int j = 0; j < vert_count; j++) {
+            *ptr++ = verts[j * 2];     /* x */
+            *ptr++ = verts[j * 2 + 1]; /* y */
+            *ptr++ = s->color[0];      /* r */
+            *ptr++ = s->color[1];      /* g */
+            *ptr++ = s->color[2];      /* b */
+            *ptr++ = s->color[3];      /* a */
+            current_vert++;
+        }
+        free(verts);
     }
+}
+
+/* Determine OpenGL primitive type based on vertex count */
+static GLenum primitive_type_for_count(int vert_count)
+{
+    if (vert_count == 2) {
+        return GL_LINES;     /* LINE */
+    }
+    return GL_LINE_LOOP;    /* CIRCLE, RECT */
 }
 
 int init_renderer(void)
@@ -113,17 +161,24 @@ void render_frame(void)
         return;
     }
 
-    size_t vertex_count = count * 2;
-    size_t buf_size = vertex_count * 6 * sizeof(float);
+    size_t buf_size = s_draw_infos ? (size_t)(s_draw_infos[count - 1].first_vertex + s_draw_infos[count - 1].vert_count) * 6 * sizeof(float) : 0;
+    if (buf_size == 0) {
+        return;
+    }
 
     /* Upload to GPU */
     glBindBuffer(GL_ARRAY_BUFFER, s_VBO);
     glBufferData(GL_ARRAY_BUFFER, buf_size, s_vertex_buf, GL_DYNAMIC_DRAW);
 
-    /* Draw all lines */
+    /* Draw each shape with appropriate primitive type */
     shader_use();
     glBindVertexArray(s_VAO);
-    glDrawArrays(GL_LINES, 0, (GLsizei)vertex_count);
+
+    for (int i = 0; i < count; i++) {
+        GLenum mode = primitive_type_for_count(s_draw_infos[i].vert_count);
+        glDrawArrays(mode, s_draw_infos[i].first_vertex, s_draw_infos[i].vert_count);
+    }
+
     glBindVertexArray(0);
 
     while ((err = glGetError()) != GL_NO_ERROR) {
@@ -136,8 +191,11 @@ void cleanup_renderer(void)
     glDeleteVertexArrays(1, &s_VAO);
     glDeleteBuffers(1, &s_VBO);
     free(s_vertex_buf);
+    free(s_draw_infos);
     s_vertex_buf = NULL;
+    s_draw_infos = NULL;
     s_vertex_buf_capacity = 0;
+    s_draw_info_capacity = 0;
     s_VAO = 0;
     s_VBO = 0;
     printf("[Renderer] Cleaned up\n");
