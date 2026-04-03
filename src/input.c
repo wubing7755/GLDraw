@@ -4,6 +4,8 @@
 #include <core/window.h>
 #include "shape.h"
 #include "shape_manager.h"
+#include "shape_registry.h"
+#include "shape_impl.h"
 
 /* =============================================================================
  * Phase 1: Mouse-based line drawing — no vtable, no tool abstraction
@@ -53,11 +55,13 @@ static void finalize_line(void)
     s_has_preview = 0;
 
     /* Add the final opaque line to ShapeManager */
-    Shape* final = shape_create_line(
-        s_p1[0], s_p1[1], s_p2[0], s_p2[1],
-        0.0f, 0.8f, 1.0f, 1.0f,  /* cyan, opaque */
-        2.0f);
-    sm_add(final);
+    Shape* final = shape_create("LINE", 0.0f, 0.8f, 1.0f, 1.0f, 2.0f);
+    if (final) {
+        LineImpl* line = (LineImpl*)final->impl;
+        line->p1[0] = s_p1[0]; line->p1[1] = s_p1[1];
+        line->p2[0] = s_p2[0]; line->p2[1] = s_p2[1];
+        sm_add(final);
+    }
 }
 
 static void update_preview(float x, float y)
@@ -71,11 +75,13 @@ static void update_preview(float x, float y)
     s_p2[1] = y;
 
     /* Create new temp preview and add to ShapeManager */
-    s_preview_shape = shape_create_line(
-        s_p1[0], s_p1[1], s_p2[0], s_p2[1],
-        1.0f, 1.0f, 1.0f, 0.7f,  /* white, semi-transparent */
-        2.0f);
-    sm_add(s_preview_shape);
+    s_preview_shape = shape_create("LINE", 1.0f, 1.0f, 1.0f, 0.7f, 2.0f);
+    if (s_preview_shape) {
+        LineImpl* line = (LineImpl*)s_preview_shape->impl;
+        line->p1[0] = s_p1[0]; line->p1[1] = s_p1[1];
+        line->p2[0] = s_p2[0]; line->p2[1] = s_p2[1];
+        sm_add(s_preview_shape);
+    }
 }
 
 static void destroy_preview(void)

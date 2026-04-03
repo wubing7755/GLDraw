@@ -4,36 +4,62 @@
 #include <stddef.h>
 
 /* =============================================================================
- * Phase 1: Minimal LINE only — no vtable, no registry, no tool abstraction
- * =============================================================================
+ * Phase 2: Shape with vtable + impl decoupling
  *
- * Why: Verify "data → render" pipeline first. Any premature abstraction
- *       (vtable/registry) before the core loop works is a liability.
- *
- * This is intentionally simple: LineData embedded directly.
- * Phase 2 will introduce vtable + registry when we add CIRCLE/RECTANGLE.
+ * Key changes from Phase 1:
+ * - Shape now has vtable pointer (function table for polymorphic behavior)
+ * - Geometry data stored in void* impl (concrete type per shape)
+ * - Registry provides single registration point for new shapes
  * =============================================================================
  */
 
-#define SHAPE_MAX_LINES 256
+typedef struct Shape Shape;
+typedef struct ShapeVTable ShapeVTable;
 
-/* Line-specific geometry data — Phase 1 only has LINE */
-typedef struct {
-    float p1[2];    /* Start point (x, y) */
-    float p2[2];    /* End point (x, y) */
-} LineData;
+/* =============================================================================
+ * ShapeVTable — function pointers for polymorphic behavior
+ * =============================================================================
+ */
+struct ShapeVTable {
+    const char* name;
+    void (*destroy)(Shape*);
+    void (*compute_bounds)(const Shape*, float* minX, float* minY, float* maxX, float* maxY);
+    int (*hit_test)(const Shape*, float x, float y, float tolerance);
+    void (*get_geometry)(const Shape*, float** out_vertices, int* out_count);
+};
 
-/* Shape — Phase 1 only holds LineData, no vtable/impl */
-typedef struct {
-    LineData line;
-    float color[4];    /* RGBA */
+/* =============================================================================
+ * Shape — polymorphic container
+ * =============================================================================
+ */
+struct Shape {
+    ShapeVTable* vtable;   /* Polymorphic function table */
+    void* impl;            /* Pointer to concrete shape data (LineImpl*, CircleImpl*, etc.) */
+    float color[4];        /* RGBA */
     float line_width;
-} Shape;
+};
 
-/* Shape lifecycle */
-Shape* shape_create_line(float x1, float y1, float x2, float y2,
-                        float r, float g, float b, float a,
-                        float line_width);
+/* =============================================================================
+ * Shape lifecycle
+ * =============================================================================
+ */
+
+/* Create shape by type name — uses registry to find constructor */
+Shape* shape_create(const char* type_name,
+                    float r, float g, float b, float a,
+                    float line_width);
+
 void shape_destroy(Shape* s);
+
+/* Register all built-in shape types (called once at init) */
+void shape_register_all(void);
+
+/* =============================================================================
+ * Shape operations — delegated to vtable
+ * =============================================================================
+ */
+void shape_get_bounds(const Shape* s, float* minX, float* minY, float* maxX, float* maxY);
+int shape_hit_test(const Shape* s, float x, float y, float tolerance);
+void shape_get_geometry(const Shape* s, float** out_vertices, int* out_count);
 
 #endif /* SHAPE_H */

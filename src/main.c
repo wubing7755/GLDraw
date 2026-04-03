@@ -9,6 +9,7 @@
 #include <core/input.h>
 #include <core/nuklear_ui.h>
 #include "shape_manager.h"
+#include "shape_registry.h"
 
 static double get_time_seconds(void)
 {
@@ -18,7 +19,7 @@ static double get_time_seconds(void)
 int main(void)
 {
     printf("===========================================\n");
-    printf("  GLDraw - Phase 1: LINE Drawing MVP\n");
+    printf("  GLDraw - Phase 2: Multi-Shape Support\n");
     printf("  OpenGL 3.3 Core Profile\n");
     printf("===========================================\n\n");
 
@@ -48,6 +49,10 @@ int main(void)
 
     printf("[Main] Initializing ShapeManager...\n");
     sm_init();
+
+    printf("[Main] Initializing ShapeRegistry...\n");
+    shape_registry_init();
+    shape_register_all();
 
     printf("[Main] Initializing renderer...\n");
     if (init_renderer() != 0) {
@@ -104,6 +109,7 @@ int main(void)
     printf("\n[Main] Cleaning up...\n");
 
     shutdown_nuklear_ui();
+    shape_registry_shutdown();
     sm_shutdown();      /* destroy all shapes */
     cleanup_renderer();
     cleanup_shaders();
