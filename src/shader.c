@@ -5,8 +5,6 @@
 #include <core/shader.h>
 
 static GLuint s_shader_program = 0;
-static GLint s_uniform_color = -1;
-static GLint s_uniform_offset = -1;
 
 char* read_shader_file(const char* path)
 {
@@ -130,28 +128,9 @@ GLuint load_shader_program(const char* vertex_path, const char* fragment_path)
         goto cleanup;
     }
 
-    /* Cache uniform locations internally */
+    /* Cache program handle */
     s_shader_program = program;
-    s_uniform_color = glGetUniformLocation(program, "u_color");
-    s_uniform_offset = glGetUniformLocation(program, "u_offset");
-
-    if (s_uniform_color == -1)
-    {
-        printf("[Shader] Warning: uniform 'u_color' not found in program\n");
-    }
-    else
-    {
-        printf("[Shader] Uniform 'u_color' location: %d\n", s_uniform_color);
-    }
-
-    if (s_uniform_offset == -1)
-    {
-        printf("[Shader] Warning: uniform 'u_offset' not found in program\n");
-    }
-    else
-    {
-        printf("[Shader] Uniform 'u_offset' location: %d\n", s_uniform_offset);
-    }
+    printf("[Shader] Program ready: %u\n", program);
 
 cleanup:
     /* Always free sources regardless of success/failure */
@@ -171,34 +150,20 @@ cleanup:
     return program;
 }
 
-void shader_set_color(float r, float g, float b)
+void shader_use(void)
 {
-    if (s_shader_program == 0 || s_uniform_color == -1)
-    {
+    if (s_shader_program == 0) {
+        fprintf(stderr, "[Shader] ERROR: shader program is 0!\n");
         return;
     }
     glUseProgram(s_shader_program);
-    glUniform3f(s_uniform_color, r, g, b);
-}
-
-void shader_set_offset(float x, float y)
-{
-    if (s_shader_program == 0 || s_uniform_offset == -1)
-    {
-        return;
-    }
-    glUseProgram(s_shader_program);
-    glUniform2f(s_uniform_offset, x, y);
 }
 
 void cleanup_shaders(void)
 {
-    if (s_shader_program != 0)
-    {
+    if (s_shader_program != 0) {
         glDeleteProgram(s_shader_program);
         s_shader_program = 0;
-        s_uniform_color = -1;
-        s_uniform_offset = -1;
         printf("[Shader] Cleaned up\n");
     }
 }

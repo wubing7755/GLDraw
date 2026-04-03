@@ -99,6 +99,8 @@ set(SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/input.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/nuklear_ui.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/app_state.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/shape.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/shape_manager.c
 )
 
 # =============================================================================
