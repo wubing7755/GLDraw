@@ -1,33 +1,19 @@
 #include <stdio.h>
-#include <stdlib.h>
 #include <GLFW/glfw3.h>
 #include <core/window.h>
-#include <core/shape.h>
+#include <core/tool_manager.h>
+#include <core/selection_manager.h>
 #include <core/shape_manager.h>
-#include <core/shape_registry.h>
-#include <core/shape_impl.h>
 
 /* =============================================================================
- * Phase 1: Mouse-based line drawing — no vtable, no tool abstraction
+ * Phase 3: Input handling — delegates to ToolManager
  *
- * Interaction:
- *   Left mouse button down  → start drawing (record p1)
- *   Mouse move (while down) → preview line (update p2)
- *   Left mouse button up    → finalize line, add to ShapeManager
- *   Ctrl+Z                  → delete last line
- *
- * Design:
- *   s_preview_shape is kept SEPARATE from ShapeManager until finalized.
- *   This avoids the double-free bug where preview existed in both places.
+ * All mouse/key events are forwarded to the current tool's vtable.
  * =============================================================================
  */
 
 static GLFWwindow* s_window = NULL;
-static int s_mouse_down = 0;
-static float s_p1[2] = {0.0f, 0.0f};
-static float s_p2[2] = {0.0f, 0.0f};
-static int s_has_preview = 0;
-static Shape* s_preview_shape = NULL;
+static SelectionManager s_selection;
 
 /* Convert window coords to OpenGL normalized coords */
 static void window_to_opengl(double win_x, double win_y, float* out_x, float* out_y)
@@ -38,59 +24,6 @@ static void window_to_opengl(double win_x, double win_y, float* out_x, float* ou
     /* Window coords: (0,0) top-left → OpenGL coords: (-1,-1) bottom-left */
     *out_x = (float)(win_x / (double)width * 2.0 - 1.0);
     *out_y = (float)(1.0 - win_y / (double)height * 2.0);
-}
-
-static void finalize_line(void)
-{
-    /* Must have a preview and ShapeManager must not be empty */
-    if (!s_has_preview || !s_preview_shape || sm_count() == 0) {
-        s_has_preview = 0;
-        s_preview_shape = NULL;
-        return;
-    }
-
-    /* Preview was added to ShapeManager — sm_remove_last() destroys it */
-    sm_remove_last();  /* removes and destroys the preview from ShapeManager */
-    s_preview_shape = NULL;  /* NULL it — already destroyed by sm_remove_last */
-    s_has_preview = 0;
-
-    /* Add the final opaque line to ShapeManager */
-    Shape* final = shape_create("LINE", 0.0f, 0.8f, 1.0f, 1.0f, 2.0f);
-    if (final) {
-        LineImpl* line = (LineImpl*)final->impl;
-        line->p1[0] = s_p1[0]; line->p1[1] = s_p1[1];
-        line->p2[0] = s_p2[0]; line->p2[1] = s_p2[1];
-        sm_add(final);
-    }
-}
-
-static void update_preview(float x, float y)
-{
-    /* Remove old preview from ShapeManager (destroys it) */
-    if (s_preview_shape && sm_count() > 0) {
-        sm_remove_last();  /* destroys the old preview from ShapeManager */
-    }
-
-    s_p2[0] = x;
-    s_p2[1] = y;
-
-    /* Create new temp preview and add to ShapeManager */
-    s_preview_shape = shape_create("LINE", 1.0f, 1.0f, 1.0f, 0.7f, 2.0f);
-    if (s_preview_shape) {
-        LineImpl* line = (LineImpl*)s_preview_shape->impl;
-        line->p1[0] = s_p1[0]; line->p1[1] = s_p1[1];
-        line->p2[0] = s_p2[0]; line->p2[1] = s_p2[1];
-        sm_add(s_preview_shape);
-    }
-}
-
-static void destroy_preview(void)
-{
-    /* Only clear the local pointer — do NOT destroy the shape itself.
-     * ShapeManager still owns the pointer. The shape will be destroyed
-     * by sm_remove_last() in key_callback. */
-    s_preview_shape = NULL;
-    s_has_preview = 0;
 }
 
 static void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
@@ -104,39 +37,34 @@ static void mouse_button_callback(GLFWwindow* window, int button, int action, in
     double win_x, win_y;
     glfwGetCursorPos(window, &win_x, &win_y);
 
+    float x, y;
+    window_to_opengl(win_x, win_y, &x, &y);
+
+    Tool* tool = toolmanager_get_current();
+    if (!tool || !tool->vtable || !tool->vtable->on_down) {
+        return;
+    }
+
     if (action == GLFW_PRESS) {
-        /* Start fresh — destroy any leftover preview */
-        destroy_preview();
-
-        window_to_opengl(win_x, win_y, &s_p1[0], &s_p1[1]);
-        s_p2[0] = s_p1[0];
-        s_p2[1] = s_p1[1];
-        s_mouse_down = 1;
-
+        tool->vtable->on_down(tool, x, y, &s_selection);
     } else if (action == GLFW_RELEASE) {
-        if (s_mouse_down) {
-            update_preview((float)s_p2[0], (float)s_p2[1]);
-            finalize_line();
-            s_mouse_down = 0;
-        }
+        tool->vtable->on_up(tool, &s_selection);
     }
 }
 
 static void cursor_pos_callback(GLFWwindow* window, double xpos, double ypos)
 {
     (void)window;
-    if (!s_mouse_down) {
-        /* If mouse is released but we still have a preview, finalize it
-         * (handles edge case where release event fires without move) */
-        if (s_has_preview) {
-            finalize_line();
-        }
-        return;
-    }
 
     float x, y;
     window_to_opengl(xpos, ypos, &x, &y);
-    update_preview(x, y);
+
+    Tool* tool = toolmanager_get_current();
+    if (!tool || !tool->vtable || !tool->vtable->on_move) {
+        return;
+    }
+
+    tool->vtable->on_move(tool, x, y, &s_selection);
 }
 
 static void key_callback(GLFWwindow* window, int key, int scancode,
@@ -148,16 +76,22 @@ static void key_callback(GLFWwindow* window, int key, int scancode,
         glfwSetWindowShouldClose(window, GLFW_TRUE);
     }
 
-    /* Ctrl+Z — delete last line */
+    /* Ctrl+Z — delete last shape */
     if ((mods & GLFW_MOD_CONTROL) && key == GLFW_KEY_Z && action == GLFW_PRESS) {
-        destroy_preview();
         sm_remove_last();
     }
+}
+
+SelectionManager* input_get_selection(void)
+{
+    return &s_selection;
 }
 
 void init_input(GLFWwindow* window)
 {
     s_window = window;
+    sel_init(&s_selection);
+
     glfwSetMouseButtonCallback(window, mouse_button_callback);
     glfwSetCursorPosCallback(window, cursor_pos_callback);
     glfwSetKeyCallback(window, key_callback);
@@ -165,5 +99,5 @@ void init_input(GLFWwindow* window)
 
 void process_input(void)
 {
-    /* No held-key processing needed for Phase 1 */
+    /* No held-key processing needed */
 }

@@ -10,6 +10,8 @@
 #include <core/nuklear_ui.h>
 #include <core/shape_manager.h>
 #include <core/shape_registry.h>
+#include <core/tool_manager.h>
+#include <core/draw_tool.h>
 
 static double get_time_seconds(void)
 {
@@ -65,6 +67,17 @@ int main(void)
     printf("[Main] Initializing input...\n");
     init_input(g_window);
 
+    printf("[Main] Initializing ToolManager...\n");
+    toolmanager_init();
+
+    /* Default tool: LINE drawing */
+    Tool* default_tool = draw_tool_create("LINE");
+    if (!default_tool) {
+        printf("[Main] Failed to create default tool\n");
+        return -1;
+    }
+    toolmanager_set_tool(default_tool);
+
     printf("[Main] Initializing Nuklear UI...\n");
     if (init_nuklear_ui(g_window) != 0) {
         printf("[Main] Nuklear initialization failed\n");
@@ -109,6 +122,7 @@ int main(void)
     printf("\n[Main] Cleaning up...\n");
 
     shutdown_nuklear_ui();
+    toolmanager_shutdown();
     shape_registry_shutdown();
     sm_shutdown();      /* destroy all shapes */
     cleanup_renderer();
