@@ -104,6 +104,10 @@ set(SOURCES
 # =============================================================================
 # 创建可执行文件
 # =============================================================================
+# glad.c uses ISO C-forbidden void*→function* casts (required for OpenGL loaders)
+set_source_files_properties(${CMAKE_SOURCE_DIR}/src/glad.c
+    PROPERTIES COMPILE_FLAGS "-Wno-pedantic"
+)
 add_executable(${PROJECT_NAME} ${SOURCES} ${GLAD_EXTRA_SOURCE})
 
 # =============================================================================
