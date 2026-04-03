@@ -4,6 +4,8 @@
 #include <core/tool_manager.h>
 #include <core/selection_manager.h>
 #include <core/shape_manager.h>
+#include <core/draw_tool.h>
+#include <core/select_tool.h>
 
 /* =============================================================================
  * Phase 3: Input handling — delegates to ToolManager
@@ -14,6 +16,9 @@
 
 static GLFWwindow* s_window = NULL;
 static SelectionManager s_selection;
+static Tool* s_draw_tool = NULL;
+static Tool* s_select_tool = NULL;
+static Tool* s_current_draw_tool = NULL;  /* the draw tool (LINE/CIRCLE/RECT) */
 
 /* Convert window coords to OpenGL normalized coords */
 static void window_to_opengl(double win_x, double win_y, float* out_x, float* out_y)
@@ -76,6 +81,26 @@ static void key_callback(GLFWwindow* window, int key, int scancode,
         glfwSetWindowShouldClose(window, GLFW_TRUE);
     }
 
+    /* Tool shortcuts */
+    if (action == GLFW_PRESS) {
+        if (key == GLFW_KEY_1 && s_current_draw_tool) {
+            /* LINE */
+            draw_tool_set_type(s_current_draw_tool, "LINE");
+            toolmanager_set_tool(s_current_draw_tool);
+        } else if (key == GLFW_KEY_2 && s_current_draw_tool) {
+            /* CIRCLE */
+            draw_tool_set_type(s_current_draw_tool, "CIRCLE");
+            toolmanager_set_tool(s_current_draw_tool);
+        } else if (key == GLFW_KEY_3 && s_current_draw_tool) {
+            /* RECT */
+            draw_tool_set_type(s_current_draw_tool, "RECT");
+            toolmanager_set_tool(s_current_draw_tool);
+        } else if (key == GLFW_KEY_S && s_select_tool) {
+            /* SELECT tool */
+            toolmanager_set_tool(s_select_tool);
+        }
+    }
+
     /* Ctrl+Z — delete last shape */
     if ((mods & GLFW_MOD_CONTROL) && key == GLFW_KEY_Z && action == GLFW_PRESS) {
         sm_remove_last();
@@ -95,6 +120,14 @@ void init_input(GLFWwindow* window)
     glfwSetMouseButtonCallback(window, mouse_button_callback);
     glfwSetCursorPosCallback(window, cursor_pos_callback);
     glfwSetKeyCallback(window, key_callback);
+}
+
+void input_init_tools(Tool* draw_tool, Tool* select_tool, Tool* default_tool)
+{
+    s_draw_tool = draw_tool;
+    s_select_tool = select_tool;
+    s_current_draw_tool = draw_tool;
+    toolmanager_set_tool(default_tool);
 }
 
 void process_input(void)

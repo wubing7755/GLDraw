@@ -102,7 +102,6 @@ set(SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/shape.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/shape_manager.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/shape_registry.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/shape_geometry.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/tool.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/tool_manager.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/selection_manager.c

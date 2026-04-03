@@ -7,11 +7,13 @@
 #include <core/shader.h>
 #include <core/renderer.h>
 #include <core/input.h>
+#include <core/selection_manager.h>
 #include <core/nuklear_ui.h>
 #include <core/shape_manager.h>
 #include <core/shape_registry.h>
 #include <core/tool_manager.h>
 #include <core/draw_tool.h>
+#include <core/select_tool.h>
 
 static double get_time_seconds(void)
 {
@@ -67,16 +69,22 @@ int main(void)
     printf("[Main] Initializing input...\n");
     init_input(g_window);
 
+    printf("[Main] Connecting selection to renderer...\n");
+    renderer_set_selection(input_get_selection());
+
     printf("[Main] Initializing ToolManager...\n");
     toolmanager_init();
 
-    /* Default tool: LINE drawing */
-    Tool* default_tool = draw_tool_create("LINE");
-    if (!default_tool) {
-        printf("[Main] Failed to create default tool\n");
+    /* Create tools */
+    Tool* draw_tool = draw_tool_create("LINE");
+    Tool* select_tool = select_tool_create();
+    if (!draw_tool || !select_tool) {
+        printf("[Main] Failed to create tools\n");
         return -1;
     }
-    toolmanager_set_tool(default_tool);
+
+    /* Initialize input with tools */
+    input_init_tools(draw_tool, select_tool, draw_tool);
 
     printf("[Main] Initializing Nuklear UI...\n");
     if (init_nuklear_ui(g_window) != 0) {
@@ -118,13 +126,15 @@ int main(void)
         swap_buffers();
     }
 
-    /* Phase 3: Cleanup */
+    /* Cleanup */
     printf("\n[Main] Cleaning up...\n");
 
     shutdown_nuklear_ui();
     toolmanager_shutdown();
+    draw_tool_destroy(draw_tool);
+    select_tool_destroy(select_tool);
     shape_registry_shutdown();
-    sm_shutdown();      /* destroy all shapes */
+    sm_shutdown();
     cleanup_renderer();
     cleanup_shaders();
     shutdown_window();
