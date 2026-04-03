@@ -77,37 +77,11 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(glfw)
 
 # =============================================================================
-# GLAD - Generate loader via Python glad v2.x (installed from GitHub)
-# Generates glad.c/glad.h for OpenGL 3.3 Core profile.
+# GLAD - Pre-committed loader (glad.c in src/, glad.h in include/)
+# glad.c and glad.h are committed to the repo.
+# DO NOT regenerate during CMake configure.
 # =============================================================================
-find_package(Python3 COMPONENTS Interpreter REQUIRED)
-
-set(GLAD_GEN_DIR "${CMAKE_BINARY_DIR}/_deps/glad-gen")
-file(MAKE_DIRECTORY "${GLAD_GEN_DIR}/include/glad")
-file(MAKE_DIRECTORY "${GLAD_GEN_DIR}/include/KHR")
-file(MAKE_DIRECTORY "${GLAD_GEN_DIR}/src")
-
-# Generate glad with OpenGL 3.3 Core profile, no extensions (clean core only)
-execute_process(
-    COMMAND ${Python3_EXECUTABLE} -m glad
-        --api "gl=3.3"
-        --profile core
-        --generator c
-        --extensions ""
-        --out-path "${GLAD_GEN_DIR}"
-    RESULT_VARIABLE GLAD_GEN_RESULT
-    OUTPUT_VARIABLE GLAD_GEN_OUTPUT
-    ERROR_VARIABLE GLAD_GEN_ERROR
-)
-message(STATUS "GLAD generator result: ${GLAD_GEN_RESULT}")
-if(NOT GLAD_GEN_RESULT EQUAL 0)
-    message(FATAL_ERROR "GLAD generation failed:\n${GLAD_GEN_ERROR}")
-endif()
-
-# Point to generated files
-set(GLAD_SRC_DIR "${GLAD_GEN_DIR}/src/glad.c")
-set(GLAD_INCLUDE_DIR "${GLAD_GEN_DIR}/include")
-set(GLAD_EXTRA_SOURCE "${GLAD_SRC_DIR}")
+set(GLAD_EXTRA_SOURCE "${CMAKE_SOURCE_DIR}/src/glad.c")
 
 # =============================================================================
 # 查找 OpenGL
@@ -140,7 +114,6 @@ target_include_directories(${PROJECT_NAME}
         ${CMAKE_CURRENT_SOURCE_DIR}/include
     PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/src
-        "${GLAD_INCLUDE_DIR}"
         "${glfw_SOURCE_DIR}/include"
 )
 
