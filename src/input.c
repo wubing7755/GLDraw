@@ -40,7 +40,10 @@ static void window_to_opengl(double win_x, double win_y, float* out_x, float* ou
 
 static void finalize_line(void)
 {
-    if (!s_has_preview || !s_preview_shape) {
+    /* Must have a preview and ShapeManager must not be empty */
+    if (!s_has_preview || !s_preview_shape || sm_count() == 0) {
+        s_has_preview = 0;
+        s_preview_shape = NULL;
         return;
     }
 
@@ -59,16 +62,15 @@ static void finalize_line(void)
 
 static void update_preview(float x, float y)
 {
-    /* Destroy previous temp preview if exists */
-    if (s_preview_shape) {
-        shape_destroy(s_preview_shape);
-        s_preview_shape = NULL;
+    /* Remove old preview from ShapeManager (destroys it) */
+    if (s_preview_shape && sm_count() > 0) {
+        sm_remove_last();  /* destroys the old preview from ShapeManager */
     }
 
     s_p2[0] = x;
     s_p2[1] = y;
 
-    /* Create temp preview and add to ShapeManager for rendering */
+    /* Create new temp preview and add to ShapeManager */
     s_preview_shape = shape_create_line(
         s_p1[0], s_p1[1], s_p2[0], s_p2[1],
         1.0f, 1.0f, 1.0f, 0.7f,  /* white, semi-transparent */
@@ -78,11 +80,11 @@ static void update_preview(float x, float y)
 
 static void destroy_preview(void)
 {
-    if (s_preview_shape) {
-        shape_destroy(s_preview_shape);
-        s_preview_shape = NULL;
-        s_has_preview = 0;
-    }
+    /* Only clear the local pointer — do NOT destroy the shape itself.
+     * ShapeManager still owns the pointer. The shape will be destroyed
+     * by sm_remove_last() in key_callback. */
+    s_preview_shape = NULL;
+    s_has_preview = 0;
 }
 
 static void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
@@ -142,7 +144,7 @@ static void key_callback(GLFWwindow* window, int key, int scancode,
 
     /* Ctrl+Z — delete last line */
     if ((mods & GLFW_MOD_CONTROL) && key == GLFW_KEY_Z && action == GLFW_PRESS) {
-        destroy_preview();  /* also destroy temp preview if active */
+        destroy_preview();
         sm_remove_last();
     }
 }

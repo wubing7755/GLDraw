@@ -38,7 +38,9 @@ void sm_remove_last(void)
         return;
     }
     s_count--;
-    shape_destroy(s_shapes[s_count]);
+    if (s_shapes[s_count] != NULL) {
+        shape_destroy(s_shapes[s_count]);
+    }
     s_shapes[s_count] = NULL;
 }
 
