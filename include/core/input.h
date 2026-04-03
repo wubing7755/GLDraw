@@ -3,10 +3,11 @@
 
 #include <GLFW/glfw3.h>
 
-void init_input(GLFWwindow* window);
-void process_input(void);
+typedef struct Tool Tool;
 
-/* Input callbacks update shared state directly.
- * Callbacks are registered internally, state is owned elsewhere. */
+void init_input(GLFWwindow* window);
+void input_init_tools(Tool* draw_tool, Tool* select_tool, Tool* default_tool);
+void process_input(void);
+SelectionManager* input_get_selection(void);
 
 #endif /* INPUT_H */

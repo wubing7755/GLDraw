@@ -7,6 +7,7 @@
 #include <core/renderer.h>
 #include <core/shader.h>
 #include <core/shape_manager.h>
+#include <core/selection_manager.h>
 
 static GLuint s_VAO = 0;
 static GLuint s_VBO = 0;
@@ -33,6 +34,7 @@ typedef struct {
 
 static ShapeDrawInfo* s_draw_infos = NULL;
 static int s_draw_info_capacity = 0;
+static SelectionManager* s_selection = NULL;
 
 /* Compute total vertex count for all shapes */
 static size_t compute_total_vertices(void)
@@ -93,13 +95,22 @@ static void rebuild_vertex_buffer(void)
         s_draw_infos[i].first_vertex = current_vert;
         s_draw_infos[i].vert_count = vert_count;
 
+        int is_selected = s_selection && sel_contains(s_selection, s);
+        float r, g, b, a;
+        if (is_selected) {
+            /* Highlight: bright yellow */
+            r = 1.0f; g = 1.0f; b = 0.0f; a = 1.0f;
+        } else {
+            r = s->color[0]; g = s->color[1]; b = s->color[2]; a = s->color[3];
+        }
+
         for (int j = 0; j < vert_count; j++) {
             *ptr++ = verts[j * 2];     /* x */
             *ptr++ = verts[j * 2 + 1]; /* y */
-            *ptr++ = s->color[0];      /* r */
-            *ptr++ = s->color[1];      /* g */
-            *ptr++ = s->color[2];      /* b */
-            *ptr++ = s->color[3];      /* a */
+            *ptr++ = r;
+            *ptr++ = g;
+            *ptr++ = b;
+            *ptr++ = a;
             current_vert++;
         }
         free(verts);
@@ -175,8 +186,19 @@ void render_frame(void)
     glBindVertexArray(s_VAO);
 
     for (int i = 0; i < count; i++) {
+        Shape* s = sm_get(i);
         GLenum mode = primitive_type_for_count(s_draw_infos[i].vert_count);
-        glDrawArrays(mode, s_draw_infos[i].first_vertex, s_draw_infos[i].vert_count);
+
+        /* Highlight selected shapes with yellow */
+        int is_selected = s_selection && sel_contains(s_selection, s);
+        if (is_selected) {
+            /* Draw highlight: thicker yellow outline */
+            glLineWidth(4.0f);
+            glDrawArrays(mode, s_draw_infos[i].first_vertex, s_draw_infos[i].vert_count);
+            glLineWidth(1.0f);
+        } else {
+            glDrawArrays(mode, s_draw_infos[i].first_vertex, s_draw_infos[i].vert_count);
+        }
     }
 
     glBindVertexArray(0);
@@ -184,6 +206,11 @@ void render_frame(void)
     while ((err = glGetError()) != GL_NO_ERROR) {
         fprintf(stderr, "[Renderer] GL error after draw: %d\n", err);
     }
+}
+
+void renderer_set_selection(SelectionManager* sel)
+{
+    s_selection = sel;
 }
 
 void cleanup_renderer(void)

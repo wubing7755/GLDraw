@@ -5,7 +5,6 @@
 #include <core/shape.h>
 #include <core/shape_impl.h>
 #include <core/shape_registry.h>
-#include <core/shape_geometry.h>
 
 /* =============================================================================
  * Concrete vtable implementations
