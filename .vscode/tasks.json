@@ -5,37 +5,69 @@
             "label": "CMake: Build",
             "type": "shell",
             "command": "cmake",
-            "args": ["--build", "${workspaceFolder}/build"],
+            "args": ["--build", "${workspaceFolder}/build", "--config", "Release"],
             "group": {
                 "kind": "build",
                 "isDefault": true
             },
-            "problemMatcher": ["$gcc"]
+            "problemMatcher": ["$gcc"],
+            "detail": "Build with Release settings (Unix)"
         },
         {
-            "label": "CMake: Build (Debug)",
+            "label": "CMake: Build (Debug) - Windows",
+            "type": "shell",
+            "command": "${workspaceFolder}/vscode_build.bat",
+            "args": ["debug"],
+            "group": "build",
+            "problemMatcher": ["$gcc"],
+            "detail": "Configure and build with Debug settings (Windows)",
+            "when": "os == 'windows'"
+        },
+        {
+            "label": "CMake: Build (Debug) - Unix",
             "type": "shell",
             "command": "${workspaceFolder}/vscode_build.sh",
             "args": ["debug"],
             "group": "build",
             "problemMatcher": ["$gcc"],
-            "detail": "Configure and build with Debug settings"
+            "detail": "Configure and build with Debug settings (Unix)",
+            "when": "os == 'linux' || os == 'darwin'"
         },
         {
-            "label": "CMake: Clean and Build",
+            "label": "CMake: Clean and Build - Windows",
+            "type": "shell",
+            "command": "${workspaceFolder}/vscode_build.bat",
+            "group": "build",
+            "problemMatcher": ["$gcc"],
+            "detail": "Clean build folder, then configure and build (Windows)",
+            "when": "os == 'windows'"
+        },
+        {
+            "label": "CMake: Clean and Build - Unix",
             "type": "shell",
             "command": "${workspaceFolder}/vscode_build.sh",
             "group": "build",
             "problemMatcher": ["$gcc"],
-            "detail": "Clean build folder, then configure and build"
+            "detail": "Clean build folder, then configure and build (Unix)",
+            "when": "os == 'linux' || os == 'darwin'"
         },
         {
-            "label": "CMake: Configure Only",
+            "label": "CMake: Configure Only - Windows",
+            "type": "shell",
+            "command": "${workspaceFolder}/vscode_build.bat",
+            "args": ["configure"],
+            "problemMatcher": ["$gcc"],
+            "detail": "Only configure, do not build (Windows)",
+            "when": "os == 'windows'"
+        },
+        {
+            "label": "CMake: Configure Only - Unix",
             "type": "shell",
             "command": "${workspaceFolder}/vscode_build.sh",
             "args": ["configure"],
             "problemMatcher": ["$gcc"],
-            "detail": "Only configure, do not build"
+            "detail": "Only configure, do not build (Unix)",
+            "when": "os == 'linux' || os == 'darwin'"
         }
     ]
 }
