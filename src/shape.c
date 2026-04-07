@@ -11,6 +11,27 @@
  * =============================================================================
  */
 
+/* ---------- Default property access (shared by all shapes) ---------- */
+static int default_get_property(const Shape* s, const char* key, float* out_value)
+{
+    if (strcmp(key, "color_r") == 0) { *out_value = s->color[0]; return 1; }
+    if (strcmp(key, "color_g") == 0) { *out_value = s->color[1]; return 1; }
+    if (strcmp(key, "color_b") == 0) { *out_value = s->color[2]; return 1; }
+    if (strcmp(key, "color_a") == 0) { *out_value = s->color[3]; return 1; }
+    if (strcmp(key, "line_width") == 0) { *out_value = s->line_width; return 1; }
+    return 0;
+}
+
+static int default_set_property(Shape* s, const char* key, float value)
+{
+    if (strcmp(key, "color_r") == 0) { s->color[0] = value; return 1; }
+    if (strcmp(key, "color_g") == 0) { s->color[1] = value; return 1; }
+    if (strcmp(key, "color_b") == 0) { s->color[2] = value; return 1; }
+    if (strcmp(key, "color_a") == 0) { s->color[3] = value; return 1; }
+    if (strcmp(key, "line_width") == 0) { s->line_width = value; return 1; }
+    return 0;
+}
+
 /* ---------- LINE ---------- */
 static void line_destroy(Shape* s)
 {
@@ -69,6 +90,8 @@ static ShapeVTable line_vtable = {
     .compute_bounds = line_bounds,
     .hit_test = line_hit_test,
     .get_geometry = line_get_geometry,
+    .get_property = default_get_property,
+    .set_property = default_set_property,
 };
 
 /* ---------- CIRCLE ---------- */
@@ -117,6 +140,8 @@ static ShapeVTable circle_vtable = {
     .compute_bounds = circle_bounds,
     .hit_test = circle_hit_test,
     .get_geometry = circle_get_geometry,
+    .get_property = default_get_property,
+    .set_property = default_set_property,
 };
 
 /* ---------- RECTANGLE ---------- */
@@ -169,6 +194,8 @@ static ShapeVTable rect_vtable = {
     .compute_bounds = rect_bounds,
     .hit_test = rect_hit_test,
     .get_geometry = rect_get_geometry,
+    .get_property = default_get_property,
+    .set_property = default_set_property,
 };
 
 /* ---------- Internal constructors ---------- */
@@ -269,6 +296,18 @@ void shape_get_geometry(const Shape* s, float** out_vertices, int* out_count)
         *out_vertices = NULL;
         *out_count = 0;
     }
+}
+
+int shape_get_property(const Shape* s, const char* key, float* out_value)
+{
+    if (!s || !s->vtable || !s->vtable->get_property) return 0;
+    return s->vtable->get_property(s, key, out_value);
+}
+
+int shape_set_property(Shape* s, const char* key, float value)
+{
+    if (!s || !s->vtable || !s->vtable->set_property) return 0;
+    return s->vtable->set_property(s, key, value);
 }
 
 /* ---------- Registry registration (called once at init) ---------- */

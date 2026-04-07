@@ -3,6 +3,9 @@
 #include <GLFW/glfw3.h>
 #include <core/nuklear_ui.h>
 #include <core/app_state.h>
+#include <core/input.h>
+#include <core/selection_manager.h>
+#include <core/shape.h>
 
 /* Nuklear configuration macros - must be defined before including Nuklear */
 #define NK_INCLUDE_FIXED_TYPES
@@ -48,8 +51,54 @@ void nuklear_new_frame(void)
 
 void nuklear_build_ui(void)
 {
-    /* Phase 1: No Nuklear UI — only OpenGL lines.
-     * Nuklear toolbar/property panel will be added in Phase 4. */
+    /* Property Panel — Step 4b: Color editing with RGBA sliders */
+    if (nk_begin(g_ctx, "Property Panel", nk_rect(580, 50, 220, 400),
+                 NK_WINDOW_BORDER)) {
+        SelectionManager* sel = input_get_selection();
+        if (sel && sel_count(sel) > 0) {
+            Shape* s = sel_get(sel, 0);
+
+            /* Type */
+            nk_layout_row_dynamic(g_ctx, 20, 1);
+            nk_label(g_ctx, "Type:", NK_TEXT_LEFT);
+            nk_layout_row_dynamic(g_ctx, 20, 1);
+            nk_label(g_ctx, s->vtable->name, NK_TEXT_LEFT);
+
+            /* Color section */
+            nk_layout_row_dynamic(g_ctx, 20, 1);
+            nk_label(g_ctx, "Color:", NK_TEXT_LEFT);
+
+            float r = 0, g = 0, b = 0, a = 0;
+            shape_get_property(s, "color_r", &r);
+            shape_get_property(s, "color_g", &g);
+            shape_get_property(s, "color_b", &b);
+            shape_get_property(s, "color_a", &a);
+
+            nk_layout_row_dynamic(g_ctx, 25, 1);
+            nk_label(g_ctx, "R:", NK_TEXT_LEFT);
+            r = nk_slider_float(g_ctx, 0.0f, &r, 1.0f, 0.01f);
+            shape_set_property(s, "color_r", r);
+
+            nk_layout_row_dynamic(g_ctx, 25, 1);
+            nk_label(g_ctx, "G:", NK_TEXT_LEFT);
+            g = nk_slider_float(g_ctx, 0.0f, &g, 1.0f, 0.01f);
+            shape_set_property(s, "color_g", g);
+
+            nk_layout_row_dynamic(g_ctx, 25, 1);
+            nk_label(g_ctx, "B:", NK_TEXT_LEFT);
+            b = nk_slider_float(g_ctx, 0.0f, &b, 1.0f, 0.01f);
+            shape_set_property(s, "color_b", b);
+
+            nk_layout_row_dynamic(g_ctx, 25, 1);
+            nk_label(g_ctx, "A:", NK_TEXT_LEFT);
+            a = nk_slider_float(g_ctx, 0.0f, &a, 1.0f, 0.01f);
+            shape_set_property(s, "color_a", a);
+        } else {
+            nk_layout_row_dynamic(g_ctx, 20, 1);
+            nk_label(g_ctx, "No selection", NK_TEXT_LEFT);
+        }
+    }
+    nk_end(g_ctx);
 }
 
 void nuklear_render(void)
