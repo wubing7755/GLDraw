@@ -1,12 +1,7 @@
 #include <core/select_tool.h>
 #include <core/shape.h>
 #include <core/shape_manager.h>
-#include <core/shape_impl.h>
-#include <core/nuklear_ui.h>
-#include <math.h>
 #include <stdlib.h>
-#include <string.h>
-#include "nuklear/nuklear.h"
 
 struct SelectToolCtx {
     int dragging;        /* currently dragging? */
@@ -31,26 +26,6 @@ static Shape* find_shape_at(float x, float y)
         }
     }
     return NULL;
-}
-
-static void translate_shape(Shape* s, float dx, float dy)
-{
-    if (!s) return;
-
-    void* impl = s->impl;
-
-    if (strcmp(s->vtable->name, "LINE") == 0) {
-        LineImpl* line = (LineImpl*)impl;
-        line->p1[0] += dx; line->p1[1] += dy;
-        line->p2[0] += dx; line->p2[1] += dy;
-    } else if (strcmp(s->vtable->name, "CIRCLE") == 0) {
-        CircleImpl* c = (CircleImpl*)impl;
-        c->center[0] += dx; c->center[1] += dy;
-    } else if (strcmp(s->vtable->name, "RECT") == 0) {
-        RectImpl* r = (RectImpl*)impl;
-        r->min[0] += dx; r->min[1] += dy;
-        r->max[0] += dx; r->max[1] += dy;
-    }
 }
 
 static void select_tool_on_down(Tool* t, float x, float y, SelectionManager* sel, int shift_held)
@@ -106,7 +81,7 @@ static void select_tool_on_move(Tool* t, float x, float y, SelectionManager* sel
     int count = sel_count(sel);
     for (int i = 0; i < count; i++) {
         Shape* s = sel_get(sel, i);
-        translate_shape(s, dx, dy);
+        shape_translate(s, dx, dy);
     }
 
     ctx->shape_start[0] = x;

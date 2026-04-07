@@ -2,7 +2,7 @@
 #include <GLFW/glfw3.h>
 #include <core/window.h>
 
-GLFWwindow* g_window = NULL;
+static GLFWwindow* s_window = NULL;
 
 static void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 {
@@ -27,9 +27,9 @@ int init_window(void)
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
     /* Create window and OpenGL context */
-    g_window = glfwCreateWindow(WINDOW_WIDTH, WINDOW_HEIGHT,
+    s_window = glfwCreateWindow(WINDOW_WIDTH, WINDOW_HEIGHT,
                                 WINDOW_TITLE, NULL, NULL);
-    if (!g_window)
+    if (!s_window)
     {
         printf("[Error] Failed to create window\n");
         glfwTerminate();
@@ -38,12 +38,17 @@ int init_window(void)
     printf("[Window] Window created (%dx%d)\n", WINDOW_WIDTH, WINDOW_HEIGHT);
 
     /* Make this window's context current */
-    glfwMakeContextCurrent(g_window);
+    glfwMakeContextCurrent(s_window);
 
     /* Register resize callback */
-    glfwSetFramebufferSizeCallback(g_window, framebuffer_size_callback);
+    glfwSetFramebufferSizeCallback(s_window, framebuffer_size_callback);
 
     return 0;
+}
+
+GLFWwindow* window_get_handle(void)
+{
+    return s_window;
 }
 
 void poll_events(void)
@@ -53,12 +58,12 @@ void poll_events(void)
 
 int window_should_close(void)
 {
-    return glfwWindowShouldClose(g_window);
+    return glfwWindowShouldClose(s_window);
 }
 
 void swap_buffers(void)
 {
-    glfwSwapBuffers(g_window);
+    glfwSwapBuffers(s_window);
 }
 
 void shutdown_window(void)

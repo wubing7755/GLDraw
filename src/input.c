@@ -1,8 +1,8 @@
 #include <stdio.h>
 #include <GLFW/glfw3.h>
 #include <core/window.h>
+#include <core/app_state.h>
 #include <core/tool_manager.h>
-#include <core/selection_manager.h>
 #include <core/shape_manager.h>
 #include <core/draw_tool.h>
 #include <core/select_tool.h>
@@ -15,18 +15,17 @@
  * =============================================================================
  */
 
-static GLFWwindow* s_window = NULL;
-static SelectionManager s_selection;
-static Tool* s_draw_tool = NULL;
-static Tool* s_select_tool = NULL;
-static Tool* s_current_draw_tool = NULL;  /* the draw tool (LINE/CIRCLE/RECT) */
-static int s_tool_mouse_active = 0;
-
 /* Convert window coords to OpenGL normalized coords */
 static void window_to_opengl(double win_x, double win_y, float* out_x, float* out_y)
 {
     int width, height;
-    glfwGetFramebufferSize(s_window, &width, &height);
+    glfwGetWindowSize(g_app_state.window, &width, &height);
+
+    if (width <= 0 || height <= 0) {
+        *out_x = 0.0f;
+        *out_y = 0.0f;
+        return;
+    }
 
     /* Window coords: (0,0) top-left → OpenGL coords: (-1,-1) bottom-left */
     *out_x = (float)(win_x / (double)width * 2.0 - 1.0);
@@ -43,7 +42,7 @@ static void mouse_button_callback(GLFWwindow* window, int button, int action, in
     glfwGetCursorPos(window, &win_x, &win_y);
 
     if (action == GLFW_PRESS && nuklear_ui_blocks_mouse_input(win_x, win_y)) {
-        s_tool_mouse_active = 0;
+        g_app_state.tool_mouse_active = 0;
         return;
     }
 
@@ -57,11 +56,11 @@ static void mouse_button_callback(GLFWwindow* window, int button, int action, in
 
     if (action == GLFW_PRESS) {
         int shift_held = (mods & GLFW_MOD_SHIFT) != 0;
-        tool->vtable->on_down(tool, x, y, &s_selection, shift_held);
-        s_tool_mouse_active = 1;
-    } else if (action == GLFW_RELEASE && s_tool_mouse_active) {
-        tool->vtable->on_up(tool, &s_selection);
-        s_tool_mouse_active = 0;
+        tool->vtable->on_down(tool, x, y, &g_app_state.selection, shift_held);
+        g_app_state.tool_mouse_active = 1;
+    } else if (action == GLFW_RELEASE && g_app_state.tool_mouse_active) {
+        tool->vtable->on_up(tool, &g_app_state.selection);
+        g_app_state.tool_mouse_active = 0;
     }
 }
 
@@ -69,7 +68,7 @@ static void cursor_pos_callback(GLFWwindow* window, double xpos, double ypos)
 {
     (void)window;
 
-    if (!s_tool_mouse_active && nuklear_ui_blocks_mouse_input(xpos, ypos)) {
+    if (!g_app_state.tool_mouse_active && nuklear_ui_blocks_mouse_input(xpos, ypos)) {
         return;
     }
 
@@ -81,7 +80,7 @@ static void cursor_pos_callback(GLFWwindow* window, double xpos, double ypos)
         return;
     }
 
-    tool->vtable->on_move(tool, x, y, &s_selection);
+    tool->vtable->on_move(tool, x, y, &g_app_state.selection);
 }
 
 static void key_callback(GLFWwindow* window, int key, int scancode,
@@ -95,39 +94,37 @@ static void key_callback(GLFWwindow* window, int key, int scancode,
 
     /* Tool shortcuts */
     if (action == GLFW_PRESS) {
-        if (key == GLFW_KEY_1 && s_current_draw_tool) {
+        if (key == GLFW_KEY_1 && g_app_state.current_draw_tool) {
             /* LINE */
-            draw_tool_set_type(s_current_draw_tool, "LINE");
-            toolmanager_set_tool(s_current_draw_tool);
-        } else if (key == GLFW_KEY_2 && s_current_draw_tool) {
+            draw_tool_set_type(g_app_state.current_draw_tool, "LINE");
+            toolmanager_set_tool(g_app_state.current_draw_tool);
+        } else if (key == GLFW_KEY_2 && g_app_state.current_draw_tool) {
             /* CIRCLE */
-            draw_tool_set_type(s_current_draw_tool, "CIRCLE");
-            toolmanager_set_tool(s_current_draw_tool);
-        } else if (key == GLFW_KEY_3 && s_current_draw_tool) {
+            draw_tool_set_type(g_app_state.current_draw_tool, "CIRCLE");
+            toolmanager_set_tool(g_app_state.current_draw_tool);
+        } else if (key == GLFW_KEY_3 && g_app_state.current_draw_tool) {
             /* RECT */
-            draw_tool_set_type(s_current_draw_tool, "RECT");
-            toolmanager_set_tool(s_current_draw_tool);
-        } else if (key == GLFW_KEY_S && s_select_tool) {
+            draw_tool_set_type(g_app_state.current_draw_tool, "RECT");
+            toolmanager_set_tool(g_app_state.current_draw_tool);
+        } else if (key == GLFW_KEY_S && g_app_state.select_tool) {
             /* SELECT tool */
-            toolmanager_set_tool(s_select_tool);
+            toolmanager_set_tool(g_app_state.select_tool);
         }
     }
 
     /* Ctrl+Z — delete last shape */
     if ((mods & GLFW_MOD_CONTROL) && key == GLFW_KEY_Z && action == GLFW_PRESS) {
-        sm_remove_last();
+        Shape* removed = sm_take_last();
+        if (removed) {
+            sel_remove(&g_app_state.selection, removed);
+            shape_destroy(removed);
+        }
     }
-}
-
-SelectionManager* input_get_selection(void)
-{
-    return &s_selection;
 }
 
 void init_input(GLFWwindow* window)
 {
-    s_window = window;
-    sel_init(&s_selection);
+    app_state_init(window);
 
     glfwSetMouseButtonCallback(window, mouse_button_callback);
     glfwSetCursorPosCallback(window, cursor_pos_callback);
@@ -136,9 +133,7 @@ void init_input(GLFWwindow* window)
 
 void input_init_tools(Tool* draw_tool, Tool* select_tool, Tool* default_tool)
 {
-    s_draw_tool = draw_tool;
-    s_select_tool = select_tool;
-    s_current_draw_tool = draw_tool;
+    app_state_set_tools(draw_tool, select_tool, default_tool);
     toolmanager_set_tool(default_tool);
 }
 

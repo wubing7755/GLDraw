@@ -11,6 +11,12 @@
  * =============================================================================
  */
 
+static void shape_bump_revision(Shape* s)
+{
+    if (!s) return;
+    s->revision++;
+}
+
 /* ---------- Default property access (shared by all shapes) ---------- */
 static int default_get_property(const Shape* s, const char* key, float* out_value)
 {
@@ -30,6 +36,13 @@ static int default_set_property(Shape* s, const char* key, float value)
     if (strcmp(key, "color_a") == 0) { s->color[3] = value; return 1; }
     if (strcmp(key, "line_width") == 0) { s->line_width = value; return 1; }
     return 0;
+}
+
+static void line_translate(Shape* s, float dx, float dy)
+{
+    LineImpl* line = (LineImpl*)s->impl;
+    line->p1[0] += dx; line->p1[1] += dy;
+    line->p2[0] += dx; line->p2[1] += dy;
 }
 
 /* ---------- LINE ---------- */
@@ -74,14 +87,17 @@ static int line_hit_test(const Shape* s, float x, float y, float tolerance)
                                 line->p2[0], line->p2[1]) <= tolerance) ? 1 : 0;
 }
 
-static void line_get_geometry(const Shape* s, float** out_vertices, int* out_count)
+static int line_get_vertex_count(const Shape* s)
+{
+    (void)s;
+    return 2;
+}
+
+static void line_write_geometry(const Shape* s, float* out_vertices)
 {
     LineImpl* line = (LineImpl*)s->impl;
-    float* verts = (float*)malloc(4 * sizeof(float));
-    verts[0] = line->p1[0]; verts[1] = line->p1[1];
-    verts[2] = line->p2[0]; verts[3] = line->p2[1];
-    *out_vertices = verts;
-    *out_count = 2;  /* 2 vertices for LINE */
+    out_vertices[0] = line->p1[0]; out_vertices[1] = line->p1[1];
+    out_vertices[2] = line->p2[0]; out_vertices[3] = line->p2[1];
 }
 
 static ShapeVTable line_vtable = {
@@ -89,7 +105,9 @@ static ShapeVTable line_vtable = {
     .destroy = line_destroy,
     .compute_bounds = line_bounds,
     .hit_test = line_hit_test,
-    .get_geometry = line_get_geometry,
+    .get_vertex_count = line_get_vertex_count,
+    .write_geometry = line_write_geometry,
+    .translate = line_translate,
     .get_property = default_get_property,
     .set_property = default_set_property,
 };
@@ -120,18 +138,29 @@ static int circle_hit_test(const Shape* s, float x, float y, float tolerance)
     return (fabsf(dist - c->radius) <= tolerance) ? 1 : 0;
 }
 
-static void circle_get_geometry(const Shape* s, float** out_vertices, int* out_count)
+static int circle_get_vertex_count(const Shape* s)
+{
+    (void)s;
+    const int SEGMENTS = 64;
+    return SEGMENTS;
+}
+
+static void circle_write_geometry(const Shape* s, float* out_vertices)
 {
     CircleImpl* c = (CircleImpl*)s->impl;
     const int SEGMENTS = 64;
-    float* verts = (float*)malloc(SEGMENTS * 2 * sizeof(float));
     for (int i = 0; i < SEGMENTS; i++) {
         float angle = (float)i / SEGMENTS * 2.0f * 3.14159265f;
-        verts[i*2] = c->center[0] + c->radius * cosf(angle);
-        verts[i*2+1] = c->center[1] + c->radius * sinf(angle);
+        out_vertices[i*2] = c->center[0] + c->radius * cosf(angle);
+        out_vertices[i*2+1] = c->center[1] + c->radius * sinf(angle);
     }
-    *out_vertices = verts;
-    *out_count = SEGMENTS;
+}
+
+static void circle_translate(Shape* s, float dx, float dy)
+{
+    CircleImpl* c = (CircleImpl*)s->impl;
+    c->center[0] += dx;
+    c->center[1] += dy;
 }
 
 static ShapeVTable circle_vtable = {
@@ -139,7 +168,9 @@ static ShapeVTable circle_vtable = {
     .destroy = circle_destroy,
     .compute_bounds = circle_bounds,
     .hit_test = circle_hit_test,
-    .get_geometry = circle_get_geometry,
+    .get_vertex_count = circle_get_vertex_count,
+    .write_geometry = circle_write_geometry,
+    .translate = circle_translate,
     .get_property = default_get_property,
     .set_property = default_set_property,
 };
@@ -176,16 +207,26 @@ static int rect_hit_test(const Shape* s, float x, float y, float tolerance)
             y >= min_y - tolerance && y <= max_y + tolerance) ? 1 : 0;
 }
 
-static void rect_get_geometry(const Shape* s, float** out_vertices, int* out_count)
+static int rect_get_vertex_count(const Shape* s)
+{
+    (void)s;
+    return 4;
+}
+
+static void rect_write_geometry(const Shape* s, float* out_vertices)
 {
     RectImpl* r = (RectImpl*)s->impl;
-    float* verts = (float*)malloc(8 * sizeof(float));
-    verts[0] = r->min[0]; verts[1] = r->min[1];  /* BL */
-    verts[2] = r->max[0]; verts[3] = r->min[1];  /* BR */
-    verts[4] = r->max[0]; verts[5] = r->max[1];  /* TR */
-    verts[6] = r->min[0]; verts[7] = r->max[1];  /* TL */
-    *out_vertices = verts;
-    *out_count = 4;
+    out_vertices[0] = r->min[0]; out_vertices[1] = r->min[1];  /* BL */
+    out_vertices[2] = r->max[0]; out_vertices[3] = r->min[1];  /* BR */
+    out_vertices[4] = r->max[0]; out_vertices[5] = r->max[1];  /* TR */
+    out_vertices[6] = r->min[0]; out_vertices[7] = r->max[1];  /* TL */
+}
+
+static void rect_translate(Shape* s, float dx, float dy)
+{
+    RectImpl* r = (RectImpl*)s->impl;
+    r->min[0] += dx; r->min[1] += dy;
+    r->max[0] += dx; r->max[1] += dy;
 }
 
 static ShapeVTable rect_vtable = {
@@ -193,7 +234,9 @@ static ShapeVTable rect_vtable = {
     .destroy = rect_destroy,
     .compute_bounds = rect_bounds,
     .hit_test = rect_hit_test,
-    .get_geometry = rect_get_geometry,
+    .get_vertex_count = rect_get_vertex_count,
+    .write_geometry = rect_write_geometry,
+    .translate = rect_translate,
     .get_property = default_get_property,
     .set_property = default_set_property,
 };
@@ -213,6 +256,7 @@ static Shape* shape_create_line_internal(float x1, float y1, float x2, float y2,
     s->impl = impl;
     s->color[0] = r; s->color[1] = g; s->color[2] = b; s->color[3] = a;
     s->line_width = line_width;
+    s->revision = 1;
     return s;
 }
 
@@ -230,6 +274,7 @@ static Shape* shape_create_circle_internal(float cx, float cy, float radius,
     s->impl = impl;
     s->color[0] = r; s->color[1] = g; s->color[2] = b; s->color[3] = a;
     s->line_width = line_width;
+    s->revision = 1;
     return s;
 }
 
@@ -247,7 +292,23 @@ static Shape* shape_create_rect_internal(float x1, float y1, float x2, float y2,
     s->impl = impl;
     s->color[0] = r; s->color[1] = g; s->color[2] = b; s->color[3] = a;
     s->line_width = line_width;
+    s->revision = 1;
     return s;
+}
+
+static Shape* line_create_default(float r, float g, float b, float a, float line_width)
+{
+    return shape_create_line_internal(0.0f, 0.0f, 0.0f, 0.0f, r, g, b, a, line_width);
+}
+
+static Shape* circle_create_default(float r, float g, float b, float a, float line_width)
+{
+    return shape_create_circle_internal(0.0f, 0.0f, 0.1f, r, g, b, a, line_width);
+}
+
+static Shape* rect_create_default(float r, float g, float b, float a, float line_width)
+{
+    return shape_create_rect_internal(0.0f, 0.0f, 0.0f, 0.0f, r, g, b, a, line_width);
 }
 
 /* ---------- Public API ---------- */
@@ -255,15 +316,11 @@ Shape* shape_create(const char* type_name,
                     float r, float g, float b, float a,
                     float line_width)
 {
-    if (strcmp(type_name, "LINE") == 0) {
-        return shape_create_line_internal(0, 0, 0, 0, r, g, b, a, line_width);
-    } else if (strcmp(type_name, "CIRCLE") == 0) {
-        return shape_create_circle_internal(0, 0, 0.1f, r, g, b, a, line_width);
-    } else if (strcmp(type_name, "RECT") == 0) {
-        return shape_create_rect_internal(0, 0, 0, 0, r, g, b, a, line_width);
+    Shape* shape = shape_registry_create(type_name, r, g, b, a, line_width);
+    if (!shape) {
+        fprintf(stderr, "[Shape] Unknown type: '%s'\n", type_name ? type_name : "(null)");
     }
-    fprintf(stderr, "[Shape] Unknown type: '%s'\n", type_name);
-    return NULL;
+    return shape;
 }
 
 void shape_destroy(Shape* s)
@@ -288,14 +345,29 @@ int shape_hit_test(const Shape* s, float x, float y, float tolerance)
     return s->vtable->hit_test(s, x, y, tolerance);
 }
 
-void shape_get_geometry(const Shape* s, float** out_vertices, int* out_count)
+int shape_get_vertex_count(const Shape* s)
 {
-    if (s && s->vtable && s->vtable->get_geometry) {
-        s->vtable->get_geometry(s, out_vertices, out_count);
-    } else {
-        *out_vertices = NULL;
-        *out_count = 0;
-    }
+    if (!s || !s->vtable || !s->vtable->get_vertex_count) return 0;
+    return s->vtable->get_vertex_count(s);
+}
+
+void shape_write_geometry(const Shape* s, float* out_vertices)
+{
+    if (!s || !s->vtable || !s->vtable->write_geometry || !out_vertices) return;
+    s->vtable->write_geometry(s, out_vertices);
+}
+
+void shape_translate(Shape* s, float dx, float dy)
+{
+    if (!s || !s->vtable || !s->vtable->translate) return;
+    s->vtable->translate(s, dx, dy);
+    shape_bump_revision(s);
+}
+
+unsigned int shape_get_revision(const Shape* s)
+{
+    if (!s) return 0;
+    return s->revision;
 }
 
 int shape_get_property(const Shape* s, const char* key, float* out_value)
@@ -307,13 +379,17 @@ int shape_get_property(const Shape* s, const char* key, float* out_value)
 int shape_set_property(Shape* s, const char* key, float value)
 {
     if (!s || !s->vtable || !s->vtable->set_property) return 0;
-    return s->vtable->set_property(s, key, value);
+    if (s->vtable->set_property(s, key, value)) {
+        shape_bump_revision(s);
+        return 1;
+    }
+    return 0;
 }
 
 /* ---------- Registry registration (called once at init) ---------- */
 void shape_register_all(void)
 {
-    shape_register("LINE", &line_vtable);
-    shape_register("CIRCLE", &circle_vtable);
-    shape_register("RECT", &rect_vtable);
+    shape_register("LINE", line_create_default, &line_vtable);
+    shape_register("CIRCLE", circle_create_default, &circle_vtable);
+    shape_register("RECT", rect_create_default, &rect_vtable);
 }

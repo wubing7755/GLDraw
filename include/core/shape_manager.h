@@ -17,10 +17,12 @@
 void sm_init(void);
 void sm_shutdown(void);
 
-void sm_add(Shape* s);
+int sm_add(Shape* s);
+Shape* sm_take_last(void);
 void sm_remove_last(void);
 
 int sm_count(void);
 Shape* sm_get(int index);
+unsigned int sm_get_revision(void);
 
 #endif /* SHAPE_MANAGER_H */

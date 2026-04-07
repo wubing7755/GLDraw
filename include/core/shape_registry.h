@@ -6,8 +6,8 @@
 /* =============================================================================
  * Phase 2: Shape Registry — single registration point for all shape types
  *
- * Each shape type registers its vtable via shape_register().
- * New shapes are added WITHOUT modifying ShapeManager or Renderer.
+ * Each shape type registers both a factory and a vtable via shape_register().
+ * New shapes are added WITHOUT modifying ShapeManager, Renderer, or shape_create().
  * =============================================================================
  */
 
@@ -15,9 +15,12 @@ void shape_registry_init(void);
 void shape_registry_shutdown(void);
 
 /* Register a shape type — called once at startup per type */
-void shape_register(const char* type_name, ShapeVTable* vtable);
+void shape_register(const char* type_name, ShapeCreateFn create_fn, ShapeVTable* vtable);
 
 /* Get vtable by type name — returns NULL if not found */
 ShapeVTable* shape_registry_get(const char* type_name);
+Shape* shape_registry_create(const char* type_name,
+                             float r, float g, float b, float a,
+                             float line_width);
 
 #endif /* SHAPE_REGISTRY_H */
