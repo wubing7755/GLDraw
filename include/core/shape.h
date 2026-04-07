@@ -15,6 +15,7 @@
 
 typedef struct Shape Shape;
 typedef struct ShapeVTable ShapeVTable;
+typedef Shape* (*ShapeCreateFn)(float r, float g, float b, float a, float line_width);
 
 /* =============================================================================
  * ShapeVTable — function pointers for polymorphic behavior
@@ -25,7 +26,9 @@ struct ShapeVTable {
     void (*destroy)(Shape*);
     void (*compute_bounds)(const Shape*, float* minX, float* minY, float* maxX, float* maxY);
     int (*hit_test)(const Shape*, float x, float y, float tolerance);
-    void (*get_geometry)(const Shape*, float** out_vertices, int* out_count);
+    int (*get_vertex_count)(const Shape*);
+    void (*write_geometry)(const Shape*, float* out_vertices);
+    void (*translate)(Shape*, float dx, float dy);
     int (*get_property)(const Shape*, const char* key, float* out_value);
     int (*set_property)(Shape*, const char* key, float value);
 };
@@ -39,6 +42,7 @@ struct Shape {
     void* impl;            /* Pointer to concrete shape data (LineImpl*, CircleImpl*, etc.) */
     float color[4];        /* RGBA */
     float line_width;
+    unsigned int revision;
 };
 
 /* =============================================================================
@@ -62,7 +66,10 @@ void shape_register_all(void);
  */
 void shape_get_bounds(const Shape* s, float* minX, float* minY, float* maxX, float* maxY);
 int shape_hit_test(const Shape* s, float x, float y, float tolerance);
-void shape_get_geometry(const Shape* s, float** out_vertices, int* out_count);
+int shape_get_vertex_count(const Shape* s);
+void shape_write_geometry(const Shape* s, float* out_vertices);
+void shape_translate(Shape* s, float dx, float dy);
+unsigned int shape_get_revision(const Shape* s);
 
 /* Property access via vtable */
 int shape_get_property(const Shape* s, const char* key, float* out_value);

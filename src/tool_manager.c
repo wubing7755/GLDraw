@@ -1,24 +1,22 @@
 #include <core/tool_manager.h>
-#include <core/tool.h>
-
-static Tool* s_current_tool = NULL;
+#include <core/app_state.h>
 
 void toolmanager_init(void)
 {
-    s_current_tool = NULL;
+    g_app_state.current_tool = NULL;
 }
 
 void toolmanager_shutdown(void)
 {
-    s_current_tool = NULL;
+    g_app_state.current_tool = NULL;
 }
 
 Tool* toolmanager_get_current(void)
 {
-    return s_current_tool;
+    return g_app_state.current_tool;
 }
 
 void toolmanager_set_tool(Tool* new_tool)
 {
-    s_current_tool = new_tool;
+    g_app_state.current_tool = new_tool;
 }

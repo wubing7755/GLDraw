@@ -7,7 +7,6 @@
 #include <core/shader.h>
 #include <core/renderer.h>
 #include <core/input.h>
-#include <core/selection_manager.h>
 #include <core/nuklear_ui.h>
 #include <core/shape_manager.h>
 #include <core/shape_registry.h>
@@ -22,6 +21,17 @@ static double get_time_seconds(void)
 
 int main(void)
 {
+    int exit_code = -1;
+    int window_initialized = 0;
+    int shaders_loaded = 0;
+    int shape_manager_initialized = 0;
+    int shape_registry_initialized = 0;
+    int renderer_initialized = 0;
+    int toolmanager_initialized = 0;
+    int nuklear_initialized = 0;
+    Tool* draw_tool = NULL;
+    Tool* select_tool = NULL;
+
     printf("===========================================\n");
     printf("  GLDraw - Phase 2: Multi-Shape Support\n");
     printf("  OpenGL 3.3 Core Profile\n");
@@ -32,14 +42,14 @@ int main(void)
     printf("[Main] Initializing window...\n");
     if (init_window() != 0) {
         printf("[Main] Window initialization failed\n");
-        return -1;
+        goto cleanup;
     }
+    window_initialized = 1;
 
     printf("[Main] Loading OpenGL functions...\n");
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
         printf("[Main] Failed to load OpenGL functions\n");
-        shutdown_window();
-        return -1;
+        goto cleanup;
     }
     printf("[Main] OpenGL loaded: %s\n", glGetString(GL_VERSION));
 
@@ -47,53 +57,50 @@ int main(void)
     if (load_shader_program("shaders/basic.vert",
                             "shaders/basic.frag") == 0) {
         printf("[Main] Shader loading failed\n");
-        shutdown_window();
-        return -1;
+        goto cleanup;
     }
+    shaders_loaded = 1;
 
     printf("[Main] Initializing ShapeManager...\n");
     sm_init();
+    shape_manager_initialized = 1;
 
     printf("[Main] Initializing ShapeRegistry...\n");
     shape_registry_init();
     shape_register_all();
+    shape_registry_initialized = 1;
 
     printf("[Main] Initializing renderer...\n");
     if (init_renderer() != 0) {
         printf("[Main] Renderer initialization failed\n");
-        cleanup_shaders();
-        shutdown_window();
-        return -1;
+        goto cleanup;
     }
+    renderer_initialized = 1;
 
     printf("[Main] Initializing input...\n");
-    init_input(g_window);
-
-    printf("[Main] Connecting selection to renderer...\n");
-    renderer_set_selection(input_get_selection());
+    init_input(window_get_handle());
 
     printf("[Main] Initializing ToolManager...\n");
     toolmanager_init();
+    toolmanager_initialized = 1;
 
     /* Create tools */
-    Tool* draw_tool = draw_tool_create("LINE");
-    Tool* select_tool = select_tool_create();
+    draw_tool = draw_tool_create("LINE");
+    select_tool = select_tool_create();
     if (!draw_tool || !select_tool) {
         printf("[Main] Failed to create tools\n");
-        return -1;
+        goto cleanup;
     }
 
     /* Initialize input with tools */
     input_init_tools(draw_tool, select_tool, draw_tool);
 
     printf("[Main] Initializing Nuklear UI...\n");
-    if (init_nuklear_ui(g_window) != 0) {
+    if (init_nuklear_ui(window_get_handle()) != 0) {
         printf("[Main] Nuklear initialization failed\n");
-        cleanup_renderer();
-        cleanup_shaders();
-        shutdown_window();
-        return -1;
+        goto cleanup;
     }
+    nuklear_initialized = 1;
 
     printf("\n[Main] Initialization complete!\n");
     printf("===========================================\n");
@@ -128,17 +135,37 @@ int main(void)
 
     /* Cleanup */
     printf("\n[Main] Cleaning up...\n");
+    exit_code = 0;
 
-    shutdown_nuklear_ui();
-    toolmanager_shutdown();
-    draw_tool_destroy(draw_tool);
-    select_tool_destroy(select_tool);
-    shape_registry_shutdown();
-    sm_shutdown();
-    cleanup_renderer();
-    cleanup_shaders();
-    shutdown_window();
+cleanup:
+    if (nuklear_initialized) {
+        shutdown_nuklear_ui();
+    }
+    if (toolmanager_initialized) {
+        toolmanager_shutdown();
+    }
+    if (draw_tool) {
+        draw_tool_destroy(draw_tool);
+    }
+    if (select_tool) {
+        select_tool_destroy(select_tool);
+    }
+    if (shape_registry_initialized) {
+        shape_registry_shutdown();
+    }
+    if (shape_manager_initialized) {
+        sm_shutdown();
+    }
+    if (renderer_initialized) {
+        cleanup_renderer();
+    }
+    if (shaders_loaded) {
+        cleanup_shaders();
+    }
+    if (window_initialized) {
+        shutdown_window();
+    }
 
     printf("[Main] Done!\n");
-    return 0;
+    return exit_code;
 }

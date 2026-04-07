@@ -7,9 +7,8 @@
 #define WINDOW_HEIGHT 600
 #define WINDOW_TITLE  "GLDraw"
 
-extern GLFWwindow* g_window;
-
 int init_window(void);
+GLFWwindow* window_get_handle(void);
 void poll_events(void);
 int window_should_close(void);
 void swap_buffers(void);

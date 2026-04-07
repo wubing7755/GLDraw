@@ -3,10 +3,6 @@
 
 #include <GLFW/glfw3.h>
 
-/* Nuklear context - used by input.c to check if mouse is over UI */
-struct nk_context;
-extern struct nk_context* g_ctx;
-
 int init_nuklear_ui(GLFWwindow* window);
 void nuklear_new_frame(void);
 void nuklear_build_ui(void);

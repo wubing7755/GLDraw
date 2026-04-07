@@ -4,15 +4,19 @@
 #include <GLFW/glfw3.h>
 #include <string.h>
 
+#include <core/app_state.h>
 #include <core/renderer.h>
 #include <core/shader.h>
 #include <core/shape_manager.h>
-#include <core/selection_manager.h>
 
 static GLuint s_VAO = 0;
 static GLuint s_VBO = 0;
 static float* s_vertex_buf = NULL;
 static size_t s_vertex_buf_capacity = 0;
+static float* s_geometry_buf = NULL;
+static size_t s_geometry_buf_capacity = 0;
+static size_t s_uploaded_buf_size = 0;
+static int s_gpu_buffer_dirty = 1;
 
 /* =============================================================================
  * Phase 2: Multi-shape rendering using vtable-based geometry
@@ -34,7 +38,9 @@ typedef struct {
 
 static ShapeDrawInfo* s_draw_infos = NULL;
 static int s_draw_info_capacity = 0;
-static SelectionManager* s_selection = NULL;
+static unsigned int* s_shape_revisions = NULL;
+static int s_cached_shape_count = 0;
+static unsigned int s_cached_shape_manager_revision = 0;
 static const float s_selection_highlight[4] = {1.0f, 1.0f, 0.0f, 1.0f};
 
 /* Compute total vertex count for all shapes */
@@ -44,11 +50,7 @@ static size_t compute_total_vertices(void)
     int count = sm_count();
     for (int i = 0; i < count; i++) {
         Shape* s = sm_get(i);
-        float* verts = NULL;
-        int vert_count = 0;
-        shape_get_geometry(s, &verts, &vert_count);
-        total += vert_count;
-        free(verts);  /* shape_get_geometry returns malloc'd buffer */
+        total += (size_t)shape_get_vertex_count(s);
     }
     return total;
 }
@@ -64,13 +66,25 @@ static void rebuild_vertex_buffer(void)
     /* Resize draw info array if needed */
     if (count > s_draw_info_capacity) {
         free(s_draw_infos);
+        free(s_shape_revisions);
         s_draw_infos = (ShapeDrawInfo*)malloc(count * sizeof(ShapeDrawInfo));
+        s_shape_revisions = (unsigned int*)malloc(count * sizeof(unsigned int));
         s_draw_info_capacity = count;
+        if (!s_draw_infos || !s_shape_revisions) {
+            fprintf(stderr, "[Renderer] Failed to allocate draw metadata\n");
+            free(s_draw_infos);
+            free(s_shape_revisions);
+            s_draw_infos = NULL;
+            s_shape_revisions = NULL;
+            s_draw_info_capacity = 0;
+            return;
+        }
     }
 
     /* First pass: compute total vertices needed */
     size_t total_verts = compute_total_vertices();
     size_t new_capacity = total_verts * 6 * sizeof(float);
+    size_t geometry_capacity = total_verts * 2 * sizeof(float);
 
     if (new_capacity > s_vertex_buf_capacity) {
         free(s_vertex_buf);
@@ -83,18 +97,31 @@ static void rebuild_vertex_buffer(void)
         s_vertex_buf_capacity = new_capacity;
     }
 
+    if (geometry_capacity > s_geometry_buf_capacity) {
+        free(s_geometry_buf);
+        s_geometry_buf = (float*)malloc(geometry_capacity);
+        if (!s_geometry_buf) {
+            fprintf(stderr, "[Renderer] Failed to allocate geometry scratch buffer\n");
+            s_geometry_buf_capacity = 0;
+            return;
+        }
+        s_geometry_buf_capacity = geometry_capacity;
+    }
+
     /* Second pass: fill buffer and track offsets */
     float* ptr = s_vertex_buf;
     int current_vert = 0;
 
     for (int i = 0; i < count; i++) {
         Shape* s = sm_get(i);
-        float* verts = NULL;
-        int vert_count = 0;
-        shape_get_geometry(s, &verts, &vert_count);
+        int vert_count = shape_get_vertex_count(s);
+        float* shape_vertices = s_geometry_buf;
 
         s_draw_infos[i].first_vertex = current_vert;
         s_draw_infos[i].vert_count = vert_count;
+        s_shape_revisions[i] = shape_get_revision(s);
+
+        shape_write_geometry(s, shape_vertices);
 
         float r = s->color[0];
         float g = s->color[1];
@@ -102,16 +129,42 @@ static void rebuild_vertex_buffer(void)
         float a = s->color[3];
 
         for (int j = 0; j < vert_count; j++) {
-            *ptr++ = verts[j * 2];     /* x */
-            *ptr++ = verts[j * 2 + 1]; /* y */
+            *ptr++ = shape_vertices[j * 2];     /* x */
+            *ptr++ = shape_vertices[j * 2 + 1]; /* y */
             *ptr++ = r;
             *ptr++ = g;
             *ptr++ = b;
             *ptr++ = a;
             current_vert++;
         }
-        free(verts);
     }
+
+    s_uploaded_buf_size = (size_t)current_vert * 6 * sizeof(float);
+    s_cached_shape_count = count;
+    s_cached_shape_manager_revision = sm_get_revision();
+    s_gpu_buffer_dirty = 1;
+}
+
+static int vertex_buffer_is_dirty(void)
+{
+    int count = sm_count();
+
+    if (count != s_cached_shape_count) {
+        return 1;
+    }
+
+    if (sm_get_revision() != s_cached_shape_manager_revision) {
+        return 1;
+    }
+
+    for (int i = 0; i < count; i++) {
+        Shape* s = sm_get(i);
+        if (!s || !s_shape_revisions || s_shape_revisions[i] != shape_get_revision(s)) {
+            return 1;
+        }
+    }
+
+    return 0;
 }
 
 /* Determine OpenGL primitive type based on vertex count */
@@ -154,29 +207,40 @@ int init_renderer(void)
 void render_frame(void)
 {
     GLenum err;
+    SelectionManager* selection = app_state_get_selection();
 
     glClearColor(0.15f, 0.15f, 0.2f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
+    glEnable(GL_BLEND);
+    glBlendEquation(GL_FUNC_ADD);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     int count = sm_count();
     if (count == 0) {
+        glDisable(GL_BLEND);
         return;
     }
 
-    /* Rebuild vertex buffer from ShapeManager */
-    rebuild_vertex_buffer();
-    if (!s_vertex_buf || s_vertex_buf_capacity == 0) {
+    if (vertex_buffer_is_dirty()) {
+        /* Rebuild vertex buffer from ShapeManager */
+        rebuild_vertex_buffer();
+    }
+
+    if (!s_vertex_buf || s_vertex_buf_capacity == 0 || !s_draw_infos) {
+        glDisable(GL_BLEND);
         return;
     }
 
-    size_t buf_size = s_draw_infos ? (size_t)(s_draw_infos[count - 1].first_vertex + s_draw_infos[count - 1].vert_count) * 6 * sizeof(float) : 0;
-    if (buf_size == 0) {
+    if (s_uploaded_buf_size == 0) {
+        glDisable(GL_BLEND);
         return;
     }
 
-    /* Upload to GPU */
-    glBindBuffer(GL_ARRAY_BUFFER, s_VBO);
-    glBufferData(GL_ARRAY_BUFFER, buf_size, s_vertex_buf, GL_DYNAMIC_DRAW);
+    if (s_gpu_buffer_dirty) {
+        glBindBuffer(GL_ARRAY_BUFFER, s_VBO);
+        glBufferData(GL_ARRAY_BUFFER, s_uploaded_buf_size, s_vertex_buf, GL_DYNAMIC_DRAW);
+        s_gpu_buffer_dirty = 0;
+    }
 
     /* Draw each shape with appropriate primitive type */
     shader_use();
@@ -188,7 +252,7 @@ void render_frame(void)
         float line_width = (s->line_width > 0.0f) ? s->line_width : 1.0f;
 
         /* Highlight selected shapes with yellow */
-        int is_selected = s_selection && sel_contains(s_selection, s);
+        int is_selected = selection && sel_contains(selection, s);
         if (is_selected) {
             /* Draw a highlight pass first, then the actual shape color on top. */
             glDisableVertexAttribArray(1);
@@ -208,15 +272,11 @@ void render_frame(void)
 
     glLineWidth(1.0f);
     glBindVertexArray(0);
+    glDisable(GL_BLEND);
 
     while ((err = glGetError()) != GL_NO_ERROR) {
         fprintf(stderr, "[Renderer] GL error after draw: %d\n", err);
     }
-}
-
-void renderer_set_selection(SelectionManager* sel)
-{
-    s_selection = sel;
 }
 
 void cleanup_renderer(void)
@@ -224,11 +284,20 @@ void cleanup_renderer(void)
     glDeleteVertexArrays(1, &s_VAO);
     glDeleteBuffers(1, &s_VBO);
     free(s_vertex_buf);
+    free(s_geometry_buf);
     free(s_draw_infos);
+    free(s_shape_revisions);
     s_vertex_buf = NULL;
+    s_geometry_buf = NULL;
     s_draw_infos = NULL;
+    s_shape_revisions = NULL;
     s_vertex_buf_capacity = 0;
+    s_geometry_buf_capacity = 0;
+    s_uploaded_buf_size = 0;
+    s_gpu_buffer_dirty = 1;
     s_draw_info_capacity = 0;
+    s_cached_shape_count = 0;
+    s_cached_shape_manager_revision = 0;
     s_VAO = 0;
     s_VBO = 0;
     printf("[Renderer] Cleaned up\n");

@@ -47,8 +47,12 @@ static void draw_tool_on_down(Tool* t, float x, float y, SelectionManager* sel, 
         r->max[0] = x; r->max[1] = y;
     }
 
+    if (!sm_add(preview)) {
+        shape_destroy(preview);
+        return;
+    }
+
     ctx->preview = preview;
-    sm_add(preview);
 }
 
 static void draw_tool_on_move(Tool* t, float x, float y, SelectionManager* sel)
@@ -61,12 +65,18 @@ static void draw_tool_on_move(Tool* t, float x, float y, SelectionManager* sel)
 
     /* Remove old preview from ShapeManager */
     if (sm_count() > 0) {
-        sm_remove_last();
+        Shape* old_preview = sm_take_last();
+        if (old_preview) {
+            shape_destroy(old_preview);
+        }
     }
 
     /* Create new preview */
     Shape* preview = shape_create(ctx->shape_type, 1.0f, 1.0f, 1.0f, 0.7f, 2.0f);
-    if (!preview) return;
+    if (!preview) {
+        ctx->preview = NULL;
+        return;
+    }
 
     if (strcmp(ctx->shape_type, "LINE") == 0) {
         LineImpl* line = (LineImpl*)preview->impl;
@@ -84,8 +94,13 @@ static void draw_tool_on_move(Tool* t, float x, float y, SelectionManager* sel)
         r->max[0] = x; r->max[1] = y;
     }
 
+    if (!sm_add(preview)) {
+        shape_destroy(preview);
+        ctx->preview = NULL;
+        return;
+    }
+
     ctx->preview = preview;
-    sm_add(preview);
 }
 
 static void draw_tool_on_up(Tool* t, SelectionManager* sel)
@@ -99,7 +114,10 @@ static void draw_tool_on_up(Tool* t, SelectionManager* sel)
     }
 
     /* Remove preview from ShapeManager */
-    sm_remove_last();
+    Shape* preview = sm_take_last();
+    if (preview) {
+        shape_destroy(preview);
+    }
     ctx->preview = NULL;
 
     /* Create final shape */
@@ -122,7 +140,9 @@ static void draw_tool_on_up(Tool* t, SelectionManager* sel)
         r->max[0] = ctx->p2[0]; r->max[1] = ctx->p2[1];
     }
 
-    sm_add(final);
+    if (!sm_add(final)) {
+        shape_destroy(final);
+    }
 }
 
 static ToolVTable draw_tool_vtable = {

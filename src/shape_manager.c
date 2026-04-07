@@ -9,10 +9,12 @@
 
 static Shape* s_shapes[SHAPE_MAX_LINES];
 static int s_count = 0;
+static unsigned int s_revision = 0;
 
 void sm_init(void)
 {
     s_count = 0;
+    s_revision = 1;
 }
 
 void sm_shutdown(void)
@@ -22,26 +24,40 @@ void sm_shutdown(void)
         s_shapes[i] = NULL;
     }
     s_count = 0;
+    s_revision++;
 }
 
-void sm_add(Shape* s)
+int sm_add(Shape* s)
 {
-    if (s_count >= SHAPE_MAX_LINES) {
-        return;
+    if (!s || s_count >= SHAPE_MAX_LINES) {
+        return 0;
     }
     s_shapes[s_count++] = s;
+    s_revision++;
+    return 1;
+}
+
+Shape* sm_take_last(void)
+{
+    Shape* shape = NULL;
+
+    if (s_count <= 0) {
+        return NULL;
+    }
+
+    s_count--;
+    shape = s_shapes[s_count];
+    s_shapes[s_count] = NULL;
+    s_revision++;
+    return shape;
 }
 
 void sm_remove_last(void)
 {
-    if (s_count <= 0) {
-        return;
+    Shape* shape = sm_take_last();
+    if (shape) {
+        shape_destroy(shape);
     }
-    s_count--;
-    if (s_shapes[s_count] != NULL) {
-        shape_destroy(s_shapes[s_count]);
-    }
-    s_shapes[s_count] = NULL;
 }
 
 int sm_count(void)
@@ -55,4 +71,9 @@ Shape* sm_get(int index)
         return NULL;
     }
     return s_shapes[index];
+}
+
+unsigned int sm_get_revision(void)
+{
+    return s_revision;
 }
