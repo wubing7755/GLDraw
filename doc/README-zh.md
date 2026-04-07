@@ -35,7 +35,7 @@ GLDraw 是一个基于 OpenGL 3.3 的最小化示例，使用 GLFW 和 Nuklear G
 
 II. 快速开始
 
-     $ git clone <仓库地址>
+     $ git clone https://github.com/wubing7755/GLDraw.git
      $ cd GLDraw
      $ mkdir build && cd build
      $ cmake -G "MinGW Makefiles" ..
@@ -57,11 +57,8 @@ III. 项目结构
      │   └── nuklear/              # Nuklear GUI 库（header-only）
      ├── src/                      # 源代码
      │   ├── main.c
-     │   ├── app_state.c
+     │   ├── ...
      │   ├── window.c
-     │   ├── shader.c
-     │   ├── renderer.c
-     │   ├── input.c
      │   └── nuklear_ui.c
      └── shaders/                  # GLSL 着色器
          ├── basic.vert
