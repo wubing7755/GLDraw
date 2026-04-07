@@ -6,6 +6,7 @@
 #include <core/shape_manager.h>
 #include <core/draw_tool.h>
 #include <core/select_tool.h>
+#include <core/nuklear_ui.h>
 
 /* =============================================================================
  * Phase 3: Input handling — delegates to ToolManager
@@ -19,6 +20,7 @@ static SelectionManager s_selection;
 static Tool* s_draw_tool = NULL;
 static Tool* s_select_tool = NULL;
 static Tool* s_current_draw_tool = NULL;  /* the draw tool (LINE/CIRCLE/RECT) */
+static int s_tool_mouse_active = 0;
 
 /* Convert window coords to OpenGL normalized coords */
 static void window_to_opengl(double win_x, double win_y, float* out_x, float* out_y)
@@ -33,14 +35,17 @@ static void window_to_opengl(double win_x, double win_y, float* out_x, float* ou
 
 static void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 {
-    (void)mods;
-
     if (button != GLFW_MOUSE_BUTTON_LEFT) {
         return;
     }
 
     double win_x, win_y;
     glfwGetCursorPos(window, &win_x, &win_y);
+
+    if (action == GLFW_PRESS && nuklear_ui_blocks_mouse_input(win_x, win_y)) {
+        s_tool_mouse_active = 0;
+        return;
+    }
 
     float x, y;
     window_to_opengl(win_x, win_y, &x, &y);
@@ -51,15 +56,22 @@ static void mouse_button_callback(GLFWwindow* window, int button, int action, in
     }
 
     if (action == GLFW_PRESS) {
-        tool->vtable->on_down(tool, x, y, &s_selection);
-    } else if (action == GLFW_RELEASE) {
+        int shift_held = (mods & GLFW_MOD_SHIFT) != 0;
+        tool->vtable->on_down(tool, x, y, &s_selection, shift_held);
+        s_tool_mouse_active = 1;
+    } else if (action == GLFW_RELEASE && s_tool_mouse_active) {
         tool->vtable->on_up(tool, &s_selection);
+        s_tool_mouse_active = 0;
     }
 }
 
 static void cursor_pos_callback(GLFWwindow* window, double xpos, double ypos)
 {
     (void)window;
+
+    if (!s_tool_mouse_active && nuklear_ui_blocks_mouse_input(xpos, ypos)) {
+        return;
+    }
 
     float x, y;
     window_to_opengl(xpos, ypos, &x, &y);

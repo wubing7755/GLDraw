@@ -2,9 +2,11 @@
 #include <core/shape.h>
 #include <core/shape_manager.h>
 #include <core/shape_impl.h>
+#include <core/nuklear_ui.h>
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
+#include "nuklear/nuklear.h"
 
 struct SelectToolCtx {
     int dragging;        /* currently dragging? */
@@ -51,7 +53,7 @@ static void translate_shape(Shape* s, float dx, float dy)
     }
 }
 
-static void select_tool_on_down(Tool* t, float x, float y, SelectionManager* sel)
+static void select_tool_on_down(Tool* t, float x, float y, SelectionManager* sel, int shift_held)
 {
     SelectToolCtx* ctx = (SelectToolCtx*)t->ctx;
 
@@ -67,10 +69,11 @@ static void select_tool_on_down(Tool* t, float x, float y, SelectionManager* sel
             ctx->shape_start[1] = y;
         } else {
             /* Not selected yet */
-            if (0 /* shift not held */) {
-                /* TODO: Shift multi-select */
+            if (shift_held) {
+                /* Shift + click: toggle multi-select */
                 sel_toggle(sel, hit);
             } else {
+                /* Normal click: clear and select only this */
                 sel_clear(sel);
                 sel_add(sel, hit);
             }
@@ -81,8 +84,10 @@ static void select_tool_on_down(Tool* t, float x, float y, SelectionManager* sel
             ctx->shape_start[1] = y;
         }
     } else {
-        /* Clicked empty space — clear selection */
-        sel_clear(sel);
+        /* Clicked empty space — clear selection if shift not held */
+        if (!shift_held) {
+            sel_clear(sel);
+        }
         ctx->dragging = 0;
     }
 }

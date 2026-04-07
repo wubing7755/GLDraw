@@ -20,9 +20,10 @@ static const char* draw_tool_name(const Tool* t)
     return "DRAW";
 }
 
-static void draw_tool_on_down(Tool* t, float x, float y, SelectionManager* sel)
+static void draw_tool_on_down(Tool* t, float x, float y, SelectionManager* sel, int shift_held)
 {
     (void)sel;
+    (void)shift_held;
     DrawToolCtx* ctx = (DrawToolCtx*)t->ctx;
     ctx->p1[0] = x; ctx->p1[1] = y;
     ctx->p2[0] = x; ctx->p2[1] = y;
