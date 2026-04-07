@@ -5,7 +5,7 @@
             "label": "CMake: Build",
             "type": "shell",
             "command": "cmake",
-            "args": ["--build", "${workspaceFolder}/build", "--config", "Release"],
+            "args": ["--build", "${workspaceFolder}/build", "--config", "Release", "--parallel"],
             "group": {
                 "kind": "build",
                 "isDefault": true

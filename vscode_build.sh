@@ -23,7 +23,6 @@ case "$ARG" in
         ;;
     debug)
         BUILD_TYPE="Debug"
-        rm -rf build
         cmake -G "$GENERATOR" -DCMAKE_BUILD_TYPE=$BUILD_TYPE -S . -B build
         cmake --build build --parallel
         ;;

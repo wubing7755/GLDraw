@@ -17,12 +17,17 @@ if "%ARG%"=="configure" (
 
 if "%ARG%"=="debug" (
     set BUILD_TYPE=Debug
+    cmake -G "MinGW Makefiles" -DCMAKE_BUILD_TYPE=%BUILD_TYPE% -S . -B build
+    cmake --build build --parallel
+    goto :done
 )
 
 rem Default: clean, configure and build
 rmdir /s /q build 2>nul
 cmake -G "MinGW Makefiles" -DCMAKE_BUILD_TYPE=%BUILD_TYPE% -S . -B build
 cmake --build build --parallel
+
+:done
 
 echo.
 echo ============================================================
