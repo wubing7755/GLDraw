@@ -16,7 +16,7 @@ typedef struct ToolVTable ToolVTable;
 
 struct ToolVTable {
     const char* (*name)(const Tool*);
-    void (*on_down)(Tool*, float x, float y, SelectionManager* sel);
+    void (*on_down)(Tool*, float x, float y, SelectionManager* sel, int shift_held);
     void (*on_move)(Tool*, float x, float y, SelectionManager* sel);
     void (*on_up)(Tool*, SelectionManager* sel);
 };

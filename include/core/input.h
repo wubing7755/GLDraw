@@ -2,6 +2,7 @@
 #define INPUT_H
 
 #include <GLFW/glfw3.h>
+#include <core/selection_manager.h>
 
 typedef struct Tool Tool;
 

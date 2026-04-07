@@ -35,6 +35,7 @@ typedef struct {
 static ShapeDrawInfo* s_draw_infos = NULL;
 static int s_draw_info_capacity = 0;
 static SelectionManager* s_selection = NULL;
+static const float s_selection_highlight[4] = {1.0f, 1.0f, 0.0f, 1.0f};
 
 /* Compute total vertex count for all shapes */
 static size_t compute_total_vertices(void)
@@ -95,14 +96,10 @@ static void rebuild_vertex_buffer(void)
         s_draw_infos[i].first_vertex = current_vert;
         s_draw_infos[i].vert_count = vert_count;
 
-        int is_selected = s_selection && sel_contains(s_selection, s);
-        float r, g, b, a;
-        if (is_selected) {
-            /* Highlight: bright yellow */
-            r = 1.0f; g = 1.0f; b = 0.0f; a = 1.0f;
-        } else {
-            r = s->color[0]; g = s->color[1]; b = s->color[2]; a = s->color[3];
-        }
+        float r = s->color[0];
+        float g = s->color[1];
+        float b = s->color[2];
+        float a = s->color[3];
 
         for (int j = 0; j < vert_count; j++) {
             *ptr++ = verts[j * 2];     /* x */
@@ -188,19 +185,28 @@ void render_frame(void)
     for (int i = 0; i < count; i++) {
         Shape* s = sm_get(i);
         GLenum mode = primitive_type_for_count(s_draw_infos[i].vert_count);
+        float line_width = (s->line_width > 0.0f) ? s->line_width : 1.0f;
 
         /* Highlight selected shapes with yellow */
         int is_selected = s_selection && sel_contains(s_selection, s);
         if (is_selected) {
-            /* Draw highlight: thicker yellow outline */
-            glLineWidth(4.0f);
+            /* Draw a highlight pass first, then the actual shape color on top. */
+            glDisableVertexAttribArray(1);
+            glVertexAttrib4f(1,
+                             s_selection_highlight[0],
+                             s_selection_highlight[1],
+                             s_selection_highlight[2],
+                             s_selection_highlight[3]);
+            glLineWidth(line_width + 2.0f);
             glDrawArrays(mode, s_draw_infos[i].first_vertex, s_draw_infos[i].vert_count);
-            glLineWidth(1.0f);
-        } else {
-            glDrawArrays(mode, s_draw_infos[i].first_vertex, s_draw_infos[i].vert_count);
+            glEnableVertexAttribArray(1);
         }
+
+        glLineWidth(line_width);
+        glDrawArrays(mode, s_draw_infos[i].first_vertex, s_draw_infos[i].vert_count);
     }
 
+    glLineWidth(1.0f);
     glBindVertexArray(0);
 
     while ((err = glGetError()) != GL_NO_ERROR) {

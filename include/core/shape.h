@@ -26,6 +26,8 @@ struct ShapeVTable {
     void (*compute_bounds)(const Shape*, float* minX, float* minY, float* maxX, float* maxY);
     int (*hit_test)(const Shape*, float x, float y, float tolerance);
     void (*get_geometry)(const Shape*, float** out_vertices, int* out_count);
+    int (*get_property)(const Shape*, const char* key, float* out_value);
+    int (*set_property)(Shape*, const char* key, float value);
 };
 
 /* =============================================================================
@@ -61,5 +63,9 @@ void shape_register_all(void);
 void shape_get_bounds(const Shape* s, float* minX, float* minY, float* maxX, float* maxY);
 int shape_hit_test(const Shape* s, float x, float y, float tolerance);
 void shape_get_geometry(const Shape* s, float** out_vertices, int* out_count);
+
+/* Property access via vtable */
+int shape_get_property(const Shape* s, const char* key, float* out_value);
+int shape_set_property(Shape* s, const char* key, float value);
 
 #endif /* SHAPE_H */
