@@ -36,7 +36,7 @@ Key features:
 
 II. Quick Start
 
-     $ git clone <repository-url>
+     $ git clone https://github.com/wubing7755/GLDraw.git
      $ cd GLDraw
      $ mkdir build && cd build
      $ cmake -G "MinGW Makefiles" ..
@@ -59,11 +59,8 @@ III. Project Structure
      │   └── nuklear/              # Nuklear GUI library (header-only)
      ├── src/                      # Source files
      │   ├── main.c
-     │   ├── app_state.c
+     │   ├── ...
      │   ├── window.c
-     │   ├── shader.c
-     │   ├── renderer.c
-     │   ├── input.c
      │   └── nuklear_ui.c
      └── shaders/                  # GLSL shaders
          ├── basic.vert
