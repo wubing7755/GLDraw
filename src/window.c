@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <GLFW/glfw3.h>
 #include <core/window.h>
+#include <core/macros.h>
 
 static GLFWwindow* s_window = NULL;
 
@@ -8,18 +9,17 @@ static void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 {
     (void)window;
     glViewport(0, 0, width, height);
-    printf("[Window] Resized to %dx%d\n", width, height);
+    LOG_DEBUG_F("Window resized: %dx%d", width, height);
 }
 
 int init_window(void)
 {
     /* Initialize GLFW */
-    if (!glfwInit())
-    {
-        printf("[Error] Failed to initialize GLFW\n");
+    if (UNLIKELY(!glfwInit())) {
+        LOG_ERROR("Failed to initialize GLFW");
         return -1;
     }
-    printf("[Window] GLFW initialized\n");
+    LOG_DEBUG("GLFW initialized");
 
     /* Configure OpenGL context version 3.3 */
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
@@ -29,13 +29,12 @@ int init_window(void)
     /* Create window and OpenGL context */
     s_window = glfwCreateWindow(WINDOW_WIDTH, WINDOW_HEIGHT,
                                 WINDOW_TITLE, NULL, NULL);
-    if (!s_window)
-    {
-        printf("[Error] Failed to create window\n");
+    if (UNLIKELY(!s_window)) {
+        LOG_ERROR("Failed to create window");
         glfwTerminate();
         return -1;
     }
-    printf("[Window] Window created (%dx%d)\n", WINDOW_WIDTH, WINDOW_HEIGHT);
+    LOG_INFO_F("Window created (%dx%d)", WINDOW_WIDTH, WINDOW_HEIGHT);
 
     /* Make this window's context current */
     glfwMakeContextCurrent(s_window);
@@ -69,5 +68,5 @@ void swap_buffers(void)
 void shutdown_window(void)
 {
     glfwTerminate();
-    printf("[Window] GLFW terminated\n");
+    LOG_DEBUG("GLFW terminated");
 }

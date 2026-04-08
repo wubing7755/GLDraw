@@ -4,6 +4,7 @@
 #include <core/nuklear_ui.h>
 #include <core/app_state.h>
 #include <core/shape.h>
+#include <core/macros.h>
 
 /* Nuklear configuration macros - must be defined before including Nuklear */
 #define NK_INCLUDE_FIXED_TYPES
@@ -30,11 +31,11 @@ static struct nk_rect s_property_panel_bounds;
 int init_nuklear_ui(GLFWwindow* window)
 {
     s_ctx = nk_glfw3_init(&g_glfw_ctx, window, 0 /* NK_GLFW3_INSTALL_CALLBACKS */);
-    if (!s_ctx) {
-        printf("[Nuklear] Failed to initialize\n");
+    if (UNLIKELY(!s_ctx)) {
+        LOG_ERROR("Failed to initialize Nuklear");
         return -1;
     }
-    printf("[Nuklear] Initialized (callbacks disabled for Phase 1)\n");
+    LOG_DEBUG("Nuklear initialized (callbacks disabled for Phase 1)");
 
     struct nk_font_atlas* atlas;
     nk_glfw3_font_stash_begin(&g_glfw_ctx, &atlas);
@@ -157,5 +158,5 @@ void nuklear_render(void)
 void shutdown_nuklear_ui(void)
 {
     nk_glfw3_shutdown(&g_glfw_ctx);
-    printf("[Nuklear] Shutdown complete\n");
+    LOG_DEBUG("Nuklear shutdown complete");
 }

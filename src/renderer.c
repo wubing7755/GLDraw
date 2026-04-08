@@ -8,6 +8,7 @@
 #include <core/renderer.h>
 #include <core/shader.h>
 #include <core/shape_manager.h>
+#include <core/macros.h>
 
 static GLuint s_VAO = 0;
 static GLuint s_VBO = 0;
@@ -70,12 +71,10 @@ static void rebuild_vertex_buffer(void)
         s_draw_infos = (ShapeDrawInfo*)malloc(count * sizeof(ShapeDrawInfo));
         s_shape_revisions = (unsigned int*)malloc(count * sizeof(unsigned int));
         s_draw_info_capacity = count;
-        if (!s_draw_infos || !s_shape_revisions) {
-            fprintf(stderr, "[Renderer] Failed to allocate draw metadata\n");
-            free(s_draw_infos);
-            free(s_shape_revisions);
-            s_draw_infos = NULL;
-            s_shape_revisions = NULL;
+        if (UNLIKELY(!s_draw_infos || !s_shape_revisions)) {
+            LOG_ERROR("Failed to allocate draw metadata");
+            SAFE_FREE(s_draw_infos);
+            SAFE_FREE(s_shape_revisions);
             s_draw_info_capacity = 0;
             return;
         }
@@ -89,8 +88,8 @@ static void rebuild_vertex_buffer(void)
     if (new_capacity > s_vertex_buf_capacity) {
         free(s_vertex_buf);
         s_vertex_buf = (float*)malloc(new_capacity);
-        if (!s_vertex_buf) {
-            fprintf(stderr, "[Renderer] Failed to allocate vertex buffer\n");
+        if (UNLIKELY(!s_vertex_buf)) {
+            LOG_ERROR("Failed to allocate vertex buffer");
             s_vertex_buf_capacity = 0;
             return;
         }
@@ -100,8 +99,8 @@ static void rebuild_vertex_buffer(void)
     if (geometry_capacity > s_geometry_buf_capacity) {
         free(s_geometry_buf);
         s_geometry_buf = (float*)malloc(geometry_capacity);
-        if (!s_geometry_buf) {
-            fprintf(stderr, "[Renderer] Failed to allocate geometry scratch buffer\n");
+        if (UNLIKELY(!s_geometry_buf)) {
+            LOG_ERROR("Failed to allocate geometry scratch buffer");
             s_geometry_buf_capacity = 0;
             return;
         }
@@ -181,7 +180,7 @@ int init_renderer(void)
     /* Create VAO */
     glGenVertexArrays(1, &s_VAO);
     glBindVertexArray(s_VAO);
-    printf("[Renderer] VAO created: %u\n", s_VAO);
+    LOG_DEBUG_F("VAO created: %u", s_VAO);
 
     /* Create dynamic VBO */
     glGenBuffers(1, &s_VBO);
@@ -200,7 +199,7 @@ int init_renderer(void)
 
     glBindVertexArray(0);
 
-    printf("[Renderer] Initialized (dynamic line buffer)\n");
+    LOG_DEBUG("Renderer initialized (dynamic line buffer)");
     return 0;
 }
 
@@ -275,7 +274,7 @@ void render_frame(void)
     glDisable(GL_BLEND);
 
     while ((err = glGetError()) != GL_NO_ERROR) {
-        fprintf(stderr, "[Renderer] GL error after draw: %d\n", err);
+        LOG_ERROR_F("GL error after draw: %d", err);
     }
 }
 
@@ -283,14 +282,10 @@ void cleanup_renderer(void)
 {
     glDeleteVertexArrays(1, &s_VAO);
     glDeleteBuffers(1, &s_VBO);
-    free(s_vertex_buf);
-    free(s_geometry_buf);
-    free(s_draw_infos);
-    free(s_shape_revisions);
-    s_vertex_buf = NULL;
-    s_geometry_buf = NULL;
-    s_draw_infos = NULL;
-    s_shape_revisions = NULL;
+    SAFE_FREE(s_vertex_buf);
+    SAFE_FREE(s_geometry_buf);
+    SAFE_FREE(s_draw_infos);
+    SAFE_FREE(s_shape_revisions);
     s_vertex_buf_capacity = 0;
     s_geometry_buf_capacity = 0;
     s_uploaded_buf_size = 0;
@@ -300,5 +295,5 @@ void cleanup_renderer(void)
     s_cached_shape_manager_revision = 0;
     s_VAO = 0;
     s_VBO = 0;
-    printf("[Renderer] Cleaned up\n");
+    LOG_DEBUG("Renderer cleaned up");
 }

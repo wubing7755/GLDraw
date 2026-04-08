@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <core/shape_registry.h>
+#include <core/macros.h>
 
 /* =============================================================================
  * Internal registry table — fixed size array of registered shape types
@@ -35,20 +36,20 @@ void shape_registry_shutdown(void)
 
 void shape_register(const char* type_name, ShapeCreateFn create_fn, ShapeVTable* vtable)
 {
-    if (s_registry_count >= MAX_SHAPE_TYPES) {
-        fprintf(stderr, "[Registry] ERROR: max shape types reached (%d)\n", MAX_SHAPE_TYPES);
+    if (UNLIKELY(s_registry_count >= MAX_SHAPE_TYPES)) {
+        LOG_ERROR_F("Max shape types reached (%d)", MAX_SHAPE_TYPES);
         return;
     }
 
-    if (!type_name || !create_fn || !vtable) {
-        fprintf(stderr, "[Registry] ERROR: invalid registration for shape type\n");
+    if (UNLIKELY(!type_name || !create_fn || !vtable)) {
+        LOG_ERROR("Invalid registration for shape type");
         return;
     }
 
     /* Check for duplicate registration */
     for (int i = 0; i < s_registry_count; i++) {
         if (strcmp(s_registry[i].name, type_name) == 0) {
-            fprintf(stderr, "[Registry] WARNING: '%s' already registered\n", type_name);
+            LOG_WARN_F("'%s' already registered", type_name);
             return;
         }
     }

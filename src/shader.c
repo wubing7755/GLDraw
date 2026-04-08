@@ -3,15 +3,15 @@
 #include <string.h>
 #include <glad/glad.h>
 #include <core/shader.h>
+#include <core/macros.h>
 
 static GLuint s_shader_program = 0;
 
 char* read_shader_file(const char* path)
 {
     FILE* file = fopen(path, "r");
-    if (!file)
-    {
-        printf("[Shader] Cannot open file: %s\n", path);
+    if (UNLIKELY(!file)) {
+        LOG_ERROR_F("Cannot open shader file: %s", path);
         return NULL;
     }
 
@@ -20,9 +20,8 @@ char* read_shader_file(const char* path)
     fseek(file, 0, SEEK_SET);
 
     char* source = (char*)malloc((size_t)size + 1);
-    if (!source)
-    {
-        printf("[Shader] Memory allocation failed\n");
+    if (UNLIKELY(!source)) {
+        LOG_ERROR_F("Memory allocation failed for shader: %s", path);
         fclose(file);
         return NULL;
     }
@@ -37,9 +36,9 @@ char* read_shader_file(const char* path)
 static GLuint compile_shader(GLenum type, const char* source)
 {
     GLuint shader = glCreateShader(type);
-    if (shader == 0)
-    {
-        printf("[Shader] Failed to create shader object\n");
+    if (UNLIKELY(shader == 0)) {
+        LOG_ERROR_F("Failed to create shader object (type: %s)",
+                  type == GL_VERTEX_SHADER ? "vertex" : "fragment");
         return 0;
     }
 
@@ -48,26 +47,24 @@ static GLuint compile_shader(GLenum type, const char* source)
 
     GLint success;
     glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
-    if (!success)
-    {
+    if (UNLIKELY(!success)) {
         char info_log[512];
         glGetShaderInfoLog(shader, 512, NULL, info_log);
-        printf("[Shader] Compilation failed:\n%s\n", info_log);
+        LOG_ERROR_F("Shader compilation failed:\n%s", info_log);
         glDeleteShader(shader);
         return 0;
     }
 
-    printf("[Shader] Compiled successfully (type: %s)\n",
-           type == GL_VERTEX_SHADER ? "vertex" : "fragment");
+    LOG_DEBUG_F("Shader compiled: %s",
+              type == GL_VERTEX_SHADER ? "vertex" : "fragment");
     return shader;
 }
 
 static GLuint link_program(GLuint vertex_shader, GLuint fragment_shader)
 {
     GLuint program = glCreateProgram();
-    if (program == 0)
-    {
-        printf("[Shader] Failed to create program object\n");
+    if (UNLIKELY(program == 0)) {
+        LOG_ERROR("Failed to create program object");
         return 0;
     }
 
@@ -77,16 +74,15 @@ static GLuint link_program(GLuint vertex_shader, GLuint fragment_shader)
 
     GLint success;
     glGetProgramiv(program, GL_LINK_STATUS, &success);
-    if (!success)
-    {
+    if (UNLIKELY(!success)) {
         char info_log[512];
         glGetProgramInfoLog(program, 512, NULL, info_log);
-        printf("[Shader] Linking failed:\n%s\n", info_log);
+        LOG_ERROR_F("Shader linking failed:\n%s", info_log);
         glDeleteProgram(program);
         return 0;
     }
 
-    printf("[Shader] Linked successfully (program ID: %u)\n", program);
+    LOG_DEBUG_F("Shader linked (program ID: %u)", program);
     return program;
 }
 
@@ -99,61 +95,39 @@ GLuint load_shader_program(const char* vertex_path, const char* fragment_path)
     GLuint program = 0;
 
     vertex_source = read_shader_file(vertex_path);
-    if (!vertex_source)
-    {
-        goto cleanup;
-    }
+    ERR_PROPAGATE(!vertex_source);
 
     fragment_source = read_shader_file(fragment_path);
-    if (!fragment_source)
-    {
-        goto cleanup;
-    }
+    ERR_PROPAGATE(!fragment_source);
 
     vertex_shader = compile_shader(GL_VERTEX_SHADER, vertex_source);
-    if (vertex_shader == 0)
-    {
-        goto cleanup;
-    }
+    ERR_PROPAGATE(!vertex_shader);
 
     fragment_shader = compile_shader(GL_FRAGMENT_SHADER, fragment_source);
-    if (fragment_shader == 0)
-    {
-        goto cleanup;
-    }
+    ERR_PROPAGATE(!fragment_shader);
 
     program = link_program(vertex_shader, fragment_shader);
-    if (program == 0)
-    {
-        goto cleanup;
-    }
+    ERR_PROPAGATE(!program);
 
     /* Cache program handle */
     s_shader_program = program;
-    printf("[Shader] Program ready: %u\n", program);
+    LOG_INFO_F("Shader program ready: %u", program);
 
 cleanup:
-    /* Always free sources regardless of success/failure */
-    free(vertex_source);
-    free(fragment_source);
+    SAFE_FREE(vertex_source);
+    SAFE_FREE(fragment_source);
 
     /* Delete shaders after linking (they're part of the program now) */
-    if (vertex_shader != 0)
-    {
-        glDeleteShader(vertex_shader);
-    }
-    if (fragment_shader != 0)
-    {
-        glDeleteShader(fragment_shader);
-    }
+    if (vertex_shader != 0) glDeleteShader(vertex_shader);
+    if (fragment_shader != 0) glDeleteShader(fragment_shader);
 
     return program;
 }
 
 void shader_use(void)
 {
-    if (s_shader_program == 0) {
-        fprintf(stderr, "[Shader] ERROR: shader program is 0!\n");
+    if (UNLIKELY(s_shader_program == 0)) {
+        LOG_ERROR("Shader program is 0!");
         return;
     }
     glUseProgram(s_shader_program);
@@ -164,6 +138,6 @@ void cleanup_shaders(void)
     if (s_shader_program != 0) {
         glDeleteProgram(s_shader_program);
         s_shader_program = 0;
-        printf("[Shader] Cleaned up\n");
+        LOG_DEBUG("Shader program cleaned up");
     }
 }

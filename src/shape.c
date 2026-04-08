@@ -5,6 +5,7 @@
 #include <core/shape.h>
 #include <core/shape_impl.h>
 #include <core/shape_registry.h>
+#include <core/macros.h>
 
 /* =============================================================================
  * Concrete vtable implementations
@@ -49,8 +50,8 @@ static void line_translate(Shape* s, float dx, float dy)
 static void line_destroy(Shape* s)
 {
     if (!s) return;
-    free(s->impl);
-    free(s);
+    SAFE_FREE(s->impl);
+    SAFE_FREE(s);
 }
 
 static void line_bounds(const Shape* s, float* minX, float* minY, float* maxX, float* maxY)
@@ -116,8 +117,8 @@ static ShapeVTable line_vtable = {
 static void circle_destroy(Shape* s)
 {
     if (!s) return;
-    free(s->impl);
-    free(s);
+    SAFE_FREE(s->impl);
+    SAFE_FREE(s);
 }
 
 static void circle_bounds(const Shape* s, float* minX, float* minY, float* maxX, float* maxY)
@@ -179,8 +180,8 @@ static ShapeVTable circle_vtable = {
 static void rect_destroy(Shape* s)
 {
     if (!s) return;
-    free(s->impl);
-    free(s);
+    SAFE_FREE(s->impl);
+    SAFE_FREE(s);
 }
 
 static void rect_bounds(const Shape* s, float* minX, float* minY, float* maxX, float* maxY)
@@ -247,9 +248,9 @@ static Shape* shape_create_line_internal(float x1, float y1, float x2, float y2,
                                         float line_width)
 {
     Shape* s = (Shape*)malloc(sizeof(Shape));
-    if (!s) return NULL;
+    if (UNLIKELY(!s)) return NULL;
     LineImpl* impl = (LineImpl*)malloc(sizeof(LineImpl));
-    if (!impl) { free(s); return NULL; }
+    if (UNLIKELY(!impl)) { SAFE_FREE(s); return NULL; }
     impl->p1[0] = x1; impl->p1[1] = y1;
     impl->p2[0] = x2; impl->p2[1] = y2;
     s->vtable = &line_vtable;
@@ -265,9 +266,9 @@ static Shape* shape_create_circle_internal(float cx, float cy, float radius,
                                          float line_width)
 {
     Shape* s = (Shape*)malloc(sizeof(Shape));
-    if (!s) return NULL;
+    if (UNLIKELY(!s)) return NULL;
     CircleImpl* impl = (CircleImpl*)malloc(sizeof(CircleImpl));
-    if (!impl) { free(s); return NULL; }
+    if (UNLIKELY(!impl)) { SAFE_FREE(s); return NULL; }
     impl->center[0] = cx; impl->center[1] = cy;
     impl->radius = radius;
     s->vtable = &circle_vtable;
@@ -283,9 +284,9 @@ static Shape* shape_create_rect_internal(float x1, float y1, float x2, float y2,
                                        float line_width)
 {
     Shape* s = (Shape*)malloc(sizeof(Shape));
-    if (!s) return NULL;
+    if (UNLIKELY(!s)) return NULL;
     RectImpl* impl = (RectImpl*)malloc(sizeof(RectImpl));
-    if (!impl) { free(s); return NULL; }
+    if (UNLIKELY(!impl)) { SAFE_FREE(s); return NULL; }
     impl->min[0] = x1; impl->min[1] = y1;
     impl->max[0] = x2; impl->max[1] = y2;
     s->vtable = &rect_vtable;
@@ -317,8 +318,8 @@ Shape* shape_create(const char* type_name,
                     float line_width)
 {
     Shape* shape = shape_registry_create(type_name, r, g, b, a, line_width);
-    if (!shape) {
-        fprintf(stderr, "[Shape] Unknown type: '%s'\n", type_name ? type_name : "(null)");
+    if (UNLIKELY(!shape)) {
+        LOG_ERROR_F("Unknown shape type: '%s'", type_name ? type_name : "(null)");
     }
     return shape;
 }
