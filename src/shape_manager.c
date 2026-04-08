@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <core/shape_manager.h>
+#include <core/macros.h>
 
 /* =============================================================================
  * Phase 1: Dynamic array implementation
@@ -29,7 +30,7 @@ void sm_shutdown(void)
 
 int sm_add(Shape* s)
 {
-    if (!s || s_count >= SHAPE_MAX_LINES) {
+    if (UNLIKELY(!s || s_count >= SHAPE_MAX_LINES)) {
         return 0;
     }
     s_shapes[s_count++] = s;
@@ -41,7 +42,7 @@ Shape* sm_take_last(void)
 {
     Shape* shape = NULL;
 
-    if (s_count <= 0) {
+    if (UNLIKELY(s_count <= 0)) {
         return NULL;
     }
 
@@ -67,7 +68,7 @@ int sm_count(void)
 
 Shape* sm_get(int index)
 {
-    if (index < 0 || index >= s_count) {
+    if (UNLIKELY(index < 0 || index >= s_count)) {
         return NULL;
     }
     return s_shapes[index];

@@ -1,4 +1,3 @@
-#include <stdio.h>
 #include <GLFW/glfw3.h>
 #include <core/window.h>
 #include <core/app_state.h>
@@ -7,6 +6,7 @@
 #include <core/draw_tool.h>
 #include <core/select_tool.h>
 #include <core/nuklear_ui.h>
+#include <core/macros.h>
 
 /* =============================================================================
  * Phase 3: Input handling — delegates to ToolManager
@@ -98,17 +98,21 @@ static void key_callback(GLFWwindow* window, int key, int scancode,
             /* LINE */
             draw_tool_set_type(g_app_state.current_draw_tool, "LINE");
             toolmanager_set_tool(g_app_state.current_draw_tool);
+            LOG_DEBUG("Tool switched: LINE");
         } else if (key == GLFW_KEY_2 && g_app_state.current_draw_tool) {
             /* CIRCLE */
             draw_tool_set_type(g_app_state.current_draw_tool, "CIRCLE");
             toolmanager_set_tool(g_app_state.current_draw_tool);
+            LOG_DEBUG("Tool switched: CIRCLE");
         } else if (key == GLFW_KEY_3 && g_app_state.current_draw_tool) {
             /* RECT */
             draw_tool_set_type(g_app_state.current_draw_tool, "RECT");
             toolmanager_set_tool(g_app_state.current_draw_tool);
+            LOG_DEBUG("Tool switched: RECT");
         } else if (key == GLFW_KEY_S && g_app_state.select_tool) {
             /* SELECT tool */
             toolmanager_set_tool(g_app_state.select_tool);
+            LOG_DEBUG("Tool switched: SELECT");
         }
     }
 

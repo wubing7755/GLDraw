@@ -13,6 +13,7 @@
 #include <core/tool_manager.h>
 #include <core/draw_tool.h>
 #include <core/select_tool.h>
+#include <core/macros.h>
 
 static double get_time_seconds(void)
 {
@@ -39,70 +40,70 @@ int main(void)
 
     /* Phase 1: Initialization */
 
-    printf("[Main] Initializing window...\n");
-    if (init_window() != 0) {
-        printf("[Main] Window initialization failed\n");
+    LOG_INFO("Initializing window...");
+    if (UNLIKELY(init_window() != 0)) {
+        LOG_ERROR("Window initialization failed");
         goto cleanup;
     }
     window_initialized = 1;
 
-    printf("[Main] Loading OpenGL functions...\n");
-    if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
-        printf("[Main] Failed to load OpenGL functions\n");
+    LOG_INFO("Loading OpenGL functions...");
+    if (UNLIKELY(!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))) {
+        LOG_ERROR("Failed to load OpenGL functions");
         goto cleanup;
     }
-    printf("[Main] OpenGL loaded: %s\n", glGetString(GL_VERSION));
+    LOG_INFO_F("OpenGL loaded: %s", glGetString(GL_VERSION));
 
-    printf("[Main] Loading shaders...\n");
-    if (load_shader_program("shaders/basic.vert",
-                            "shaders/basic.frag") == 0) {
-        printf("[Main] Shader loading failed\n");
+    LOG_INFO("Loading shaders...");
+    if (UNLIKELY(load_shader_program("shaders/basic.vert",
+                            "shaders/basic.frag") == 0)) {
+        LOG_ERROR("Shader loading failed");
         goto cleanup;
     }
     shaders_loaded = 1;
 
-    printf("[Main] Initializing ShapeManager...\n");
+    LOG_INFO("Initializing ShapeManager...");
     sm_init();
     shape_manager_initialized = 1;
 
-    printf("[Main] Initializing ShapeRegistry...\n");
+    LOG_INFO("Initializing ShapeRegistry...");
     shape_registry_init();
     shape_register_all();
     shape_registry_initialized = 1;
 
-    printf("[Main] Initializing renderer...\n");
-    if (init_renderer() != 0) {
-        printf("[Main] Renderer initialization failed\n");
+    LOG_INFO("Initializing renderer...");
+    if (UNLIKELY(init_renderer() != 0)) {
+        LOG_ERROR("Renderer initialization failed");
         goto cleanup;
     }
     renderer_initialized = 1;
 
-    printf("[Main] Initializing input...\n");
+    LOG_INFO("Initializing input...");
     init_input(window_get_handle());
 
-    printf("[Main] Initializing ToolManager...\n");
+    LOG_INFO("Initializing ToolManager...");
     toolmanager_init();
     toolmanager_initialized = 1;
 
     /* Create tools */
     draw_tool = draw_tool_create("LINE");
     select_tool = select_tool_create();
-    if (!draw_tool || !select_tool) {
-        printf("[Main] Failed to create tools\n");
+    if (UNLIKELY(!draw_tool || !select_tool)) {
+        LOG_ERROR("Failed to create tools");
         goto cleanup;
     }
 
     /* Initialize input with tools */
     input_init_tools(draw_tool, select_tool, draw_tool);
 
-    printf("[Main] Initializing Nuklear UI...\n");
-    if (init_nuklear_ui(window_get_handle()) != 0) {
-        printf("[Main] Nuklear initialization failed\n");
+    LOG_INFO("Initializing Nuklear UI...");
+    if (UNLIKELY(init_nuklear_ui(window_get_handle()) != 0)) {
+        LOG_ERROR("Nuklear initialization failed");
         goto cleanup;
     }
     nuklear_initialized = 1;
 
-    printf("\n[Main] Initialization complete!\n");
+    LOG_INFO("Initialization complete!");
     printf("===========================================\n");
     printf("Controls:\n");
     printf("  Left mouse drag — draw line\n");
@@ -134,7 +135,7 @@ int main(void)
     }
 
     /* Cleanup */
-    printf("\n[Main] Cleaning up...\n");
+    LOG_INFO("Cleaning up...");
     exit_code = 0;
 
 cleanup:
@@ -166,6 +167,6 @@ cleanup:
         shutdown_window();
     }
 
-    printf("[Main] Done!\n");
+    LOG_INFO("Done!");
     return exit_code;
 }

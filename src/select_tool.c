@@ -1,6 +1,7 @@
 #include <core/select_tool.h>
 #include <core/shape.h>
 #include <core/shape_manager.h>
+#include <core/macros.h>
 #include <stdlib.h>
 
 struct SelectToolCtx {
@@ -106,10 +107,10 @@ static ToolVTable select_tool_vtable = {
 Tool* select_tool_create(void)
 {
     Tool* t = (Tool*)malloc(sizeof(Tool));
-    if (!t) return NULL;
+    if (UNLIKELY(!t)) return NULL;
 
     SelectToolCtx* ctx = (SelectToolCtx*)malloc(sizeof(SelectToolCtx));
-    if (!ctx) { free(t); return NULL; }
+    if (UNLIKELY(!ctx)) { SAFE_FREE(t); return NULL; }
 
     ctx->dragging = 0;
     ctx->drag_start[0] = ctx->drag_start[1] = 0.0f;
@@ -123,6 +124,6 @@ Tool* select_tool_create(void)
 void select_tool_destroy(Tool* t)
 {
     if (!t) return;
-    free(t->ctx);
-    free(t);
+    SAFE_FREE(t->ctx);
+    SAFE_FREE(t);
 }

@@ -3,6 +3,7 @@
 #include <core/shape_manager.h>
 #include <core/shape_impl.h>
 #include <core/shape_registry.h>
+#include <core/macros.h>
 #include <string.h>
 #include <stdlib.h>
 #include <math.h>
@@ -155,10 +156,10 @@ static ToolVTable draw_tool_vtable = {
 Tool* draw_tool_create(const char* shape_type)
 {
     Tool* t = (Tool*)malloc(sizeof(Tool));
-    if (!t) return NULL;
+    if (UNLIKELY(!t)) return NULL;
 
     DrawToolCtx* ctx = (DrawToolCtx*)malloc(sizeof(DrawToolCtx));
-    if (!ctx) { free(t); return NULL; }
+    if (UNLIKELY(!ctx)) { SAFE_FREE(t); return NULL; }
 
     ctx->p1[0] = ctx->p1[1] = 0.0f;
     ctx->p2[0] = ctx->p2[1] = 0.0f;
@@ -174,8 +175,8 @@ Tool* draw_tool_create(const char* shape_type)
 void draw_tool_destroy(Tool* t)
 {
     if (!t) return;
-    free(t->ctx);
-    free(t);
+    SAFE_FREE(t->ctx);
+    SAFE_FREE(t);
 }
 
 const char* draw_tool_get_type(const Tool* t)
