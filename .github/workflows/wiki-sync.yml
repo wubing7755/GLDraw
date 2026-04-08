@@ -3,7 +3,9 @@ name: Sync Wiki
 on:
   push:
     branches: [docs/wiki]
-    paths: [doc/wiki/**]
+    paths:
+      - doc/wiki/**       # Wiki content changes
+      - .github/workflows/wiki-sync.yml  # Workflow itself
 
 jobs:
   sync:
