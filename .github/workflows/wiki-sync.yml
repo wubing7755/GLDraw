@@ -7,13 +7,16 @@ on:
       - doc/wiki/**       # Wiki content changes
       - .github/workflows/wiki-sync.yml  # Workflow itself
 
+permissions:
+  contents: read
+
 jobs:
   sync:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout wiki repo
         run: |
-          git clone https://github.com/${{ github.repository }}.wiki.git wiki
+          git clone https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.wiki.git wiki
       - name: Copy wiki files
         run: cp -r doc/wiki/* wiki/
       - name: Push to wiki
