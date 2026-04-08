@@ -15,6 +15,11 @@ jobs:
   sync:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout main repo
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            doc/wiki
       - name: Checkout wiki repo
         run: |
           git clone https://x-access-token:${{ secrets.WIKI_TOKEN }}@github.com/${{ github.repository }}.wiki.git wiki
