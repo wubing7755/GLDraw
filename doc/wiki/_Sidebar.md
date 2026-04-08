@@ -3,25 +3,25 @@
 **A minimal OpenGL 3.3 drawing app**
 
 ### Getting Started
-- [Introduction](introduction.md)
-- [Getting Started](getting-started.md)
-- [FAQ](faq.md)
+- [Introduction](introduction)
+- [Getting Started](getting-started)
+- [FAQ](faq)
 
 ### Guides
-- [Project Structure](project-structure.md)
-- [Architecture](architecture.md)
-- [Data Flow](data-flow.md)
-- [Extending](extending.md)
-- [Known Issues](known-issues.md)
+- [Project Structure](project-structure)
+- [Architecture](architecture)
+- [Data Flow](data-flow)
+- [Extending](extending)
+- [Known Issues](known-issues)
 
 ### Core Systems
-- [Overview](core-systems/README.md)
-- [Rendering](core-systems/rendering-system.md)
-- [Shape](core-systems/shape-system.md)
-- [Tool](core-systems/tool-system.md)
-- [UI](core-systems/ui-system.md)
-- [Input](core-systems/input-handling.md)
-- [Selection](core-systems/selection-system.md)
+- [Overview](core-systems)
+- [Rendering](core-systems/rendering-system)
+- [Shape](core-systems/shape-system)
+- [Tool](core-systems/tool-system)
+- [UI](core-systems/ui-system)
+- [Input](core-systems/input-handling)
+- [Selection](core-systems/selection-system)
 
 ---
 [GitHub Repo](https://github.com/wubing7755/GLDraw)

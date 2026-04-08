@@ -101,6 +101,6 @@ GLDraw/
 
 ## Next Steps
 
-- Read [Project Structure](project-structure.md) to understand the codebase
-- Read [Architecture Overview](architecture.md) for high-level design
-- Read [Core Systems](core-systems/README.md) for detailed subsystem documentation
+- Read [Project Structure](project-structure) to understand the codebase
+- Read [Architecture Overview](architecture) for high-level design
+- Read [Core Systems](core-systems) for detailed subsystem documentation

@@ -35,7 +35,7 @@ Ensure your graphics driver supports OpenGL 3.3. Update your graphics drivers.
 
 ### How do I add a new shape?
 
-See [Extending the Project](extending.md) for a step-by-step tutorial.
+See [Extending the Project](extending) for a step-by-step tutorial.
 
 ### How do I change the window size?
 
@@ -43,11 +43,11 @@ Modify `DEFAULT_WIDTH` and `DEFAULT_HEIGHT` in `src/window.c`, or add command-li
 
 ### How does the vtable pattern work?
 
-Shapes and Tools use function pointers for polymorphism. Each concrete type (Line, Circle, Rect) implements the same interface. See [Shape System](core-systems/shape-system.md) for details.
+Shapes and Tools use function pointers for polymorphism. Each concrete type (Line, Circle, Rect) implements the same interface. See [Shape System](core-systems/shape-system) for details.
 
 ### Why use a registry pattern?
 
-The registry allows adding new shape types without modifying `ShapeManager` or `Renderer`. See [Shape System](core-systems/shape-system.md).
+The registry allows adding new shape types without modifying `ShapeManager` or `Renderer`. See [Shape System](core-systems/shape-system).
 
 ## Troubleshooting
 

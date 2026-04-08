@@ -96,4 +96,4 @@ shape_registry_register("RECT", rect_create);
 4. Register in `shape_register_all()` in `main.c`
 5. Add keyboard shortcut in `input.c`
 
-See [Extending the Project](../extending.md) for full tutorial.
+See [Extending the Project](../extending) for full tutorial.
