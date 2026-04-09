@@ -158,9 +158,9 @@ static void rebuild_vertex_buffer(void)
         float a = s->color[3];
 
         for (int j = 0; j < vert_count; j++) {
-            /* Normalize coordinates to 0-1 range for resolution-independent rendering */
-            *ptr++ = shape_vertices[j * 2] / BASE_WIDTH;       /* normalized x */
-            *ptr++ = shape_vertices[j * 2 + 1] / BASE_HEIGHT;  /* normalized y */
+            /* Coordinates are in pixel space relative to BASE resolution */
+            *ptr++ = shape_vertices[j * 2];       /* x in pixels */
+            *ptr++ = shape_vertices[j * 2 + 1];  /* y in pixels */
             *ptr++ = r;
             *ptr++ = g;
             *ptr++ = b;

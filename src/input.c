@@ -8,6 +8,10 @@
 #include <core/nuklear_ui.h>
 #include <core/macros.h>
 
+/* Base resolution for coordinate system - must match renderer.c */
+#define BASE_RESOLUTION_WIDTH  800
+#define BASE_RESOLUTION_HEIGHT 600
+
 /* =============================================================================
  * Phase 3: Input handling — delegates to ToolManager
  *
@@ -15,7 +19,7 @@
  * =============================================================================
  */
 
-/* Convert window coords to OpenGL normalized coords */
+/* Convert window coords to pixel coords relative to base resolution */
 static void window_to_opengl(double win_x, double win_y, float* out_x, float* out_y)
 {
     int width, height;
@@ -27,9 +31,9 @@ static void window_to_opengl(double win_x, double win_y, float* out_x, float* ou
         return;
     }
 
-    /* Window coords: (0,0) top-left → OpenGL coords: (-1,-1) bottom-left */
-    *out_x = (float)(win_x / (double)width * 2.0 - 1.0);
-    *out_y = (float)(1.0 - win_y / (double)height * 2.0);
+    /* Map window pixels to base resolution (800x600) for consistent coordinates */
+    *out_x = (float)(win_x / (double)width * BASE_RESOLUTION_WIDTH);
+    *out_y = (float)((double)height - win_y) / (double)height * BASE_RESOLUTION_HEIGHT;
 }
 
 static void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
