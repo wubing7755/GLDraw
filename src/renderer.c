@@ -284,7 +284,7 @@ void render_frame(void)
     shader_use();
 
     /* Set projection matrix uniform */
-    GLint proj_loc = glGetUniformLocation(s_shader_program, "uProjection");
+    GLint proj_loc = glGetUniformLocation(shader_get_program(), "uProjection");
     if (proj_loc >= 0) {
         glUniformMatrix4fv(proj_loc, 1, GL_FALSE, s_projection);
     }

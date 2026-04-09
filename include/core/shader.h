@@ -6,5 +6,6 @@
 GLuint load_shader_program(const char* vertex_path, const char* fragment_path);
 void cleanup_shaders(void);
 void shader_use(void);
+GLuint shader_get_program(void);
 
 #endif /* SHADER_H */

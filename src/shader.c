@@ -141,3 +141,8 @@ void cleanup_shaders(void)
         LOG_DEBUG("Shader program cleaned up");
     }
 }
+
+GLuint shader_get_program(void)
+{
+    return s_shader_program;
+}
