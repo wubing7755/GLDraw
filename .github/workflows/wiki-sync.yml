@@ -1,0 +1,35 @@
+name: Sync Wiki
+
+on:
+  push:
+    branches: [docs/wiki]
+    paths:
+      - doc/wiki/**       # Wiki content changes
+      - .github/workflows/wiki-sync.yml  # Workflow itself
+
+permissions:
+  contents: read
+  pull-requests: none
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main repo
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            doc/wiki
+      - name: Checkout wiki repo
+        run: |
+          git clone https://x-access-token:${{ secrets.WIKI_TOKEN }}@github.com/${{ github.repository }}.wiki.git wiki
+      - name: Copy wiki files
+        run: cp -r doc/wiki/* wiki/
+      - name: Push to wiki
+        run: |
+          cd wiki
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add .
+          git diff --staged --quiet || git commit -m "Update from ${{ github.sha }}"
+          git push
