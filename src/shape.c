@@ -46,6 +46,32 @@ static void line_translate(Shape* s, float dx, float dy)
     line->p2[0] += dx; line->p2[1] += dy;
 }
 
+static int line_get_property(const Shape* s, const char* key, float* out_value)
+{
+    LineImpl* line = (LineImpl*)s->impl;
+    if (strcmp(key, "p1_x") == 0) { *out_value = line->p1[0]; return 1; }
+    if (strcmp(key, "p1_y") == 0) { *out_value = line->p1[1]; return 1; }
+    if (strcmp(key, "p2_x") == 0) { *out_value = line->p2[0]; return 1; }
+    if (strcmp(key, "p2_y") == 0) { *out_value = line->p2[1]; return 1; }
+    if (strcmp(key, "length") == 0) {
+        float dx = line->p2[0] - line->p1[0];
+        float dy = line->p2[1] - line->p1[1];
+        *out_value = sqrtf(dx*dx + dy*dy);
+        return 1;
+    }
+    return default_get_property(s, key, out_value);
+}
+
+static int line_set_property(Shape* s, const char* key, float value)
+{
+    LineImpl* line = (LineImpl*)s->impl;
+    if (strcmp(key, "p1_x") == 0) { line->p1[0] = value; return 1; }
+    if (strcmp(key, "p1_y") == 0) { line->p1[1] = value; return 1; }
+    if (strcmp(key, "p2_x") == 0) { line->p2[0] = value; return 1; }
+    if (strcmp(key, "p2_y") == 0) { line->p2[1] = value; return 1; }
+    return default_set_property(s, key, value);
+}
+
 /* ---------- LINE ---------- */
 static void line_destroy(Shape* s)
 {
@@ -109,8 +135,8 @@ static ShapeVTable line_vtable = {
     .get_vertex_count = line_get_vertex_count,
     .write_geometry = line_write_geometry,
     .translate = line_translate,
-    .get_property = default_get_property,
-    .set_property = default_set_property,
+    .get_property = line_get_property,
+    .set_property = line_set_property,
 };
 
 /* ---------- CIRCLE ---------- */
@@ -164,6 +190,24 @@ static void circle_translate(Shape* s, float dx, float dy)
     c->center[1] += dy;
 }
 
+static int circle_get_property(const Shape* s, const char* key, float* out_value)
+{
+    CircleImpl* c = (CircleImpl*)s->impl;
+    if (strcmp(key, "center_x") == 0) { *out_value = c->center[0]; return 1; }
+    if (strcmp(key, "center_y") == 0) { *out_value = c->center[1]; return 1; }
+    if (strcmp(key, "radius") == 0) { *out_value = c->radius; return 1; }
+    return default_get_property(s, key, out_value);
+}
+
+static int circle_set_property(Shape* s, const char* key, float value)
+{
+    CircleImpl* c = (CircleImpl*)s->impl;
+    if (strcmp(key, "center_x") == 0) { c->center[0] = value; return 1; }
+    if (strcmp(key, "center_y") == 0) { c->center[1] = value; return 1; }
+    if (strcmp(key, "radius") == 0) { c->radius = value; return 1; }
+    return default_set_property(s, key, value);
+}
+
 static ShapeVTable circle_vtable = {
     .name = "CIRCLE",
     .destroy = circle_destroy,
@@ -172,8 +216,8 @@ static ShapeVTable circle_vtable = {
     .get_vertex_count = circle_get_vertex_count,
     .write_geometry = circle_write_geometry,
     .translate = circle_translate,
-    .get_property = default_get_property,
-    .set_property = default_set_property,
+    .get_property = circle_get_property,
+    .set_property = circle_set_property,
 };
 
 /* ---------- RECTANGLE ---------- */
@@ -230,6 +274,26 @@ static void rect_translate(Shape* s, float dx, float dy)
     r->max[0] += dx; r->max[1] += dy;
 }
 
+static int rect_get_property(const Shape* s, const char* key, float* out_value)
+{
+    RectImpl* r = (RectImpl*)s->impl;
+    if (strcmp(key, "x") == 0) { *out_value = r->min[0]; return 1; }
+    if (strcmp(key, "y") == 0) { *out_value = r->min[1]; return 1; }
+    if (strcmp(key, "width") == 0) { *out_value = r->max[0] - r->min[0]; return 1; }
+    if (strcmp(key, "height") == 0) { *out_value = r->max[1] - r->min[1]; return 1; }
+    return default_get_property(s, key, out_value);
+}
+
+static int rect_set_property(Shape* s, const char* key, float value)
+{
+    RectImpl* r = (RectImpl*)s->impl;
+    if (strcmp(key, "x") == 0) { r->min[0] = value; return 1; }
+    if (strcmp(key, "y") == 0) { r->min[1] = value; return 1; }
+    if (strcmp(key, "width") == 0) { r->max[0] = r->min[0] + value; return 1; }
+    if (strcmp(key, "height") == 0) { r->max[1] = r->min[1] + value; return 1; }
+    return default_set_property(s, key, value);
+}
+
 static ShapeVTable rect_vtable = {
     .name = "RECT",
     .destroy = rect_destroy,
@@ -238,8 +302,8 @@ static ShapeVTable rect_vtable = {
     .get_vertex_count = rect_get_vertex_count,
     .write_geometry = rect_write_geometry,
     .translate = rect_translate,
-    .get_property = default_get_property,
-    .set_property = default_set_property,
+    .get_property = rect_get_property,
+    .set_property = rect_set_property,
 };
 
 /* ---------- Internal constructors ---------- */

@@ -1,4 +1,6 @@
 #include <stdio.h>
+#include <string.h>
+#include <math.h>
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <core/nuklear_ui.h>
@@ -28,6 +30,52 @@ static struct nk_rect s_property_panel_bounds;
 #define MAX_VERTEX_BUFFER 512 * 1024
 #define MAX_ELEMENT_BUFFER 128 * 1024
 
+/* Returns 1 if all shapes have the same value for the property, 0 if mixed.
+   Sets *out_value to the common value (or first shape's value if mixed). */
+static int get_common_property_value(SelectionManager* sel, const char* key,
+                                     float* out_value, int* out_is_common)
+{
+    float first_val = 0;
+    shape_get_property(sel_get(sel, 0), key, &first_val);
+    *out_value = first_val;
+    *out_is_common = 1;
+
+    for (int i = 1; i < sel_count(sel); i++) {
+        float val = 0;
+        shape_get_property(sel_get(sel, i), key, &val);
+        if (fabsf(val - first_val) > 1e-6f) {
+            *out_is_common = 0;
+            return 0;
+        }
+    }
+    return 1;
+}
+
+/* Helper to create a labeled slider that applies to all selected shapes.
+   Shows "--" when selected shapes have mixed values. */
+static void property_slider_row(SelectionManager* sel, const char* label,
+                                const char* key, float min, float max, float step)
+{
+    float value = 0;
+    int is_common = 0;
+    get_common_property_value(sel, key, &value, &is_common);
+
+    nk_layout_row_dynamic(s_ctx, 20, 2);
+    nk_label(s_ctx, label, NK_TEXT_LEFT);
+
+    if (!is_common) {
+        /* Mixed values - show "--" and skip slider */
+        nk_label(s_ctx, "--", NK_TEXT_LEFT);
+    } else {
+        int changed = nk_slider_float(s_ctx, min, &value, max, step);
+        if (changed) {
+            for (int i = 0; i < sel_count(sel); i++) {
+                shape_set_property(sel_get(sel, i), key, value);
+            }
+        }
+    }
+}
+
 int init_nuklear_ui(GLFWwindow* window)
 {
     s_ctx = nk_glfw3_init(&g_glfw_ctx, window, 0 /* NK_GLFW3_INSTALL_CALLBACKS */);
@@ -53,71 +101,58 @@ void nuklear_new_frame(void)
 
 void nuklear_build_ui(void)
 {
-    /* Property Panel — Color & line width editing with multi-selection support */
+    /* Property Panel — displays and edits properties of selected shapes */
     if (nk_begin(s_ctx, "Property Panel", s_property_panel_bounds,
                  NK_WINDOW_BORDER)) {
         s_property_panel_bounds = nk_window_get_bounds(s_ctx);
         SelectionManager* sel = app_state_get_selection();
         if (sel && sel_count(sel) > 0) {
             Shape* first = sel_get(sel, 0);
+            const char* type = first->vtable->name;
 
-            /* Type display (Step 4a - read-only) */
+            /* Type display (read-only) */
             nk_layout_row_dynamic(s_ctx, 20, 1);
             nk_label(s_ctx, "Type:", NK_TEXT_LEFT);
             nk_layout_row_dynamic(s_ctx, 20, 1);
-            nk_label(s_ctx, first->vtable->name, NK_TEXT_LEFT);
+            nk_label(s_ctx, type, NK_TEXT_LEFT);
 
-            /* Color section (Step 4b) */
+            /* Shape-specific position/size editing */
+            if (strcmp(type, "LINE") == 0) {
+                nk_layout_row_dynamic(s_ctx, 20, 1);
+                nk_label(s_ctx, "Start:", NK_TEXT_LEFT);
+                property_slider_row(sel, "X:", "p1_x", -1.0f, 1.0f, 0.01f);
+                property_slider_row(sel, "Y:", "p1_y", -1.0f, 1.0f, 0.01f);
+
+                nk_layout_row_dynamic(s_ctx, 20, 1);
+                nk_label(s_ctx, "End:", NK_TEXT_LEFT);
+                property_slider_row(sel, "X:", "p2_x", -1.0f, 1.0f, 0.01f);
+                property_slider_row(sel, "Y:", "p2_y", -1.0f, 1.0f, 0.01f);
+            } else if (strcmp(type, "CIRCLE") == 0) {
+                nk_layout_row_dynamic(s_ctx, 20, 1);
+                nk_label(s_ctx, "Center:", NK_TEXT_LEFT);
+                property_slider_row(sel, "X:", "center_x", -1.0f, 1.0f, 0.01f);
+                property_slider_row(sel, "Y:", "center_y", -1.0f, 1.0f, 0.01f);
+
+                property_slider_row(sel, "Radius:", "radius", 0.01f, 0.5f, 0.01f);
+            } else if (strcmp(type, "RECT") == 0) {
+                property_slider_row(sel, "X:", "x", -1.0f, 1.0f, 0.01f);
+                property_slider_row(sel, "Y:", "y", -1.0f, 1.0f, 0.01f);
+                property_slider_row(sel, "Width:", "width", 0.01f, 1.0f, 0.01f);
+                property_slider_row(sel, "Height:", "height", 0.01f, 1.0f, 0.01f);
+            }
+
+            /* Color editing (shared by all shape types) */
             nk_layout_row_dynamic(s_ctx, 20, 1);
             nk_label(s_ctx, "Color:", NK_TEXT_LEFT);
+            property_slider_row(sel, "R:", "color_r", 0.0f, 1.0f, 0.01f);
+            property_slider_row(sel, "G:", "color_g", 0.0f, 1.0f, 0.01f);
+            property_slider_row(sel, "B:", "color_b", 0.0f, 1.0f, 0.01f);
+            property_slider_row(sel, "A:", "color_a", 0.0f, 1.0f, 0.01f);
 
-            float r = 0, g = 0, b = 0, a = 0;
-            /* Read from first shape */
-            shape_get_property(first, "color_r", &r);
-            shape_get_property(first, "color_g", &g);
-            shape_get_property(first, "color_b", &b);
-            shape_get_property(first, "color_a", &a);
+            /* Line width editing (shared by all shape types) */
+            property_slider_row(sel, "Line Width:", "line_width", 1.0f, 10.0f, 0.1f);
 
-            nk_layout_row_dynamic(s_ctx, 25, 1);
-            nk_label(s_ctx, "R:", NK_TEXT_LEFT);
-            nk_slider_float(s_ctx, 0.0f, &r, 1.0f, 0.01f);
-            for (int i = 0; i < sel_count(sel); i++) {
-                shape_set_property(sel_get(sel, i), "color_r", r);
-            }
-
-            nk_layout_row_dynamic(s_ctx, 25, 1);
-            nk_label(s_ctx, "G:", NK_TEXT_LEFT);
-            nk_slider_float(s_ctx, 0.0f, &g, 1.0f, 0.01f);
-            for (int i = 0; i < sel_count(sel); i++) {
-                shape_set_property(sel_get(sel, i), "color_g", g);
-            }
-
-            nk_layout_row_dynamic(s_ctx, 25, 1);
-            nk_label(s_ctx, "B:", NK_TEXT_LEFT);
-            nk_slider_float(s_ctx, 0.0f, &b, 1.0f, 0.01f);
-            for (int i = 0; i < sel_count(sel); i++) {
-                shape_set_property(sel_get(sel, i), "color_b", b);
-            }
-
-            nk_layout_row_dynamic(s_ctx, 25, 1);
-            nk_label(s_ctx, "A:", NK_TEXT_LEFT);
-            nk_slider_float(s_ctx, 0.0f, &a, 1.0f, 0.01f);
-            for (int i = 0; i < sel_count(sel); i++) {
-                shape_set_property(sel_get(sel, i), "color_a", a);
-            }
-
-            /* Line width section (Step 4c) */
-            nk_layout_row_dynamic(s_ctx, 20, 1);
-            nk_label(s_ctx, "Line Width:", NK_TEXT_LEFT);
-
-            float lw = 1.0f;
-            shape_get_property(first, "line_width", &lw);
-            nk_slider_float(s_ctx, 1.0f, &lw, 10.0f, 0.1f);
-            for (int i = 0; i < sel_count(sel); i++) {
-                shape_set_property(sel_get(sel, i), "line_width", lw);
-            }
-
-            /* Selection count (Step 4d) */
+            /* Selection count */
             nk_layout_row_dynamic(s_ctx, 20, 1);
             {
                 char buf[32];
