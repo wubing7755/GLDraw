@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <string.h>
+#include <math.h>
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <core/nuklear_ui.h>
@@ -29,23 +30,48 @@ static struct nk_rect s_property_panel_bounds;
 #define MAX_VERTEX_BUFFER 512 * 1024
 #define MAX_ELEMENT_BUFFER 128 * 1024
 
-/* Helper to create a labeled slider that applies to all selected shapes */
+/* Returns 1 if all shapes have the same value for the property, 0 if mixed.
+   Sets *out_value to the common value (or first shape's value if mixed). */
+static int get_common_property_value(SelectionManager* sel, const char* key,
+                                     float* out_value, int* out_is_common)
+{
+    float first_val = 0;
+    shape_get_property(sel_get(sel, 0), key, &first_val);
+    *out_value = first_val;
+    *out_is_common = 1;
+
+    for (int i = 1; i < sel_count(sel); i++) {
+        float val = 0;
+        shape_get_property(sel_get(sel, i), key, &val);
+        if (fabsf(val - first_val) > 1e-6f) {
+            *out_is_common = 0;
+            return 0;
+        }
+    }
+    return 1;
+}
+
+/* Helper to create a labeled slider that applies to all selected shapes.
+   Shows "--" when selected shapes have mixed values. */
 static void property_slider_row(SelectionManager* sel, const char* label,
                                 const char* key, float min, float max, float step)
 {
-    Shape* first = sel_get(sel, 0);
-    float value = 0.0f;
-    shape_get_property(first, key, &value);
+    float value = 0;
+    int is_common = 0;
+    get_common_property_value(sel, key, &value, &is_common);
 
     nk_layout_row_dynamic(s_ctx, 20, 2);
     nk_label(s_ctx, label, NK_TEXT_LEFT);
-    int changed = nk_slider_float(s_ctx, min, &value, max, step);
 
-    /* Only apply when user actually drags the slider to avoid overwriting
-       other selected shapes with different values */
-    if (changed) {
-        for (int i = 0; i < sel_count(sel); i++) {
-            shape_set_property(sel_get(sel, i), key, value);
+    if (!is_common) {
+        /* Mixed values - show "--" and skip slider */
+        nk_label(s_ctx, "--", NK_TEXT_LEFT);
+    } else {
+        int changed = nk_slider_float(s_ctx, min, &value, max, step);
+        if (changed) {
+            for (int i = 0; i < sel_count(sel); i++) {
+                shape_set_property(sel_get(sel, i), key, value);
+            }
         }
     }
 }
