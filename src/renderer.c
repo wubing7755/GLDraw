@@ -19,7 +19,7 @@ static size_t s_geometry_buf_capacity = 0;
 static size_t s_uploaded_buf_size = 0;
 static int s_gpu_buffer_dirty = 1;
 
-/* Base resolution for normalized coordinates */
+/* Base resolution for coordinate system */
 #define BASE_WIDTH 800
 #define BASE_HEIGHT 600
 
@@ -31,15 +31,32 @@ static float s_projection[16] = {
     0.0f, 0.0f, 0.0f, 1.0f
 };
 
-/* Update projection matrix to map (0,0)-(base_w,base_h) to viewport */
+/* Current viewport dimensions for aspect-ratio-correct projection */
+static int s_viewport_width = BASE_WIDTH;
+static int s_viewport_height = BASE_HEIGHT;
+
+/* Update projection matrix to map canvas to viewport with uniform scaling
+   Shapes maintain visual size regardless of window size */
 static void update_projection(void)
 {
-    float left = 0.0f;
-    float right = (float)BASE_WIDTH;
-    float bottom = (float)BASE_HEIGHT;
-    float top = 0.0f;  /* Y flipped for screen coordinates */
+    /* Compute scale to fit canvas in viewport with uniform scaling */
+    float scale_x = (float)s_viewport_width / BASE_WIDTH;
+    float scale_y = (float)s_viewport_height / BASE_HEIGHT;
+    float scale = (scale_x < scale_y) ? scale_x : scale_y;
 
-    /* Column-major orthographic projection */
+    /* Center the canvas in viewport */
+    float scaled_width = BASE_WIDTH * scale;
+    float scaled_height = BASE_HEIGHT * scale;
+    float offset_x = (s_viewport_width - scaled_width) * 0.5f;
+    float offset_y = (s_viewport_height - scaled_height) * 0.5f;
+
+    /* Map canvas [0,800]x[0,600] to viewport pixels with uniform scale */
+    float left = -offset_x / scale;
+    float right = left + BASE_WIDTH;
+    float bottom = -offset_y / scale;
+    float top = bottom + BASE_HEIGHT;
+
+    /* Column-major orthographic projection: y=0 at TOP, y=BASE_HEIGHT at BOTTOM */
     s_projection[0] = 2.0f / (right - left);
     s_projection[5] = 2.0f / (top - bottom);
     s_projection[10] = -1.0f;
@@ -47,6 +64,20 @@ static void update_projection(void)
     s_projection[13] = -(top + bottom) / (top - bottom);
     s_projection[14] = 0.0f;
     s_projection[15] = 1.0f;
+
+    /* Also update viewport to only render to the canvas area */
+    glViewport((GLint)offset_x, (GLint)offset_y,
+               (GLsizei)scaled_width, (GLsizei)scaled_height);
+}
+
+void renderer_on_viewport_change(void)
+{
+    int width, height;
+    GLFWwindow* win = glfwGetCurrentContext();
+    glfwGetWindowSize(win, &width, &height);
+    s_viewport_width = width;
+    s_viewport_height = height;
+    update_projection();
 }
 
 /* =============================================================================
@@ -235,11 +266,6 @@ int init_renderer(void)
 
     LOG_DEBUG("Renderer initialized (dynamic line buffer)");
     return 0;
-}
-
-void renderer_on_viewport_change(void)
-{
-    update_projection();
 }
 
 void render_frame(void)

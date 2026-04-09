@@ -22,18 +22,36 @@
 /* Convert window coords to pixel coords relative to base resolution */
 static void window_to_opengl(double win_x, double win_y, float* out_x, float* out_y)
 {
-    int width, height;
-    glfwGetWindowSize(g_app_state.window, &width, &height);
+    int win_width, win_height;
+    glfwGetWindowSize(g_app_state.window, &win_width, &win_height);
 
-    if (width <= 0 || height <= 0) {
+    if (win_width <= 0 || win_height <= 0) {
         *out_x = 0.0f;
         *out_y = 0.0f;
         return;
     }
 
-    /* Map window pixels to base resolution (800x600) for consistent coordinates */
-    *out_x = (float)(win_x / (double)width * BASE_RESOLUTION_WIDTH);
-    *out_y = (float)((double)height - win_y) / (double)height * BASE_RESOLUTION_HEIGHT;
+    /* Same scaling and offset as renderer projection */
+    float scale_x = (float)win_width / BASE_RESOLUTION_WIDTH;
+    float scale_y = (float)win_height / BASE_RESOLUTION_HEIGHT;
+    float scale = (scale_x < scale_y) ? scale_x : scale_y;
+
+    float scaled_width = BASE_RESOLUTION_WIDTH * scale;
+    float scaled_height = BASE_RESOLUTION_HEIGHT * scale;
+    float offset_x = (win_width - scaled_width) * 0.5f;
+    float offset_y = (win_height - scaled_height) * 0.5f;
+
+    /* Check if click is within canvas area */
+    if (win_x < offset_x || win_x >= offset_x + scaled_width ||
+        win_y < offset_y || win_y >= offset_y + scaled_height) {
+        *out_x = 0.0f;
+        *out_y = 0.0f;
+        return;
+    }
+
+    /* Map window coords to canvas coords */
+    *out_x = (float)((win_x - offset_x) / scale);
+    *out_y = (float)((win_y - offset_y) / scale);
 }
 
 static void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
