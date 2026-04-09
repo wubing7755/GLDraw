@@ -39,10 +39,14 @@ static void property_slider_row(SelectionManager* sel, const char* label,
 
     nk_layout_row_dynamic(s_ctx, 20, 2);
     nk_label(s_ctx, label, NK_TEXT_LEFT);
-    nk_slider_float(s_ctx, min, &value, max, step);
+    int changed = nk_slider_float(s_ctx, min, &value, max, step);
 
-    for (int i = 0; i < sel_count(sel); i++) {
-        shape_set_property(sel_get(sel, i), key, value);
+    /* Only apply when user actually drags the slider to avoid overwriting
+       other selected shapes with different values */
+    if (changed) {
+        for (int i = 0; i < sel_count(sel); i++) {
+            shape_set_property(sel_get(sel, i), key, value);
+        }
     }
 }
 
