@@ -9,7 +9,10 @@ static GLFWwindow* s_window = NULL;
 static void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 {
     (void)window;
-    glViewport(0, 0, width, height);
+    (void)width;
+    (void)height;
+    /* renderer_on_viewport_change() calls glfwGetWindowSize internally
+     * and update_projection() sets the correct letterbox viewport */
     renderer_on_viewport_change();
     LOG_DEBUG_F("Window resized: %dx%d", width, height);
 }

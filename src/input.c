@@ -19,7 +19,11 @@
  * =============================================================================
  */
 
-/* Convert window coords to pixel coords relative to base resolution */
+/* Convert window coords to canvas coords (top-left origin, Y downward).
+ * Window: (0,0) at top-left, Y increases downward.
+ * Canvas: (0,0) at top-left, Y increases downward.  <-- 与窗口一致！
+ * Graphics: rendered with Y-up in OpenGL, but canvas coords use Y-down.
+ */
 static void window_to_opengl(double win_x, double win_y, float* out_x, float* out_y)
 {
     int win_width, win_height;
@@ -49,9 +53,9 @@ static void window_to_opengl(double win_x, double win_y, float* out_x, float* ou
         return;
     }
 
-    /* Map window coords to canvas coords */
+    /* Map window coords to canvas coords (Y flipped: window Y-down, canvas Y-down) */
     *out_x = (float)((win_x - offset_x) / scale);
-    *out_y = (float)((win_y - offset_y) / scale);
+    *out_y = (float)(((offset_y + scaled_height) - win_y) / scale);
 }
 
 static void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
