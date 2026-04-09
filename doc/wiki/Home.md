@@ -16,7 +16,7 @@ New to GLDraw? Start here:
 |---------|-------------|
 | [Project Structure](project-structure) | Directory layout and key files |
 | [Architecture Overview](architecture) | High-level design and patterns |
-| [Core Systems](core-systems) | Detailed subsystem documentation |
+| [Core Systems](core-systems-overview) | Detailed subsystem documentation |
 | [Data Flow](data-flow) | Application loop and rendering pipeline |
 | [Extending the Project](extending) | Add new shapes and tools |
 | [Known Issues](known-issues) | Current limitations |
@@ -24,12 +24,12 @@ New to GLDraw? Start here:
 
 ## Core Systems
 
-- [Rendering System](core-systems/rendering-system) — VAO/VBO, vertex format
-- [Shape System](core-systems/shape-system) — vtable architecture
-- [Tool System](core-systems/tool-system) — Draw/select tools
-- [UI System](core-systems/ui-system) — Nuklear integration
-- [Input Handling](core-systems/input-handling) — Event routing
-- [Selection System](core-systems/selection-system) — Multi-selection
+- [Rendering System](core-systems-rendering) — VAO/VBO, vertex format
+- [Shape System](core-systems-shape) — vtable architecture
+- [Tool System](core-systems-tool) — Draw/select tools
+- [UI System](core-systems-ui) — Nuklear integration
+- [Input Handling](core-systems-input) — Event routing
+- [Selection System](core-systems-selection) — Multi-selection
 
 ---
 

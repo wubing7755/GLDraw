@@ -15,13 +15,13 @@
 - [Known Issues](known-issues)
 
 ### Core Systems
-- [Overview](core-systems)
-- [Rendering](core-systems/rendering-system)
-- [Shape](core-systems/shape-system)
-- [Tool](core-systems/tool-system)
-- [UI](core-systems/ui-system)
-- [Input](core-systems/input-handling)
-- [Selection](core-systems/selection-system)
+- [Overview](core-systems-overview)
+- [Rendering](core-systems-rendering)
+- [Shape](core-systems-shape)
+- [Tool](core-systems-tool)
+- [UI](core-systems-ui)
+- [Input](core-systems-input)
+- [Selection](core-systems-selection)
 
 ---
 [GitHub Repo](https://github.com/wubing7755/GLDraw)
