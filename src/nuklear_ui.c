@@ -101,6 +101,26 @@ void nuklear_new_frame(void)
 
 void nuklear_build_ui(void)
 {
+    /* Calculate responsive panel bounds based on window size */
+    int window_width, window_height;
+    GLFWwindow* win = glfwGetCurrentContext();
+    glfwGetWindowSize(win, &window_width, &window_height);
+
+    int panel_width = 220;
+    int panel_height = 450;
+    int panel_x = window_width - panel_width - 10;
+    int panel_y = 50;
+
+    /* Clamp if window is too small */
+    if (panel_x < 10) panel_x = 10;
+    if (panel_y + panel_height > window_height - 10) {
+        panel_height = window_height - panel_y - 10;
+    }
+    if (panel_height < 100) panel_height = 100;
+
+    s_property_panel_bounds = nk_rect((float)panel_x, (float)panel_y,
+                                      (float)panel_width, (float)panel_height);
+
     /* Property Panel — displays and edits properties of selected shapes */
     if (nk_begin(s_ctx, "Property Panel", s_property_panel_bounds,
                  NK_WINDOW_BORDER)) {

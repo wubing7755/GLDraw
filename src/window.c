@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <GLFW/glfw3.h>
 #include <core/window.h>
+#include <core/renderer.h>
 #include <core/macros.h>
 
 static GLFWwindow* s_window = NULL;
@@ -9,6 +10,7 @@ static void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 {
     (void)window;
     glViewport(0, 0, width, height);
+    renderer_on_viewport_change();
     LOG_DEBUG_F("Window resized: %dx%d", width, height);
 }
 

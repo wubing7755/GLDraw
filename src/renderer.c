@@ -19,6 +19,36 @@ static size_t s_geometry_buf_capacity = 0;
 static size_t s_uploaded_buf_size = 0;
 static int s_gpu_buffer_dirty = 1;
 
+/* Base resolution for normalized coordinates */
+#define BASE_WIDTH 800
+#define BASE_HEIGHT 600
+
+/* Orthographic projection matrix (column-major, matches OpenGL) */
+static float s_projection[16] = {
+    1.0f, 0.0f, 0.0f, 0.0f,
+    0.0f, 1.0f, 0.0f, 0.0f,
+    0.0f, 0.0f, -1.0f, 0.0f,
+    0.0f, 0.0f, 0.0f, 1.0f
+};
+
+/* Update projection matrix to map (0,0)-(base_w,base_h) to viewport */
+static void update_projection(void)
+{
+    float left = 0.0f;
+    float right = (float)BASE_WIDTH;
+    float bottom = (float)BASE_HEIGHT;
+    float top = 0.0f;  /* Y flipped for screen coordinates */
+
+    /* Column-major orthographic projection */
+    s_projection[0] = 2.0f / (right - left);
+    s_projection[5] = 2.0f / (top - bottom);
+    s_projection[10] = -1.0f;
+    s_projection[12] = -(right + left) / (right - left);
+    s_projection[13] = -(top + bottom) / (top - bottom);
+    s_projection[14] = 0.0f;
+    s_projection[15] = 1.0f;
+}
+
 /* =============================================================================
  * Phase 2: Multi-shape rendering using vtable-based geometry
  *
@@ -128,8 +158,9 @@ static void rebuild_vertex_buffer(void)
         float a = s->color[3];
 
         for (int j = 0; j < vert_count; j++) {
-            *ptr++ = shape_vertices[j * 2];     /* x */
-            *ptr++ = shape_vertices[j * 2 + 1]; /* y */
+            /* Normalize coordinates to 0-1 range for resolution-independent rendering */
+            *ptr++ = shape_vertices[j * 2] / BASE_WIDTH;       /* normalized x */
+            *ptr++ = shape_vertices[j * 2 + 1] / BASE_HEIGHT;  /* normalized y */
             *ptr++ = r;
             *ptr++ = g;
             *ptr++ = b;
@@ -199,8 +230,16 @@ int init_renderer(void)
 
     glBindVertexArray(0);
 
+    /* Initialize projection matrix */
+    update_projection();
+
     LOG_DEBUG("Renderer initialized (dynamic line buffer)");
     return 0;
+}
+
+void renderer_on_viewport_change(void)
+{
+    update_projection();
 }
 
 void render_frame(void)
@@ -243,6 +282,13 @@ void render_frame(void)
 
     /* Draw each shape with appropriate primitive type */
     shader_use();
+
+    /* Set projection matrix uniform */
+    GLint proj_loc = glGetUniformLocation(s_shader_program, "uProjection");
+    if (proj_loc >= 0) {
+        glUniformMatrix4fv(proj_loc, 1, GL_FALSE, s_projection);
+    }
+
     glBindVertexArray(s_VAO);
 
     for (int i = 0; i < count; i++) {
