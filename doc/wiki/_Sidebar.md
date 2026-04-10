@@ -1,6 +1,6 @@
 ## GLDraw Wiki
 
-**A minimal OpenGL 3.3 drawing app**
+**Canvas-oriented OpenGL editor**
 
 ### Getting Started
 - [Introduction](introduction)
@@ -17,11 +17,8 @@
 ### Core Systems
 - [Overview](core-systems-overview)
 - [Rendering](core-systems-rendering)
-- [Shape](core-systems-shape)
-- [Tool](core-systems-tool)
-- [UI](core-systems-ui)
-- [Input](core-systems-input)
+- [Shape / Object Model](core-systems-shape)
+- [Tool System](core-systems-tool)
+- [UI System](core-systems-ui)
+- [Input and Canvas](core-systems-input)
 - [Selection](core-systems-selection)
-
----
-[GitHub Repo](https://github.com/wubing7755/GLDraw)

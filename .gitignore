@@ -2,6 +2,7 @@
 # CMake
 build/
 */build/
+build-*/
 CMakeCache.txt
 CMakeFiles/
 *.cmake

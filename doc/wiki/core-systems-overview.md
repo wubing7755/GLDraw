@@ -1,16 +1,39 @@
-# Core Systems
+# Core Systems Overview
 
-Detailed documentation for each subsystem.
+The current editor is built from six primary systems:
 
-## Subsystems
+## 1. Document
 
-- [Rendering System](core-systems/rendering-system) - VAO/VBO rendering, vertex format
-- [Shape System](core-systems/shape-system) - Shape types, vtable architecture, registry
-- [Tool System](core-systems/tool-system) - Tool pattern, draw/select tools
-- [UI System](core-systems/ui-system) - Nuklear integration, property panel
-- [Input Handling](core-systems/input-handling) - Event callbacks, coordinate conversion
-- [Selection System](core-systems/selection-system) - Selection tracking, multi-select
+- stores all `GraphicObject` instances
+- assigns stable `ObjectId` values
+- manages the selection set
 
----
+## 2. CanvasView
 
-See [Architecture Overview](../architecture) for how these systems interact.
+- stores zoom, pan center, and viewport
+- converts between world coordinates and screen coordinates
+- provides picking tolerance in world units
+
+## 3. Tools
+
+- receive normalized editor events
+- read and modify the document through a `ToolContext`
+- provide temporary overlay geometry while drawing
+
+## 4. Rendering
+
+- converts object paths into screen-space line strips
+- draws the background grid and origin axes
+- draws selection highlight before the object stroke
+
+## 5. UI
+
+- builds editor controls using Nuklear
+- exposes tool switching and property editing
+- blocks tool input while the pointer is over UI panels
+
+## 6. Platform/Application
+
+- owns the GLFW window
+- handles resize, pointer, key, and wheel callbacks
+- advances the frame loop

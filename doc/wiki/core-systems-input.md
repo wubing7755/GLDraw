@@ -1,70 +1,37 @@
-# Input Handling
+# Input and Canvas Routing
 
 ## Overview
 
-Input handling bridges GLFW events and the tool system, converting coordinates and routing events to the current tool.
+The old standalone `input.c` layer is gone. Input is now bridged in `application.c`.
 
-## Coordinate Conversion
+## Flow
 
-GLFW uses window coordinates with origin at the **top-left**. OpenGL uses normalized device coordinates with origin at the **bottom-left**.
-
-**Conversion Formula**:
-
-OpenGL NDC range: [-1, 1] for both axes. Center of screen: (0, 0).
-
-```c
-x_ndc = (window_x / width) * 2.0 - 1.0;
-y_ndc = 1.0 - (window_y / height) * 2.0;
+```text
+GLFW callback
+    -> Application callback adapter
+    -> UI hit test
+    -> ToolEvent creation
+    -> ToolController
+    -> Document / CanvasView mutation
 ```
 
-## Mouse Button Events
+## Pointer Coordinates
 
-```c
-mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
-```
+Each pointer event carries both:
 
-Routes to:
-- `on_down`: When button pressed (action == GLFW_PRESS)
-- `on_up`: When button released (action == GLFW_RELEASE)
+- `screen_pos`
+- `world_pos`
 
-The `shift_held` parameter is passed to tools for multi-selection support.
+The world position is derived by `canvas_view_screen_to_world()`.
 
-## Mouse Motion Events
+## Why This Matters
 
-```c
-cursor_pos_callback(GLFWwindow* window, double x, double y)
-```
+Mainstream canvas tools operate on document space, not raw window pixels. The current routing follows that rule:
 
-Routes to current tool's `on_move` handler with converted coordinates.
+- tools think in world coordinates
+- canvas owns the transform
+- window size changes do not rewrite object geometry
 
-## Keyboard Events
+## Wheel Routing
 
-```c
-key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
-```
-
-| Key | Action |
-|-----|--------|
-| ESC | Exit application |
-| Ctrl+Z | Delete last shape |
-| 1 | Switch to LINE draw tool |
-| 2 | Switch to CIRCLE draw tool |
-| 3 | Switch to RECT draw tool |
-| S | Switch to SELECT tool |
-
-## Nuklear Mouse Blocking
-
-Before routing mouse events to the current tool, `input.c` checks:
-```c
-if (nuklear_ui_blocks_mouse_input()) {
-    return;  // Don't route to tool
-}
-```
-
-This prevents accidental shape creation when clicking on the property panel.
-
-## Key Files
-
-- `include/core/input.h` - Public API
-- `include/core/nuklear_ui.h` - `nuklear_ui_blocks_mouse_input()`
-- `src/input.c` - Implementation
+Mouse wheel events are converted into zoom operations centered on the current cursor position.

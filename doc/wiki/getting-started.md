@@ -1,106 +1,55 @@
 # Getting Started
 
-## Prerequisites
+## Requirements
 
-- **C Compiler** - MSVC, GCC, or Clang with C11 support
-- **CMake** 3.15 or higher
-- **OpenGL 3.3** capable graphics driver
+- CMake 3.15+
+- A C11 compiler
+- OpenGL 3.3 capable driver
 
-## First Shape in 5 Minutes
+## Build
 
-1. **Clone and build**:
-   ```bash
-   mkdir build && cd build
-   cmake .. -DCMAKE_BUILD_TYPE=Release
-   cmake --build .
-   ```
+### Windows with MinGW / MSYS2
 
-2. **Run** (from `build/bin/`):
-   ```bash
-   ./GLDraw      # Linux/macOS
-   .\bin\Release\GLDraw.exe   # Windows
-   ```
-
-3. **Draw your first shape**:
-   - Press `1` for LINE tool (default)
-   - Click and drag on the canvas to draw a line
-   - Release to finalize
-
-4. **Edit properties**:
-   - Press `S` to switch to SELECT tool
-   - Click a shape to select it
-   - Use the right panel to change color and line width
-
-5. **Try more shapes**:
-   - Press `2` for CIRCLE tool
-   - Press `3` for RECT tool
-
-## Dependencies
-
-External dependencies are automatically downloaded by CMake:
-
-| Dependency | Version | Purpose |
-|------------|---------|---------|
-| GLFW | 3.3.9 | Window and input management |
-| GLAD | 2.x | OpenGL function loader |
-
-Nuklear GUI is included as a header-only library in `include/nuklear/`.
-
-## Build Instructions
-
-### Windows (Visual Studio)
-
-```bash
-# Create build directory
-mkdir build && cd build
-
-# Configure with CMake
-cmake .. -G "Visual Studio 17 2022"
-
-# Build
-cmake --build . --config Release
-
-# Run
-.\bin\Release\GLDraw.exe
+```sh
+cmake -S . -B build-mingw -G "MinGW Makefiles"
+cmake --build build-mingw --parallel
 ```
 
-### Linux / macOS
+Run:
 
-```bash
-# Create build directory
-mkdir build && cd build
-
-# Configure with CMake
-cmake .. -DCMAKE_BUILD_TYPE=Release
-
-# Build
-cmake --build .
-
-# Run
-./bin/GLDraw
+```sh
+./build-mingw/bin/GLDraw.exe
 ```
 
-## Running the Application
+### Windows with Visual Studio 2022
 
-After building, the executable is located at:
-- Windows: `build/bin/Release/GLDraw.exe`
-- Linux/macOS: `build/bin/GLDraw`
-
-The working directory for running should be `build/bin/` (required for shader file loading).
-
-## Project Layout
-
-```
-GLDraw/
-├── include/          # Public headers
-├── src/              # Source files
-├── shaders/          # GLSL shaders
-├── doc/              # Documentation
-└── build/            # Build output
+```sh
+cmake -S . -B build -G "Visual Studio 17 2022" -A x64
+cmake --build build --config Release
 ```
 
-## Next Steps
+Run:
 
-- Read [Project Structure](project-structure) to understand the codebase
-- Read [Architecture Overview](architecture) for high-level design
-- Read [Core Systems](core-systems) for detailed subsystem documentation
+```sh
+./build/bin/Release/GLDraw.exe
+```
+
+## First Session
+
+1. Start the application.
+2. Press `L`, `R`, or `E` to choose a drawing tool.
+3. Drag on the canvas to create an object.
+4. Press `V` to return to the select tool.
+5. Click to select, `Shift+Click` to multi-select.
+6. Drag selected objects to move them.
+7. Use the inspector to edit stroke color, width, and geometry.
+8. Use the mouse wheel to zoom at the cursor.
+9. Press `Ctrl+S` to save to `document.json` or the current path.
+10. Press `Ctrl+O` to reload the current document JSON.
+
+## Runtime Notes
+
+- Shader paths are resolved relative to the executable output directory.
+- The top toolbar, right inspector, and bottom status bar are handled by Nuklear.
+- The canvas stores world-space data independently from the window size.
+- Document persistence currently stores document data only, not the canvas view session.
