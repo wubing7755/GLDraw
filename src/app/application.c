@@ -10,6 +10,7 @@
 
 #include <GLFW/glfw3.h>
 
+#include <stdlib.h>
 #include <string.h>
 
 typedef struct {
@@ -301,26 +302,32 @@ static void app_shutdown(Application* app)
 
 int app_run(void)
 {
-    Application app;
-    memset(&app, 0, sizeof(app));
+    Application* app = (Application*)calloc(1, sizeof(*app));
 
-    if (app_init(&app) != 0) {
-        app_shutdown(&app);
+    if (!app) {
+        LOG_ERROR("%s", "Failed to allocate application state");
         return -1;
     }
 
-    while (!platform_window_should_close(&app.window)) {
-        platform_window_poll_events();
-        ui_system_begin_frame(app.ui);
-        ui_system_build(app.ui, &app.workspace);
-        render_system_draw(app.renderer,
-                           &app.workspace.document,
-                           &app.workspace.canvas,
-                           tool_controller_overlay_object(&app.workspace.tools));
-        ui_system_render(app.ui);
-        platform_window_swap_buffers(&app.window);
+    if (app_init(app) != 0) {
+        app_shutdown(app);
+        free(app);
+        return -1;
     }
 
-    app_shutdown(&app);
+    while (!platform_window_should_close(&app->window)) {
+        platform_window_poll_events();
+        ui_system_begin_frame(app->ui);
+        ui_system_build(app->ui, &app->workspace);
+        render_system_draw(app->renderer,
+                           &app->workspace.document,
+                           &app->workspace.canvas,
+                           tool_controller_overlay_object(&app->workspace.tools));
+        ui_system_render(app->ui);
+        platform_window_swap_buffers(&app->window);
+    }
+
+    app_shutdown(app);
+    free(app);
     return 0;
 }
