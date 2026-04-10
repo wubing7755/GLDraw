@@ -84,7 +84,10 @@ static int app_load_document(Application* app)
     }
 
     document_history_shutdown(&app->workspace.history);
-    document_history_init(&app->workspace.history);
+    if (!document_history_init(&app->workspace.history)) {
+        LOG_ERROR("%s", "Failed to reinitialize history after document load");
+        return 0;
+    }
     app_reset_tool_state(app);
     app_set_document_path(app, path);
     workspace_mark_saved(&app->workspace);
@@ -252,7 +255,10 @@ static int app_init(Application* app)
     }
 
     document_init(&app->workspace.document);
-    document_history_init(&app->workspace.history);
+    if (!document_history_init(&app->workspace.history)) {
+        LOG_ERROR("%s", "Failed to initialize document history");
+        return -1;
+    }
     canvas_view_init(&app->workspace.canvas, &app->workspace.document, viewport);
     tool_controller_init(&app->workspace.tools);
     app_set_document_path(app, app_default_document_path());

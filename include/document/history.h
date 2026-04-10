@@ -19,8 +19,9 @@ typedef struct {
 } DocumentHistoryEntry;
 
 typedef struct DocumentHistory {
-    DocumentHistoryEntry undo_stack[DOCUMENT_HISTORY_MAX_ENTRIES];
-    DocumentHistoryEntry redo_stack[DOCUMENT_HISTORY_MAX_ENTRIES];
+    DocumentHistoryEntry* undo_stack;
+    DocumentHistoryEntry* redo_stack;
+    int capacity;
     int undo_count;
     int redo_count;
 } DocumentHistory;
@@ -29,7 +30,7 @@ void document_snapshot_init(DocumentSnapshot* snapshot);
 void document_snapshot_free(DocumentSnapshot* snapshot);
 int document_snapshot_capture(DocumentSnapshot* snapshot, const Document* document);
 
-void document_history_init(DocumentHistory* history);
+int document_history_init(DocumentHistory* history);
 void document_history_shutdown(DocumentHistory* history);
 int document_history_push(DocumentHistory* history, DocumentSnapshot* before, const Document* after_document);
 int document_history_undo(DocumentHistory* history, Document* document);
