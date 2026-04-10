@@ -8,6 +8,10 @@
 #include <stdlib.h>
 #include <string.h>
 
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
 typedef enum {
     JSON_TOKEN_EOF = 0,
     JSON_TOKEN_LBRACE,
@@ -100,6 +104,147 @@ static char* read_text_file(const char* path)
     buffer[read_size] = '\0';
     fclose(file);
     return buffer;
+}
+
+static char* duplicate_path_with_suffix(const char* path, const char* suffix)
+{
+    size_t path_length = 0;
+    size_t suffix_length = 0;
+    char* result = NULL;
+
+    if (!path || !suffix) {
+        return NULL;
+    }
+
+    path_length = strlen(path);
+    suffix_length = strlen(suffix);
+    result = (char*)malloc(path_length + suffix_length + 1u);
+    if (!result) {
+        return NULL;
+    }
+
+    memcpy(result, path, path_length);
+    memcpy(result + path_length, suffix, suffix_length);
+    result[path_length + suffix_length] = '\0';
+    return result;
+}
+
+static int file_exists_at_path(const char* path)
+{
+    FILE* file = NULL;
+
+    if (!path) {
+        return 0;
+    }
+
+    file = fopen(path, "rb");
+    if (!file) {
+        return 0;
+    }
+
+    fclose(file);
+    return 1;
+}
+
+static const char* object_type_tag(GraphicObjectType type)
+{
+    switch (type) {
+    case GRAPHIC_OBJECT_LINE:
+        return "line";
+    case GRAPHIC_OBJECT_RECT:
+        return "rect";
+    case GRAPHIC_OBJECT_ELLIPSE:
+        return "ellipse";
+    default:
+        return "unknown";
+    }
+}
+
+static int replace_file_with_temp(const char* temp_path, const char* target_path)
+{
+    if (!temp_path || !target_path) {
+        return 0;
+    }
+
+#ifdef _WIN32
+    if (MoveFileExA(temp_path,
+                    target_path,
+                    MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH)) {
+        return 1;
+    }
+
+    LOG_ERROR("Failed to replace document file: %s", target_path);
+    remove(temp_path);
+    return 0;
+#else
+    if (rename(temp_path, target_path) == 0) {
+        return 1;
+    }
+
+    LOG_ERROR("Failed to replace document file: %s", target_path);
+    remove(temp_path);
+    return 0;
+#endif
+}
+
+static int write_document_json(FILE* file, const Document* document)
+{
+    int i = 0;
+
+    if (!file || !document) {
+        return 0;
+    }
+
+    fprintf(file, "{\n");
+    fprintf(file, "  \"format\": \"gldraw-document\",\n");
+    fprintf(file, "  \"version\": 1,\n");
+    fprintf(file, "  \"next_id\": %u,\n", document->next_id);
+    fprintf(file, "  \"selection\": [");
+    for (i = 0; i < document->selection.count; ++i) {
+        fprintf(file, "%s%u", (i == 0) ? "" : ", ", document->selection.ids[i]);
+    }
+    fprintf(file, "],\n");
+    fprintf(file, "  \"objects\": [\n");
+
+    for (i = 0; i < document->count; ++i) {
+        const GraphicObject* object = document->objects[i];
+        fprintf(file, "    {\n");
+        fprintf(file, "      \"id\": %u,\n", object->id);
+        fprintf(file, "      \"type\": \"%s\",\n", object_type_tag(object->type));
+        fprintf(file,
+                "      \"stroke\": { \"r\": %.9g, \"g\": %.9g, \"b\": %.9g, \"a\": %.9g, \"width\": %.9g },\n",
+                object->style.stroke_color.r,
+                object->style.stroke_color.g,
+                object->style.stroke_color.b,
+                object->style.stroke_color.a,
+                object->style.stroke_width);
+
+        if (object->type == GRAPHIC_OBJECT_LINE) {
+            float x1 = 0.0f, y1 = 0.0f, x2 = 0.0f, y2 = 0.0f;
+            object_get_scalar(object, "x1", &x1);
+            object_get_scalar(object, "y1", &y1);
+            object_get_scalar(object, "x2", &x2);
+            object_get_scalar(object, "y2", &y2);
+            fprintf(file,
+                    "      \"geometry\": { \"x1\": %.9g, \"y1\": %.9g, \"x2\": %.9g, \"y2\": %.9g }\n",
+                    x1, y1, x2, y2);
+        } else {
+            float x = 0.0f, y = 0.0f, width = 0.0f, height = 0.0f;
+            object_get_scalar(object, "x", &x);
+            object_get_scalar(object, "y", &y);
+            object_get_scalar(object, "width", &width);
+            object_get_scalar(object, "height", &height);
+            fprintf(file,
+                    "      \"geometry\": { \"x\": %.9g, \"y\": %.9g, \"width\": %.9g, \"height\": %.9g }\n",
+                    x, y, width, height);
+        }
+
+        fprintf(file, "    }%s\n", (i + 1 < document->count) ? "," : "");
+    }
+
+    fprintf(file, "  ]\n");
+    fprintf(file, "}\n");
+    return ferror(file) == 0;
 }
 
 static int json_match_keyword(const JsonParser* parser, const char* keyword)
@@ -816,97 +961,56 @@ static int parse_document_root(JsonParser* parser, Document* document)
     return 1;
 }
 
-static const char* object_type_tag(GraphicObjectType type)
-{
-    switch (type) {
-    case GRAPHIC_OBJECT_LINE:
-        return "line";
-    case GRAPHIC_OBJECT_RECT:
-        return "rect";
-    case GRAPHIC_OBJECT_ELLIPSE:
-        return "ellipse";
-    default:
-        return "unknown";
-    }
-}
-
 int document_save_json(const Document* document, const char* path)
 {
     FILE* file = NULL;
-    int i = 0;
     int close_result = 0;
+    int target_exists = 0;
+    char* temp_path = NULL;
 
     if (!document || !path) {
         return 0;
     }
 
-    file = fopen(path, "wb");
-    if (!file) {
-        LOG_ERROR("Failed to open document for writing: %s", path);
+    temp_path = duplicate_path_with_suffix(path, ".tmp");
+    if (!temp_path) {
+        LOG_ERROR("Failed to allocate temp path for document: %s", path);
         return 0;
     }
 
-    fprintf(file, "{\n");
-    fprintf(file, "  \"format\": \"gldraw-document\",\n");
-    fprintf(file, "  \"version\": 1,\n");
-    fprintf(file, "  \"next_id\": %u,\n", document->next_id);
-    fprintf(file, "  \"selection\": [");
-    for (i = 0; i < document->selection.count; ++i) {
-        fprintf(file, "%s%u", (i == 0) ? "" : ", ", document->selection.ids[i]);
-    }
-    fprintf(file, "],\n");
-    fprintf(file, "  \"objects\": [\n");
-
-    for (i = 0; i < document->count; ++i) {
-        const GraphicObject* object = document->objects[i];
-        fprintf(file, "    {\n");
-        fprintf(file, "      \"id\": %u,\n", object->id);
-        fprintf(file, "      \"type\": \"%s\",\n", object_type_tag(object->type));
-        fprintf(file,
-                "      \"stroke\": { \"r\": %.9g, \"g\": %.9g, \"b\": %.9g, \"a\": %.9g, \"width\": %.9g },\n",
-                object->style.stroke_color.r,
-                object->style.stroke_color.g,
-                object->style.stroke_color.b,
-                object->style.stroke_color.a,
-                object->style.stroke_width);
-
-        if (object->type == GRAPHIC_OBJECT_LINE) {
-            float x1 = 0.0f, y1 = 0.0f, x2 = 0.0f, y2 = 0.0f;
-            object_get_scalar(object, "x1", &x1);
-            object_get_scalar(object, "y1", &y1);
-            object_get_scalar(object, "x2", &x2);
-            object_get_scalar(object, "y2", &y2);
-            fprintf(file,
-                    "      \"geometry\": { \"x1\": %.9g, \"y1\": %.9g, \"x2\": %.9g, \"y2\": %.9g }\n",
-                    x1, y1, x2, y2);
-        } else {
-            float x = 0.0f, y = 0.0f, width = 0.0f, height = 0.0f;
-            object_get_scalar(object, "x", &x);
-            object_get_scalar(object, "y", &y);
-            object_get_scalar(object, "width", &width);
-            object_get_scalar(object, "height", &height);
-            fprintf(file,
-                    "      \"geometry\": { \"x\": %.9g, \"y\": %.9g, \"width\": %.9g, \"height\": %.9g }\n",
-                    x, y, width, height);
-        }
-
-        fprintf(file, "    }%s\n", (i + 1 < document->count) ? "," : "");
+    target_exists = file_exists_at_path(path);
+    file = fopen(temp_path, "wb");
+    if (!file) {
+        LOG_ERROR("Failed to open temp document for writing: %s", temp_path);
+        free(temp_path);
+        return 0;
     }
 
-    fprintf(file, "  ]\n");
-    fprintf(file, "}\n");
-    if (ferror(file)) {
+    if (!write_document_json(file, document)) {
         fclose(file);
-        LOG_ERROR("Failed to write document JSON: %s", path);
+        remove(temp_path);
+        LOG_ERROR("Failed to write document JSON temp file: %s", temp_path);
+        free(temp_path);
         return 0;
     }
 
     close_result = fclose(file);
     if (close_result != 0) {
-        LOG_ERROR("Failed to finalize document JSON: %s", path);
+        remove(temp_path);
+        LOG_ERROR("Failed to finalize document JSON temp file: %s", temp_path);
+        free(temp_path);
         return 0;
     }
 
+    if (!replace_file_with_temp(temp_path, path)) {
+        if (target_exists) {
+            LOG_ERROR("Preserved existing document after failed replace: %s", path);
+        }
+        free(temp_path);
+        return 0;
+    }
+
+    free(temp_path);
     return 1;
 }
 
