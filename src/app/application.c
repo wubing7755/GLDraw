@@ -10,6 +10,8 @@
 
 #include <GLFW/glfw3.h>
 
+#include <stdarg.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -23,6 +25,39 @@ typedef struct {
 
 static int app_workspace_save(Workspace* workspace, void* user_data);
 static int app_workspace_load(Workspace* workspace, void* user_data);
+
+static void app_set_status(Application* app, const char* fmt, ...)
+{
+    va_list args;
+
+    if (!app || !fmt) {
+        return;
+    }
+
+    va_start(args, fmt);
+    vsnprintf(app->workspace.status_message,
+              sizeof(app->workspace.status_message),
+              fmt,
+              args);
+    va_end(args);
+}
+
+static int app_file_exists(const char* path)
+{
+    FILE* file = NULL;
+
+    if (!path || path[0] == '\0') {
+        return 0;
+    }
+
+    file = fopen(path, "rb");
+    if (!file) {
+        return 0;
+    }
+
+    fclose(file);
+    return 1;
+}
 
 static const char* app_default_document_path(void)
 {
@@ -65,11 +100,13 @@ static int app_save_document(Application* app)
 
     if (!document_save_json(&app->workspace.document, path)) {
         LOG_ERROR("%s", "Save document failed");
+        app_set_status(app, "Save failed: %s", path);
         return 0;
     }
 
     app_set_document_path(app, path);
     workspace_mark_saved(&app->workspace);
+    app_set_status(app, "Saved document: %s", path);
     LOG_INFO("Saved document: %s", path);
     return 1;
 }
@@ -78,19 +115,28 @@ static int app_load_document(Application* app)
 {
     const char* path = app_current_document_path(app);
 
+    if (!app_file_exists(path)) {
+        LOG_WARN("Document file not found: %s", path);
+        app_set_status(app, "Document not found: %s", path);
+        return 0;
+    }
+
     if (!document_load_json(&app->workspace.document, path)) {
         LOG_ERROR("%s", "Load document failed");
+        app_set_status(app, "Load failed: %s", path);
         return 0;
     }
 
     document_history_shutdown(&app->workspace.history);
     if (!document_history_init(&app->workspace.history)) {
         LOG_ERROR("%s", "Failed to reinitialize history after document load");
+        app_set_status(app, "History reset failed after load");
         return 0;
     }
     app_reset_tool_state(app);
     app_set_document_path(app, path);
     workspace_mark_saved(&app->workspace);
+    app_set_status(app, "Loaded document: %s", path);
     LOG_INFO("Loaded document: %s", path);
     return 1;
 }
@@ -105,6 +151,24 @@ static int app_workspace_load(Workspace* workspace, void* user_data)
 {
     (void)workspace;
     return app_load_document((Application*)user_data);
+}
+
+static void app_open_startup_document(Application* app)
+{
+    const char* path = app_current_document_path(app);
+
+    if (!app) {
+        return;
+    }
+
+    if (app_file_exists(path)) {
+        if (!app_load_document(app)) {
+            app_set_status(app, "Startup load failed: %s", path);
+        }
+        return;
+    }
+
+    app_set_status(app, "New empty document");
 }
 
 static ToolContext app_tool_context(Application* app)
@@ -266,6 +330,7 @@ static int app_init(Application* app)
     app->workspace.load_document = app_workspace_load;
     app->workspace.command_user_data = app;
     workspace_mark_saved(&app->workspace);
+    app_set_status(app, "Initializing editor");
 
     app->renderer = render_system_create(&app->window);
     if (!app->renderer) {
@@ -289,6 +354,7 @@ static int app_init(Application* app)
     render_system_resize(app->renderer, app->window.width, app->window.height);
     update_canvas_viewport(app);
     app->cursor_screen = vec2_make(app->window.width * 0.5f, app->window.height * 0.5f);
+    app_open_startup_document(app);
     return 0;
 }
 

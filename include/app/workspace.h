@@ -15,6 +15,7 @@ typedef struct Workspace {
     CanvasView canvas;
     ToolController tools;
     char current_document_path[260];
+    char status_message[256];
     unsigned int saved_revision;
     int document_dirty;
     WorkspaceCommandFn save_document;

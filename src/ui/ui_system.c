@@ -219,6 +219,7 @@ static void ui_status_bar(UiSystem* ui, Workspace* workspace, int window_width, 
 {
     struct nk_context* ctx = ui->ctx;
     RectF visible = canvas_view_visible_world_rect(&workspace->canvas);
+    const char* status_text = workspace->status_message[0] ? workspace->status_message : "Ready";
 
     ui->status_bounds.x = 12.0f;
     ui->status_bounds.w = (float)(window_width - 24);
@@ -228,14 +229,22 @@ static void ui_status_bar(UiSystem* ui, Workspace* workspace, int window_width, 
     if (nk_begin(ctx, "Status",
                  nk_rect(ui->status_bounds.x, ui->status_bounds.y, ui->status_bounds.w, ui->status_bounds.h),
                  NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_BORDER)) {
-        nk_layout_row_dynamic(ctx, 18.0f, 5);
+        nk_layout_row_begin(ctx, NK_DYNAMIC, 18.0f, 6);
+        nk_layout_row_push(ctx, 0.10f);
         nk_labelf(ctx, NK_TEXT_LEFT, "Objects: %d", workspace->document.count);
+        nk_layout_row_push(ctx, 0.15f);
         nk_labelf(ctx, NK_TEXT_LEFT, "Center: %.1f, %.1f", workspace->canvas.center.x, workspace->canvas.center.y);
+        nk_layout_row_push(ctx, 0.12f);
         nk_labelf(ctx, NK_TEXT_LEFT, "Visible: %.0f x %.0f", visible.w, visible.h);
+        nk_layout_row_push(ctx, 0.18f);
         nk_labelf(ctx, NK_TEXT_LEFT, "File: %s%s",
                   workspace->current_document_path[0] ? workspace->current_document_path : "(default)",
                   workspace->document_dirty ? " *" : "");
+        nk_layout_row_push(ctx, 0.28f);
+        nk_label(ctx, status_text, NK_TEXT_LEFT);
+        nk_layout_row_push(ctx, 0.17f);
         nk_labelf(ctx, NK_TEXT_RIGHT, "Undo:%d Redo:%d", workspace->history.undo_count, workspace->history.redo_count);
+        nk_layout_row_end(ctx);
     }
     nk_end(ctx);
 }
