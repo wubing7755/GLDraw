@@ -6,7 +6,8 @@
 #define DOCUMENT_HISTORY_MAX_ENTRIES 128
 
 typedef struct {
-    GraphicObject* objects[DOCUMENT_MAX_OBJECTS];
+    GraphicObject** objects;
+    int capacity;
     int count;
     unsigned int revision;
     ObjectId next_id;

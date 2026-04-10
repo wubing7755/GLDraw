@@ -7,14 +7,10 @@
 
 static void snapshot_move(DocumentSnapshot* dst, DocumentSnapshot* src)
 {
-    int i = 0;
-
     document_snapshot_free(dst);
     *dst = *src;
-
-    for (i = 0; i < DOCUMENT_MAX_OBJECTS; ++i) {
-        src->objects[i] = NULL;
-    }
+    src->objects = NULL;
+    src->capacity = 0;
     src->count = 0;
     src->revision = 0;
     src->next_id = 0;
@@ -76,14 +72,24 @@ static void history_shift_left(DocumentHistoryEntry* entries, int* count)
 
 static int document_restore_snapshot(Document* document, const DocumentSnapshot* snapshot)
 {
-    GraphicObject* clones[DOCUMENT_MAX_OBJECTS];
+    GraphicObject** clones = NULL;
     int i = 0;
 
     if (!document || !snapshot) {
         return 0;
     }
 
-    memset(clones, 0, sizeof(clones));
+    if (snapshot->count > DOCUMENT_MAX_OBJECTS) {
+        return 0;
+    }
+
+    if (snapshot->count > 0) {
+        clones = (GraphicObject**)calloc((size_t)snapshot->count, sizeof(*clones));
+        if (!clones) {
+            return 0;
+        }
+    }
+
     for (i = 0; i < snapshot->count; ++i) {
         clones[i] = object_clone(snapshot->objects[i]);
         if (!clones[i]) {
@@ -91,6 +97,7 @@ static int document_restore_snapshot(Document* document, const DocumentSnapshot*
             for (j = 0; j < i; ++j) {
                 object_destroy(clones[j]);
             }
+            free(clones);
             return 0;
         }
     }
@@ -103,6 +110,7 @@ static int document_restore_snapshot(Document* document, const DocumentSnapshot*
     document->revision = snapshot->revision;
     document->next_id = snapshot->next_id;
     document->selection = snapshot->selection;
+    free(clones);
     return 1;
 }
 
@@ -123,8 +131,10 @@ void document_snapshot_free(DocumentSnapshot* snapshot)
 
     for (i = 0; i < snapshot->count; ++i) {
         object_destroy(snapshot->objects[i]);
-        snapshot->objects[i] = NULL;
     }
+    free(snapshot->objects);
+    snapshot->objects = NULL;
+    snapshot->capacity = 0;
     snapshot->count = 0;
     snapshot->selection.count = 0;
     snapshot->revision = 0;
@@ -134,12 +144,22 @@ void document_snapshot_free(DocumentSnapshot* snapshot)
 int document_snapshot_capture(DocumentSnapshot* snapshot, const Document* document)
 {
     int i = 0;
+    int capacity = 0;
 
     if (!snapshot || !document) {
         return 0;
     }
 
     document_snapshot_free(snapshot);
+    capacity = document->count;
+    if (capacity > 0) {
+        snapshot->objects = (GraphicObject**)calloc((size_t)capacity, sizeof(*snapshot->objects));
+        if (!snapshot->objects) {
+            return 0;
+        }
+    }
+
+    snapshot->capacity = capacity;
     snapshot->count = document->count;
     snapshot->revision = document->revision;
     snapshot->next_id = document->next_id;
