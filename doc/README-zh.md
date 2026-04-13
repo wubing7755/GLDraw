@@ -6,124 +6,116 @@ GLDraw
 [![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
 [![EN](https://img.shields.io/badge/English-blue)](../README.md)
 
+GLDraw 已重构为一个“以画布为中心”的 OpenGL 绘图编辑器。现在的分层方式接近常见图形工具：
 
+- `Window`：窗口外壳与平台事件
+- `Document`：图形对象与选择集
+- `CanvasView`：缩放、平移、视口、坐标变换
+- `ToolController`：输入路由与工具切换
+- `RenderSystem`：文档与工具叠加层渲染
+- `UiSystem`：工具栏、属性面板、状态栏
 
-目录：
+## 当前功能
 
-     I.   概述
-     II.  快速开始
-    III. 项目结构
-     IV.  构建方法
-      V.  调试
-     VI.  技术概述
-     VII. 依赖库
+- 单窗口、单文档、单画布
+- 支持光标位置缩放与画布平移
+- 线段、矩形、椭圆三种绘制工具
+- 选择、Shift 多选、拖拽移动、删除选择
+- 已支持创建、移动、删除、属性编辑的撤销 / 重做
+- 已支持 JSON 文档保存 / 加载，默认路径为 `document.json`
+- 属性面板可编辑描边颜色、线宽和基础几何
+- 网格与坐标轴渲染
+- 基于 GLFW、GLAD、Nuklear 的模块化 C11 架构
 
+## 快速开始
 
+Windows + MinGW / MSYS2：
 
-I. 概述
+```sh
+cmake -S . -B build-mingw -G "MinGW Makefiles"
+cmake --build build-mingw --parallel
+./build-mingw/bin/GLDraw.exe
+```
 
-GLDraw 是一个基于 OpenGL 3.3 的最小化示例，使用 GLFW 和 Nuklear GUI 构建。
+Windows + Visual Studio 2022：
 
-核心特点：
-- 代码模块化，职责分离清晰
-- OpenGL 3.3 Core Profile
-- 跨平台支持（Windows、Linux、macOS）
-- Nuklear 即时模式 GUI 用于运行时控制
-- 基于 CMake 的依赖管理
+```sh
+cmake -S . -B build -G "Visual Studio 17 2022" -A x64
+cmake --build build --config Release
+./build/bin/Release/GLDraw.exe
+```
 
+## 快捷键
 
+- `V`：选择工具
+- `H`：手型平移工具
+- `L`：线段工具
+- `R`：矩形工具
+- `E`：椭圆工具
+- `Shift + 点击`：切换多选
+- `Ctrl+Z`：撤销
+- `Ctrl+Y` 或 `Ctrl+Shift+Z`：重做
+- `Ctrl+S`：保存当前文档 JSON
+- `Ctrl+O`：加载当前文档 JSON
+- `Delete` / `Backspace`：删除当前选择
+- `鼠标滚轮`：以光标为中心缩放
+- `Esc`：清除当前工具状态；如果已在选择工具则关闭窗口
 
-II. 快速开始
+## 项目结构
 
-     $ git clone https://github.com/wubing7755/GLDraw.git
-     $ cd GLDraw
-     $ mkdir build && cd build
-     $ cmake -G "MinGW Makefiles" ..
-     $ cmake --build . --parallel
+```text
+GLDraw/
+├── include/
+│   ├── app/        # 应用装配与工作区
+│   ├── base/       # 基础类型、数学与日志
+│   ├── canvas/     # 画布视图与坐标变换
+│   ├── document/   # 图形对象、文档、选择
+│   ├── platform/   # GLFW 窗口封装
+│   ├── render/     # OpenGL 渲染
+│   ├── tools/      # 工具协议与控制器
+│   ├── ui/         # Nuklear UI
+│   ├── glad/
+│   ├── KHR/
+│   └── nuklear/
+├── src/
+│   ├── app/
+│   ├── canvas/
+│   ├── document/
+│   ├── platform/
+│   ├── render/
+│   ├── tools/
+│   ├── ui/
+│   ├── glad.c
+│   └── main.c
+└── shaders/
+```
 
-     # 运行
-     $ ./bin/GLDraw
+## 架构说明
 
+当前主链路为：
 
+`Window -> Workspace -> Document + CanvasView + ToolController + UiSystem + RenderSystem`
 
-III. 项目结构
+关键职责边界：
 
-     GLDraw/
-     ├── CMakeLists.txt            # 构建配置
-     ├── LICENSE.txt               # MIT 许可证
-     ├── README.md                 # 英文说明
-     ├── include/                  # 头文件目录
-     │   ├── core/                 # 项目头文件
-     │   └── nuklear/              # Nuklear GUI 库（header-only）
-     ├── src/                      # 源代码
-     │   ├── main.c
-     │   ├── ...
-     │   ├── window.c
-     │   └── nuklear_ui.c
-     └── shaders/                  # GLSL 着色器
-         ├── basic.vert
-         └── basic.frag
+- 图形对象以世界坐标保存在 `Document`
+- `Document` 当前以 JSON 持久化，并包含选择集
+- `CanvasView` 负责世界坐标与屏幕坐标转换
+- 工具只通过带画布上下文的事件修改文档
+- 渲染器读取文档和画布状态，但不持有编辑状态
 
+## 依赖
 
+| 依赖 | 用途 | 管理方式 |
+|---|---|---|
+| GLFW 3.3.9 | 窗口与输入 | CMake 使用本地缓存源码 |
+| GLAD | OpenGL 加载器 | 已提交到仓库 |
+| Nuklear | 即时模式 UI | 本地 header-only |
 
-IV. 构建方法
+## 当前阶段
 
-**前置要求：** CMake 3.15+、C11 编译器、Python 3（用于 GLAD 生成）
+这是当前重构基线版本。新架构已经落地，旧的耦合式运行时已经从构建中移除，并已经具备基础历史记录与 JSON 持久化能力。后续可以继续扩展：
 
-Windows (MinGW/MSYS2)：
-
-     $ cmake -G "MinGW Makefiles" -DCMAKE_BUILD_TYPE=Release -S . -B build
-     $ cmake --build build --parallel
-
-Windows (Visual Studio)：
-
-     $ cmake -G "Visual Studio 17 2022" -A x64 -S . -B build
-     $ cmake --build build --config Release
-
-Linux / macOS：
-
-     $ cmake -S . -B build
-     $ cmake --build build --parallel
-
-VSCode 用户：
-
-     按 F5 调试，或 Ctrl+Shift+P -> 运行任务 -> CMake: Build
-
-
-
-V. 调试
-
-VSCode 调试配置（launch.json）：
-
-     - GLDraw (Debug)     : 调试模式，可设断点
-     - GLDraw (No Debug)  : 发布模式，直接运行
-
-
-
-VI. 技术概述
-
-C 语言：
-     - 跨平台条件编译
-     - 模块化架构（window / renderer / shader / input / ui）
-
-OpenGL：
-     - OpenGL 3.3 Core Profile
-     - VAO / VBO / EBO 几何数据
-     - Uniform 运行时参数控制
-     - 事件驱动渲染循环
-
-
-
-VII. 依赖库
-
-| 依赖库 | 版本 | 来源 | 管理方式 |
-|---|---|---|---|
-| GLFW | 3.3.9 | github.com/glfw/glfw | CMake FetchContent |
-| GLAD | 2.x (生成) | github.com/Dav1dde/glad | CMake 配置阶段 Python 生成 |
-| Nuklear | master | github.com/Immediate-Mode-UI/Nuklear | 本地保留（header-only） |
-
-所有第三方依赖均在 CMake 配置阶段自动获取或生成。
-
-     如有问题或建议，请在仓库中提交 Issue。
-
-     欢迎贡献。详见源代码了解实现细节。
+- 图层与编组
+- 吸附与辅助线
+- 多画布或多文档

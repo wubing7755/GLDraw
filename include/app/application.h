@@ -1,0 +1,6 @@
+#ifndef GLDRAW_APP_APPLICATION_H
+#define GLDRAW_APP_APPLICATION_H
+
+int app_run(void);
+
+#endif /* GLDRAW_APP_APPLICATION_H */

@@ -2,97 +2,56 @@
 
 ## Directory Layout
 
-```
+```text
 GLDraw/
-├── CMakeLists.txt           # CMake build configuration
-├── LICENSE.txt              # MIT License
-├── README.md                # English documentation
-├── include/                 # Public header files
-│   ├── core/                # Project headers
-│   │   ├── app_state.h
-│   │   ├── draw_tool.h
-│   │   ├── input.h
-│   │   ├── macros.h         # Logging and utility macros
-│   │   ├── nuklear_ui.h
-│   │   ├── renderer.h
-│   │   ├── select_tool.h
-│   │   ├── selection_manager.h
-│   │   ├── shape.h
-│   │   ├── shape_impl.h
-│   │   ├── shape_manager.h
-│   │   ├── shape_registry.h
-│   │   ├── shader.h
-│   │   ├── tool.h
-│   │   ├── tool_manager.h
-│   │   └── window.h
-│   ├── KHR/                 # GLAD platform headers
-│   ├── glad/                # GLAD OpenGL loader
-│   └── nuklear/             # Nuklear GUI (header-only)
-├── shaders/                 # GLSL shaders
-│   ├── basic.vert
-│   └── basic.frag
-├── src/                     # Source files (mirror of include/core)
-│   ├── main.c               # Entry point
-│   ├── app_state.c
-│   ├── draw_tool.c
-│   ├── input.c
-│   ├── nuklear_ui.c
-│   ├── renderer.c
-│   ├── select_tool.c
-│   ├── selection_manager.c
-│   ├── shader.c
-│   ├── shape.c
-│   ├── shape_manager.c
-│   ├── shape_registry.c
-│   ├── tool.c
-│   ├── tool_manager.c
-│   ├── window.c
-│   └── glad.c
+├── include/
+│   ├── app/
+│   ├── base/
+│   ├── canvas/
+│   ├── document/
+│   ├── platform/
+│   ├── render/
+│   ├── tools/
+│   ├── ui/
+│   ├── glad/
+│   ├── KHR/
+│   └── nuklear/
+├── src/
+│   ├── app/
+│   ├── canvas/
+│   ├── document/
+│   ├── platform/
+│   ├── render/
+│   ├── tools/
+│   ├── ui/
+│   ├── glad.c
+│   └── main.c
+├── shaders/
 ├── doc/
-│   ├── README-zh.md
-│   └── wiki/                # This Wiki
-└── build/                   # Build output
+└── CMakeLists.txt
 ```
 
-## Key Files and Responsibilities
+## Module Map
 
-### Entry Point
+| Module | Purpose |
+|---|---|
+| `app/` | startup, main loop, callback wiring |
+| `base/` | shared math, logging, primitive types |
+| `canvas/` | viewport state and world/screen conversion |
+| `document/` | object model, selection, document storage |
+| `platform/` | GLFW window wrapper |
+| `render/` | OpenGL drawing backend |
+| `tools/` | active tool routing and tool implementations |
+| `ui/` | Nuklear-based editor UI |
 
-| File | Responsibility |
-|------|----------------|
-| `src/main.c` | Application entry point, initialization sequence, main render loop |
+## Important Files
 
-### Core Modules
-
-| File | Header | Responsibility |
-|------|--------|----------------|
-| `window.c` | `window.h` | GLFW window creation, OpenGL context setup |
-| `renderer.c` | `renderer.h` | VAO/VBO management, shape rendering |
-| `shader.c` | `shader.h` | GLSL shader compilation and linking |
-| `shape.c` | `shape.h`, `shape_impl.h` | Shape vtable, base shape operations |
-| `shape_manager.c` | `shape_manager.h` | Dynamic array of shapes |
-| `shape_registry.c` | `shape_registry.h` | Shape type registration |
-| `tool.c` | `tool.h` | Tool vtable, base tool operations |
-| `tool_manager.c` | `tool_manager.h` | Current tool management |
-| `draw_tool.c` | `draw_tool.h` | Shape drawing tool implementation |
-| `select_tool.c` | `select_tool.h` | Shape selection/movement tool |
-| `selection_manager.c` | `selection_manager.h` | Selected shapes tracking |
-| `input.c` | `input.h` | GLFW callbacks, coordinate conversion |
-| `nuklear_ui.c` | `nuklear_ui.h` | Nuklear GUI, property panel |
-| `app_state.c` | `app_state.h` | Global singleton state |
-
-### Headers
-
-| Header | Purpose |
-|--------|---------|
-| `core/shape.h` | Shape struct, ShapeVTable definition |
-| `core/shape_impl.h` | Concrete shape implementations (LineImpl, CircleImpl, RectImpl) |
-| `core/tool.h` | Tool struct, ToolVTable definition |
-| `core/macros.h` | C11 logging macros (LOG_DEBUG, LOG_INFO, etc.) |
-
-### Shaders
-
-| File | Purpose |
-|------|---------|
-| `shaders/basic.vert` | Vertex shader - passes through position and color |
-| `shaders/basic.frag` | Fragment shader - outputs solid color |
+| File | Role |
+|---|---|
+| `src/app/application.c` | application bootstrap and event bridge |
+| `src/document/object.c` | object types: line, rectangle, ellipse |
+| `src/document/document.c` | object list and selection set |
+| `src/canvas/canvas_view.c` | zoom/pan/view transform and picking |
+| `src/tools/tool_controller.c` | select, hand, line, rect, ellipse tools |
+| `src/render/render_system.c` | grid and object rendering |
+| `src/ui/ui_system.c` | toolbar, inspector, status bar |

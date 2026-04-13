@@ -1,89 +1,85 @@
 # Data Flow
 
-## Application Loop
+## Main Loop
 
-The main loop follows a standard graphics application pattern:
+The current frame loop is:
 
 ```c
-while (!window_should_close()) {
-    poll_events();           // GLFW poll
-    process_input();         // Route to current tool
-    render_frame();          // OpenGL rendering
-    nuklear_new_frame();     // Nuklear begin frame
-    nuklear_build_ui();      // Build property panel
-    nuklear_render();        // Render Nuklear UI
-    swap_buffers();          // GLFW swap buffers
+while (!platform_window_should_close(&app.window)) {
+    platform_window_poll_events();
+    ui_system_begin_frame(app.ui);
+    ui_system_build(app.ui, &app.workspace);
+    render_system_draw(app.renderer, &app.workspace.document, &app.workspace.canvas, overlay);
+    ui_system_render(app.ui);
+    platform_window_swap_buffers(&app.window);
 }
 ```
 
-## Input Flow
+## Event Flow
 
-```
-GLFW Event (mouse/keyboard)
-        ↓
-input.c callbacks
-        ↓
-nuklear_ui_blocks_mouse_input() → true? → ignore event
-        ↓ false
-ToolManager → current_tool → on_down/on_move/on_up
-        ↓
-ShapeManager / SelectionManager modification
+```text
+GLFW
+    -> application.c callback
+    -> ui_system_blocks_pointer?
+    -> ToolEvent { screen_pos, world_pos, delta_* }
+    -> tool_controller_*
+    -> document or canvas update
 ```
 
-## Shape Creation Flow
+## Drawing Flow
 
+```text
+Pointer down
+    -> shape tool stores anchor point
+Pointer move
+    -> shape tool rebuilds overlay object
+Pointer up
+    -> shape tool creates a document object
+    -> document assigns ObjectId
 ```
-DrawTool.on_down
-        ↓
-ShapeRegistry.create("LINE") / "CIRCLE" / "RECT"
-        ↓
-ShapeManager.add()
-        ↓
-renderer_mark_dirty()
+
+## Selection Flow
+
+```text
+Pointer down in Select tool
+    -> canvas picking
+    -> document selection update
+Pointer move while dragging
+    -> translate selected objects in world space
 ```
 
 ## Render Flow
 
-```
-Main Loop render_frame()
-        ↓
-ShapeManager iteration
-        ↓
-For each shape:
-    shape->vtable->write_geometry() → vertex buffer
-    shape->vtable->get_vertex_count()
-        ↓
-glDrawArrays(primitive, 0, vertex_count)
-        ↓
-Selection highlight (yellow outline for selected)
-        ↓
-Nuklear UI render (on top)
+```text
+Document object
+    -> object_write_path_points()
+    -> world polyline
+    -> canvas world_to_screen
+    -> transient vertex upload
+    -> OpenGL line strip
 ```
 
-## Data Update Flow
+## Property Editing Flow
 
-When a shape property changes (via Nuklear UI):
-
-```
-User adjusts slider
-        ↓
-nuklear_build_ui() → shape_set_color() / shape_set_line_width()
-        ↓
-shape->revision++
-        ↓
-renderer_mark_dirty()
-        ↓
-Next frame: renderer detects revision mismatch, re-uploads geometry
+```text
+Inspector widget change
+    -> object_set_scalar() / object_set_stroke_*
+    -> object revision bump
+    -> next frame draws updated geometry
 ```
 
-## Revision Tracking
+## Persistence Flow
 
-The `revision` counter on each shape and `ShapeManager` enables efficient dirty checking:
+```text
+Ctrl+S / Toolbar Save
+    -> application save command
+    -> document_save_json()
+    -> current path or document.json
 
-```c
-// renderer.c
-if (sm->revision != renderer->cache_revision) {
-    rebuild_vertex_buffer();  // Only when shapes changed
-    renderer->cache_revision = sm->revision;
-}
+Ctrl+O / Toolbar Load
+    -> application load command
+    -> document_load_json()
+    -> history reset
+    -> tool transient state reset
+    -> canvas view preserved
 ```

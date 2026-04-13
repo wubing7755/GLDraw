@@ -1,143 +1,59 @@
 # Extending the Project
 
-## Adding a New Shape Type
+## Add a New Object Type
 
-This tutorial adds a **Triangle** shape.
+The simplest extension path is to add another `GraphicObject` implementation.
 
-### Step 1: Define the Implementation
+### Steps
 
-In `include/core/shape_impl.h`, add:
+1. Add a new `GraphicObjectType` in `include/document/object.h`.
+2. Define a concrete payload struct in `src/document/object.c`, or split object types into separate files if the module grows.
+3. Implement the vtable functions:
+   - destroy
+   - translate
+   - bounds
+   - hit test
+   - path writing
+   - scalar property get/set
+4. Add a constructor like `object_create_triangle(...)`.
+5. Extend the renderer only if the object cannot be expressed as a polyline.
+6. Add a tool or inspector bindings if the object needs creation or editing UI.
 
-```c
-typedef struct {
-    float p1[2], p2[2], p3[2];  // Three vertices
-} TriangleImpl;
-```
+## Add a New Tool
 
-### Step 2: Implement ShapeVTable Functions
+### Steps
 
-In a new file `src/shape_triangle.c`:
+1. Add a new `ToolKind` in `include/tools/tool.h`.
+2. Define a tool state struct in `src/tools/tool_controller.c`.
+3. Implement the relevant callbacks.
+4. Register the tool in `tool_controller_init()`.
+5. Add a toolbar button and optional keyboard shortcut.
 
-```c
-static void triangle_destroy(Shape* shape) {
-    free(shape->impl);
-    free(shape);
-}
+## Add Undo / Redo
 
-static void triangle_compute_bounds(Shape* shape, float* min_x, float* min_y, float* max_x, float* max_y) {
-    TriangleImpl* tri = (TriangleImpl*)shape->impl;
-    // Compute bounding box from three vertices
-}
+The next clean extension point is a command layer between tools and document mutation.
 
-static bool triangle_hit_test(Shape* shape, float x, float y) {
-    // Point-in-triangle test
-}
+Recommended shape:
 
-static int triangle_get_vertex_count(Shape* shape) {
-    return 3;
-}
+- tools create editor commands
+- commands apply to the document
+- command history stores inverse data
 
-static void triangle_write_geometry(Shape* shape, float* buffer) {
-    TriangleImpl* tri = (TriangleImpl*)shape->impl;
-    // Write 3 vertices with color to buffer
-}
+Document ownership and `ObjectId` already make this feasible.
 
-static void triangle_translate(Shape* shape, float dx, float dy) {
-    TriangleImpl* tri = (TriangleImpl*)shape->impl;
-    // Translate all three vertices
-}
+## Add Save / Load
 
-Shape* triangle_create(float p1x, float p1y, float p2x, float p2y, float p3x, float p3y) {
-    // Allocate and initialize shape
-}
-```
+Recommended shape:
 
-### Step 3: Register the Shape
+- serialize `Document`
+- serialize `CanvasView` only for session state, not required document data
+- keep UI state out of document files
 
-In `src/shape_registry.c`, add to `shape_register_all()`:
+## Add Layers
 
-```c
-shape_registry_register("TRIANGLE", triangle_create);
-```
+Recommended shape:
 
-In `include/core/shape.h`, add to `ShapeType` enum:
-
-```c
-typedef enum { SHAPE_LINE, SHAPE_CIRCLE, SHAPE_RECT, SHAPE_TRIANGLE } ShapeType;
-```
-
-### Step 4: Add Keyboard Shortcut
-
-In `src/input.c`, `key_callback()`:
-
-```c
-case GLFW_KEY_4:
-    toolmanager_set_tool(draw_tool_create("TRIANGLE"));
-    break;
-```
-
-### Step 5: Update CMakeLists.txt
-
-In `CMakeLists.txt`, find the `add_executable(GLDraw ...` line and add your new source file:
-
-```cmake
-add_executable(GLDraw
-    src/main.c
-    src/shape.c
-    src/shape_triangle.c    # <-- Add this line
-    # ... other sources
-)
-```
-
-## Adding a New Tool
-
-### Step 1: Define Tool Context
-
-```c
-typedef struct {
-    // Tool-specific state
-} MyToolCtx;
-```
-
-### Step 2: Implement ToolVTable
-
-```c
-static void mytool_on_down(Tool* tool, float x, float y, SelectionManager* sel, int shift) {
-    MyToolCtx* ctx = (MyToolCtx*)tool->ctx;
-    // Handle mouse down
-}
-
-static void mytool_on_move(Tool* tool, float x, float y, SelectionManager* sel) {
-    // Handle mouse move
-}
-
-static void mytool_on_up(Tool* tool, SelectionManager* sel) {
-    // Handle mouse up
-}
-```
-
-### Step 3: Create Tool Factory
-
-```c
-Tool* mytool_create(void) {
-    Tool* tool = tool_create(sizeof(MyToolCtx));
-    tool->vtable->name = mytool_name;
-    tool->vtable->on_down = mytool_on_down;
-    tool->vtable->on_move = mytool_on_move;
-    tool->vtable->on_up = mytool_on_up;
-    return tool;
-}
-```
-
-## Hooking into the Render Loop
-
-To add custom rendering (e.g., grid, guides):
-
-1. Modify `render_frame()` in `main.c`
-2. Add your rendering code before or after `render_shapes()`
-
-```c
-render_grid();      // Your custom rendering
-render_shapes();    // Built-in shape rendering
-render_overlay();   // Your custom overlay
-```
+- add layer containers inside `Document`
+- move object storage from one flat array to per-layer lists
+- keep `CanvasView` unchanged
+- keep tools operating on active layer selection
