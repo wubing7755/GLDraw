@@ -256,7 +256,9 @@ RenderSystem* render_system_create(PlatformWindow* window)
 
     glUseProgram(renderer->program);
     screen_size_loc = glGetUniformLocation(renderer->program, "uScreenSize");
-    glUniform2f(screen_size_loc, (float)renderer->width, (float)renderer->height);
+    if (screen_size_loc >= 0) {
+        glUniform2f(screen_size_loc, (float)renderer->width, (float)renderer->height);
+    }
     glUseProgram(0);
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -290,7 +292,9 @@ void render_system_resize(RenderSystem* renderer, int width, int height)
     glViewport(0, 0, width, height);
     glUseProgram(renderer->program);
     screen_size_loc = glGetUniformLocation(renderer->program, "uScreenSize");
-    glUniform2f(screen_size_loc, (float)width, (float)height);
+    if (screen_size_loc >= 0) {
+        glUniform2f(screen_size_loc, (float)width, (float)height);
+    }
     glUseProgram(0);
 }
 

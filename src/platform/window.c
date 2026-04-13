@@ -39,8 +39,6 @@ void platform_window_shutdown(PlatformWindow* window)
         glfwDestroyWindow(window->handle);
         window->handle = NULL;
     }
-
-    glfwTerminate();
 }
 
 void platform_window_poll_events(void)

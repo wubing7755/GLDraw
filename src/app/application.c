@@ -341,6 +341,7 @@ static int app_init(Application* app)
     app->ui = ui_system_create(&app->window);
     if (!app->ui) {
         LOG_ERROR("%s", "Failed to initialize UI");
+        render_system_destroy(app->renderer);
         return -1;
     }
 

@@ -327,6 +327,10 @@ static void json_parser_next(JsonParser* parser)
         start = parser->text + parser->pos;
         while (parser->pos < parser->length) {
             if (parser->text[parser->pos] == '\\') {
+                if (parser->pos + 1 >= parser->length) {
+                    parser->type = JSON_TOKEN_INVALID;
+                    return;
+                }
                 parser->pos += 2;
                 continue;
             }
