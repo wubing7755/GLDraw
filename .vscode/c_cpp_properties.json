@@ -5,42 +5,45 @@
             "includePath": [
                 "${workspaceFolder}/include",
                 "${workspaceFolder}/include/**",
+                "${workspaceFolder}/build/_deps/glfw-build/include",
                 "${workspaceFolder}/build/_deps/glfw-src/include",
-                "${workspaceFolder}/build/_deps/glad-src/include",
+                "${workspaceFolder}/src",
                 "C:/msys64/ucrt64/include",
                 "C:/msys64/ucrt64/lib/gcc/x86_64-pc-msys/14.2.0/include"
             ],
             "compilerPath": "C:/msys64/ucrt64/bin/gcc.exe",
             "cStandard": "c11",
-            "compileCommands": "${workspaceFolder}/build/compile_commands.json"
+            "compileCommands": "${workspaceFolder}/**/compile_commands.json"
         },
         {
             "name": "Linux",
             "includePath": [
                 "${workspaceFolder}/include",
                 "${workspaceFolder}/include/**",
+                "${workspaceFolder}/build/_deps/glfw-build/include",
                 "${workspaceFolder}/build/_deps/glfw-src/include",
-                "${workspaceFolder}/build/_deps/glad-src/include",
+                "${workspaceFolder}/src",
                 "/usr/include",
                 "/usr/local/include"
             ],
             "compilerPath": "/usr/bin/gcc",
             "cStandard": "c11",
-            "compileCommands": "${workspaceFolder}/build/compile_commands.json"
+            "compileCommands": "${workspaceFolder}/**/compile_commands.json"
         },
         {
             "name": "macOS",
             "includePath": [
                 "${workspaceFolder}/include",
                 "${workspaceFolder}/include/**",
+                "${workspaceFolder}/build/_deps/glfw-build/include",
                 "${workspaceFolder}/build/_deps/glfw-src/include",
-                "${workspaceFolder}/build/_deps/glad-src/include",
+                "${workspaceFolder}/src",
                 "/usr/local/include",
                 "/usr/include"
             ],
             "compilerPath": "/usr/bin/gcc",
             "cStandard": "c11",
-            "compileCommands": "${workspaceFolder}/build/compile_commands.json"
+            "compileCommands": "${workspaceFolder}/**/compile_commands.json"
         }
     ],
     "version": 4

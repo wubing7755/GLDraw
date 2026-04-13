@@ -1,10 +1,12 @@
 #!/bin/bash
 
-BUILD_TYPE="Release"
 ARG=${1:-""}
 
 # Detect platform
-if [[ "$OSTYPE" == "darwin"* ]] || [[ "$OSTYPE" == "linux-gnu"* ]]; then
+if [[ "$OSTYPE" == "darwin"* ]]; then
+    GENERATOR="Unix Makefiles"
+    EXE_EXT=""
+elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
     GENERATOR="Unix Makefiles"
     EXE_EXT=""
 else
@@ -18,23 +20,32 @@ case "$ARG" in
         rm -rf build
         echo "Build folder cleaned."
         ;;
-    configure)
-        cmake -G "$GENERATOR" -DCMAKE_BUILD_TYPE=$BUILD_TYPE -S . -B build
-        ;;
     debug)
-        BUILD_TYPE="Debug"
-        cmake -G "$GENERATOR" -DCMAKE_BUILD_TYPE=$BUILD_TYPE -S . -B build
-        cmake --build build --parallel
-        ;;
-    *)
-        # Default: clean, configure and build
-        rm -rf build
-        cmake -G "$GENERATOR" -DCMAKE_BUILD_TYPE=$BUILD_TYPE -S . -B build
-        cmake --build build --parallel
+        cmake -G "$GENERATOR" -DCMAKE_BUILD_TYPE=Debug -S . -B build/Debug
+        cmake --build build/Debug --parallel
         echo ""
         echo "============================================================"
         echo "  Build complete!"
-        echo "  Run: ./build/bin/GLDraw$EXE_EXT"
+        echo "  Run: ./build/Debug/bin/GLDraw$EXE_EXT"
+        echo "============================================================"
+        ;;
+    release)
+        cmake -G "$GENERATOR" -DCMAKE_BUILD_TYPE=Release -S . -B build/Release
+        cmake --build build/Release --parallel
+        echo ""
+        echo "============================================================"
+        echo "  Build complete!"
+        echo "  Run: ./build/Release/bin/GLDraw$EXE_EXT"
+        echo "============================================================"
+        ;;
+    *)
+        # Default: build Release
+        cmake -G "$GENERATOR" -DCMAKE_BUILD_TYPE=Release -S . -B build/Release
+        cmake --build build/Release --parallel
+        echo ""
+        echo "============================================================"
+        echo "  Build complete!"
+        echo "  Run: ./build/Release/bin/GLDraw$EXE_EXT"
         echo "============================================================"
         ;;
 esac

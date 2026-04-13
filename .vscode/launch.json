@@ -1,79 +1,33 @@
 {
-    "version": "0.2.0",
+    "version": "2.0.0",
     "configurations": [
         {
-            "name": "GLDraw (Debug) - Windows",
+            "name": "GLDraw (Debug)",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/build/bin/GLDraw.exe",
+            "program": "${workspaceFolder}/build/Debug/bin/GLDraw${env:EXT}",
             "args": [],
-            "cwd": "${workspaceFolder}/build/bin",
+            "cwd": "${workspaceFolder}/build/Debug/bin",
             "stopAtEntry": true,
             "externalConsole": false,
             "MIMode": "gdb",
             "miDebuggerPath": "gdb",
-            "preLaunchTask": "CMake: Build (Debug) - Windows",
-            "detail": "Debug build (Windows)",
-            "windows": {
-                "MIMode": "gdb",
-                "miDebuggerPath": "gdb"
-            }
+            "preLaunchTask": "CMake: Build Debug",
+            "detail": "Debug build with VS Code debugger"
         },
         {
-            "name": "GLDraw (Debug) - Unix",
+            "name": "GLDraw (Release)",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/build/bin/GLDraw",
+            "program": "${workspaceFolder}/build/Release/bin/GLDraw${env:EXT}",
             "args": [],
-            "cwd": "${workspaceFolder}/build/bin",
-            "stopAtEntry": true,
-            "externalConsole": false,
-            "MIMode": "gdb",
-            "miDebuggerPath": "gdb",
-            "preLaunchTask": "CMake: Build (Debug) - Unix",
-            "detail": "Debug build (Unix)",
-            "linux": {
-                "MIMode": "gdb",
-                "miDebuggerPath": "gdb"
-            },
-            "osx": {
-                "MIMode": "lldb"
-            }
-        },
-        {
-            "name": "GLDraw (No Debug) - Windows",
-            "type": "cppdbg",
-            "request": "launch",
-            "program": "${workspaceFolder}/build/bin/GLDraw.exe",
-            "args": [],
-            "cwd": "${workspaceFolder}/build/bin",
+            "cwd": "${workspaceFolder}/build/Release/bin",
             "stopAtEntry": false,
             "externalConsole": false,
             "MIMode": "gdb",
             "miDebuggerPath": "gdb",
-            "preLaunchTask": "CMake: Clean and Build - Windows",
-            "detail": "Clean and build (Windows)"
-        },
-        {
-            "name": "GLDraw (No Debug) - Unix",
-            "type": "cppdbg",
-            "request": "launch",
-            "program": "${workspaceFolder}/build/bin/GLDraw",
-            "args": [],
-            "cwd": "${workspaceFolder}/build/bin",
-            "stopAtEntry": false,
-            "externalConsole": false,
-            "MIMode": "gdb",
-            "miDebuggerPath": "gdb",
-            "preLaunchTask": "CMake: Clean and Build - Unix",
-            "detail": "Clean and build (Unix)",
-            "linux": {
-                "MIMode": "gdb",
-                "miDebuggerPath": "gdb"
-            },
-            "osx": {
-                "MIMode": "lldb"
-            }
+            "preLaunchTask": "CMake: Build Release",
+            "detail": "Release build (no debugging)"
         }
     ]
 }
