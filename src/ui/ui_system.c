@@ -1,4 +1,5 @@
 #include <ui/ui_system.h>
+#include <ui/ui_menubar.h>
 
 #include <app/workspace.h>
 #include <base/math2d.h>
@@ -32,6 +33,7 @@
 struct UiSystem {
     struct nk_glfw glfw;
     struct nk_context* ctx;
+    UiMenuBar* menu_bar;
     RectF toolbar_bounds;
     RectF panel_bounds;
     RectF status_bounds;
@@ -115,8 +117,11 @@ static void ui_toolbar(UiSystem* ui, Workspace* workspace, int window_width)
     struct nk_context* ctx = ui->ctx;
     ToolContext context = ui_tool_context(workspace);
 
+    /* Use existing toolbar_bounds.y if already set (by ui_system_build for menu bar offset) */
+    if (ui->toolbar_bounds.y < 25.0f) {
+        ui->toolbar_bounds.y = 12.0f;
+    }
     ui->toolbar_bounds.x = 12.0f;
-    ui->toolbar_bounds.y = 12.0f;
     ui->toolbar_bounds.w = (float)(window_width - 24);
     ui->toolbar_bounds.h = 54.0f;
 
@@ -150,11 +155,12 @@ static void ui_selection_panel(UiSystem* ui, Workspace* workspace, int window_wi
     GraphicObject* object = document_primary_selection(document);
     Color stroke = {0.0f, 0.0f, 0.0f, 0.0f};
     float stroke_width = 0.0f;
+    float menu_height = ui_menubar_height(ui->menu_bar);
 
     ui->panel_bounds.w = 280.0f;
-    ui->panel_bounds.h = (float)(window_height - 146);
+    ui->panel_bounds.h = (float)(window_height - 146 - (int)menu_height);
     ui->panel_bounds.x = (float)(window_width - 292);
-    ui->panel_bounds.y = 78.0f;
+    ui->panel_bounds.y = menu_height + 78.0f;
 
     if (nk_begin(ctx, "Inspector",
                  nk_rect(ui->panel_bounds.x, ui->panel_bounds.y, ui->panel_bounds.w, ui->panel_bounds.h),
@@ -266,6 +272,9 @@ UiSystem* ui_system_create(PlatformWindow* window)
 
     nk_glfw3_font_stash_begin(&ui->glfw, &atlas);
     nk_glfw3_font_stash_end(&ui->glfw);
+
+    ui->menu_bar = ui_menubar_create(ui->ctx);
+
     return ui;
 }
 
@@ -273,6 +282,10 @@ void ui_system_destroy(UiSystem* ui)
 {
     if (!ui) {
         return;
+    }
+    if (ui->menu_bar) {
+        ui_menubar_destroy(ui->menu_bar);
+        ui->menu_bar = NULL;
     }
     nk_glfw3_shutdown(&ui->glfw);
     free(ui);
@@ -295,8 +308,26 @@ void ui_system_build(UiSystem* ui, Workspace* workspace)
     }
 
     glfwGetWindowSize(glfwGetCurrentContext(), &width, &height);
+
+    /* Build menu bar first (at top of window) */
+    if (ui->menu_bar) {
+        ui_menubar_build(ui->menu_bar, workspace, width);
+    }
+
+    /* Adjust toolbar position to account for menu bar */
+    float menu_height = ui_menubar_height(ui->menu_bar);
+    ui->toolbar_bounds.x = 12.0f;
+    ui->toolbar_bounds.y = menu_height + 12.0f;
+    ui->toolbar_bounds.w = (float)(width - 24);
+    ui->toolbar_bounds.h = 54.0f;
+
     ui_toolbar(ui, workspace, width);
-    ui_selection_panel(ui, workspace, width, height);
+
+    /* Show/hide inspector panel based on menu bar state */
+    if (ui_menubar_inspector_visible(ui->menu_bar)) {
+        ui_selection_panel(ui, workspace, width, height);
+    }
+
     ui_status_bar(ui, workspace, width, height);
 }
 
@@ -310,6 +341,8 @@ void ui_system_render(UiSystem* ui)
 
 int ui_system_blocks_pointer(const UiSystem* ui, Vec2 screen_pos)
 {
+    RectF menu_bounds;
+
     if (!ui || !ui->ctx) {
         return 0;
     }
@@ -318,7 +351,14 @@ int ui_system_blocks_pointer(const UiSystem* ui, Vec2 screen_pos)
         return 1;
     }
 
-    return rectf_contains_point(&ui->toolbar_bounds, screen_pos) ||
+    /* Menu bar at top of window (full width) */
+    menu_bounds.x = 0.0f;
+    menu_bounds.y = 0.0f;
+    menu_bounds.w = 10000.0f;  /* Large enough to cover window width */
+    menu_bounds.h = ui_menubar_height(ui->menu_bar);
+
+    return rectf_contains_point(&menu_bounds, screen_pos) ||
+           rectf_contains_point(&ui->toolbar_bounds, screen_pos) ||
            rectf_contains_point(&ui->panel_bounds, screen_pos) ||
            rectf_contains_point(&ui->status_bounds, screen_pos);
 }

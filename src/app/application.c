@@ -7,6 +7,8 @@
 #include <platform/window.h>
 #include <render/render_system.h>
 #include <ui/ui_system.h>
+#include <ui/ui_menu_actions.h>
+#include <ui/ui_menu_def.h>
 
 #include <GLFW/glfw3.h>
 
@@ -22,6 +24,14 @@ typedef struct {
     UiSystem* ui;
     Vec2 cursor_screen;
 } Application;
+
+/* Global application instance for menu actions */
+static Application* g_app = NULL;
+
+void* app_get_instance(void)
+{
+    return g_app;
+}
 
 static int app_workspace_save(Workspace* workspace, void* user_data);
 static int app_workspace_load(Workspace* workspace, void* user_data);
@@ -277,13 +287,46 @@ static void key_callback(GLFWwindow* handle, int key, int scancode, int action, 
         return;
     }
 
-    if ((mods & GLFW_MOD_CONTROL) != 0 && key == GLFW_KEY_S) {
-        app_save_document(app);
-        return;
+    /* Menu shortcuts via centralized handler */
+    if ((mods & GLFW_MOD_CONTROL) != 0) {
+        switch (key) {
+        case GLFW_KEY_N:
+            ui_menu_execute(&app->workspace, MENU_ID_FILE_NEW);
+            return;
+        case GLFW_KEY_O:
+            app_load_document(app);
+            return;
+        case GLFW_KEY_S:
+            app_save_document(app);
+            return;
+        case GLFW_KEY_Z:
+            ui_menu_execute(&app->workspace, MENU_ID_EDIT_UNDO);
+            return;
+        case GLFW_KEY_Y:
+            ui_menu_execute(&app->workspace, MENU_ID_EDIT_REDO);
+            return;
+        case GLFW_KEY_A:
+            ui_menu_execute(&app->workspace, MENU_ID_EDIT_SELECT_ALL);
+            return;
+        case GLFW_KEY_0:
+            ui_menu_execute(&app->workspace, MENU_ID_VIEW_ZOOM_FIT);
+            return;
+        case GLFW_KEY_EQUAL:
+        case GLFW_KEY_KP_ADD:
+            ui_menu_execute(&app->workspace, MENU_ID_VIEW_ZOOM_IN);
+            return;
+        case GLFW_KEY_MINUS:
+        case GLFW_KEY_KP_SUBTRACT:
+            ui_menu_execute(&app->workspace, MENU_ID_VIEW_ZOOM_OUT);
+            return;
+        default:
+            break;
+        }
     }
 
-    if ((mods & GLFW_MOD_CONTROL) != 0 && key == GLFW_KEY_O) {
-        app_load_document(app);
+    /* Help shortcut (question mark) */
+    if (key == GLFW_KEY_SLASH && (mods & GLFW_MOD_SHIFT) != 0) {
+        ui_menu_execute(&app->workspace, MENU_ID_HELP_SHORTCUTS);
         return;
     }
 
@@ -312,6 +355,8 @@ static void scroll_callback(GLFWwindow* handle, double xoffset, double yoffset)
 static int app_init(Application* app)
 {
     RectF viewport = {0.0f, 0.0f, 1440.0f, 900.0f};
+
+    g_app = app;
 
     if (platform_window_init(&app->window, 1440, 900, "GLDraw Canvas") != 0) {
         LOG_ERROR("%s", "Failed to create window");
@@ -364,6 +409,8 @@ static void app_shutdown(Application* app)
     if (!app) {
         return;
     }
+
+    g_app = NULL;
 
     ui_system_destroy(app->ui);
     render_system_destroy(app->renderer);
