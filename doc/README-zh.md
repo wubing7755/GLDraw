@@ -112,6 +112,12 @@ GLDraw/
 | GLAD | OpenGL 加载器 | 已提交到仓库 |
 | Nuklear | 即时模式 UI | 本地 header-only |
 
+## 文档入口
+
+- Wiki 首页：[wiki/Home.md](./wiki/Home.md)
+- C 贡献者指南（中文）：[c-language-must-know-for-gldraw.md](./c-language-must-know-for-gldraw.md)
+- C Contributor Guide (English)：[c-language-must-know-for-gldraw.en.md](./c-language-must-know-for-gldraw.en.md)
+
 ## 当前阶段
 
 这是当前重构基线版本。新架构已经落地，旧的耦合式运行时已经从构建中移除，并已经具备基础历史记录与 JSON 持久化能力。后续可以继续扩展：

@@ -112,6 +112,12 @@ Important boundaries:
 | GLAD | OpenGL loader | Committed in repo |
 | Nuklear | Immediate-mode UI | Header-only local include |
 
+## Documentation
+
+- Wiki Home: [doc/wiki/Home.md](./doc/wiki/Home.md)
+- C Contributor Guide (EN): [doc/c-language-must-know-for-gldraw.en.md](./doc/c-language-must-know-for-gldraw.en.md)
+- C 贡献者指南 (ZH): [doc/c-language-must-know-for-gldraw.md](./doc/c-language-must-know-for-gldraw.md)
+
 ## Status
 
 This is the current baseline of the refactor. The new architecture is in place, the old direct-coupled runtime has been removed from the build, and the editor now supports document history plus JSON persistence. Future work can extend this foundation with:

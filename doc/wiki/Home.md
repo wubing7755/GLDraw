@@ -18,6 +18,14 @@ The project now follows the same split used by common graphics tools:
 3. [Project Structure](project-structure)
 4. [Architecture](architecture)
 
+## Contributor Quick Prep
+
+If you plan to contribute code, read the C contributor guide first.  
+It summarizes repository-specific C patterns (callbacks, pointers, vtable usage, memory ownership) and common PR pitfalls.
+
+- [C Contributor Guide (EN)](../c-language-must-know-for-gldraw.en.md)
+- [C 贡献者指南 (ZH)](../c-language-must-know-for-gldraw.md)
+
 ## Core Systems
 
 - [Overview](core-systems-overview)
@@ -32,5 +40,7 @@ The project now follows the same split used by common graphics tools:
 
 - [Data Flow](data-flow)
 - [Extending the Project](extending)
+- [C Contributor Guide (EN)](../c-language-must-know-for-gldraw.en.md)
+- [C 贡献者指南 (ZH)](../c-language-must-know-for-gldraw.md)
 - [Known Issues](known-issues)
 - [FAQ](faq)
