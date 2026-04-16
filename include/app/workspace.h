@@ -9,11 +9,22 @@
 struct Workspace;
 typedef int (*WorkspaceCommandFn)(struct Workspace* workspace, void* user_data);
 
+typedef struct WorkspaceLayout {
+    RectF window_bounds;
+    RectF canvas_content_bounds;
+    RectF appbar_bounds;
+    RectF rail_bounds;
+    RectF panel_bounds;
+    RectF status_bounds;
+    unsigned int layout_revision;
+} WorkspaceLayout;
+
 typedef struct Workspace {
     Document document;
     DocumentHistory history;
     CanvasView canvas;
     ToolController tools;
+    WorkspaceLayout layout;
     char current_document_path[260];
     char status_message[256];
     unsigned int saved_revision;

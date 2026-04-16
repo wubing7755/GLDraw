@@ -222,6 +222,53 @@ static void draw_object(RenderSystem* renderer,
     draw_polyline(renderer, canvas, renderer->path_buffer, point_count, object->style.stroke_color, object->style.stroke_width);
 }
 
+static int render_canvas_scissor_box(const RectF* viewport, int framebuffer_width, int framebuffer_height, GLint out_scissor[4])
+{
+    int x = 0;
+    int y_top = 0;
+    int w = 0;
+    int h = 0;
+    int y = 0;
+
+    if (!viewport || !out_scissor || framebuffer_width <= 0 || framebuffer_height <= 0) {
+        return 0;
+    }
+
+    if (viewport->w <= 0.0f || viewport->h <= 0.0f) {
+        return 0;
+    }
+
+    x = (int)floorf(viewport->x);
+    y_top = (int)floorf(viewport->y);
+    w = (int)ceilf(viewport->w);
+    h = (int)ceilf(viewport->h);
+    y = framebuffer_height - y_top - h;
+
+    if (x < 0) {
+        w += x;
+        x = 0;
+    }
+    if (y < 0) {
+        h += y;
+        y = 0;
+    }
+    if (x + w > framebuffer_width) {
+        w = framebuffer_width - x;
+    }
+    if (y + h > framebuffer_height) {
+        h = framebuffer_height - y;
+    }
+    if (w <= 0 || h <= 0) {
+        return 0;
+    }
+
+    out_scissor[0] = (GLint)x;
+    out_scissor[1] = (GLint)y;
+    out_scissor[2] = (GLint)w;
+    out_scissor[3] = (GLint)h;
+    return 1;
+}
+
 RenderSystem* render_system_create(PlatformWindow* window)
 {
     RenderSystem* renderer = (RenderSystem*)calloc(1, sizeof(*renderer));
@@ -304,12 +351,35 @@ void render_system_draw(RenderSystem* renderer,
                         const GraphicObject* overlay_object)
 {
     int i = 0;
+    GLboolean scissor_was_enabled = GL_FALSE;
+    GLint previous_scissor_box[4] = {0, 0, 0, 0};
+    GLint canvas_scissor_box[4] = {0, 0, 0, 0};
+    RectF viewport;
+    int has_canvas_area = 0;
 
     if (!renderer || !document || !canvas) {
         return;
     }
 
+    viewport = canvas_view_viewport(canvas);
+    has_canvas_area = render_canvas_scissor_box(&viewport,
+                                                renderer->width,
+                                                renderer->height,
+                                                canvas_scissor_box);
+
     glViewport(0, 0, renderer->width, renderer->height);
+    scissor_was_enabled = glIsEnabled(GL_SCISSOR_TEST);
+    glGetIntegerv(GL_SCISSOR_BOX, previous_scissor_box);
+
+    if (!has_canvas_area) {
+        if (!scissor_was_enabled) {
+            glDisable(GL_SCISSOR_TEST);
+        }
+        return;
+    }
+
+    glEnable(GL_SCISSOR_TEST);
+    glScissor(canvas_scissor_box[0], canvas_scissor_box[1], canvas_scissor_box[2], canvas_scissor_box[3]);
     glClearColor(canvas->background.r, canvas->background.g, canvas->background.b, canvas->background.a);
     glClear(GL_COLOR_BUFFER_BIT);
 
@@ -333,4 +403,13 @@ void render_system_draw(RenderSystem* renderer,
     glLineWidth(1.0f);
     glBindVertexArray(0);
     glUseProgram(0);
+
+    if (scissor_was_enabled) {
+        glScissor(previous_scissor_box[0],
+                  previous_scissor_box[1],
+                  previous_scissor_box[2],
+                  previous_scissor_box[3]);
+    } else {
+        glDisable(GL_SCISSOR_TEST);
+    }
 }

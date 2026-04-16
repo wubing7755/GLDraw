@@ -23,39 +23,40 @@ UiThemeTokens ui_theme_default_tokens(void)
 {
     UiThemeTokens tokens;
 
-    tokens.primary = nk_rgba(46, 117, 224, 255);
-    tokens.primary_hover = nk_rgba(61, 130, 233, 255);
-    tokens.primary_active = nk_rgba(35, 101, 195, 255);
+    tokens.primary = nk_rgba(47, 109, 188, 255);
+    tokens.primary_hover = nk_rgba(62, 123, 205, 255);
+    tokens.primary_active = nk_rgba(37, 89, 160, 255);
 
-    tokens.background = nk_rgba(236, 240, 246, 255);
-    tokens.panel = nk_rgba(250, 252, 255, 255);
-    tokens.panel_hover = nk_rgba(243, 247, 253, 255);
+    tokens.background = nk_rgba(226, 233, 241, 255);
+    tokens.panel = nk_rgba(244, 248, 253, 255);
+    tokens.panel_hover = nk_rgba(233, 240, 248, 255);
+    tokens.canvas_background = nk_rgba(218, 226, 236, 255);
 
-    tokens.text = nk_rgba(34, 40, 49, 255);
-    tokens.text_secondary = nk_rgba(95, 104, 117, 255);
-    tokens.text_disabled = nk_rgba(150, 159, 171, 255);
+    tokens.text = nk_rgba(24, 35, 49, 255);
+    tokens.text_secondary = nk_rgba(84, 96, 111, 255);
+    tokens.text_disabled = nk_rgba(140, 151, 166, 255);
 
-    tokens.border = nk_rgba(188, 198, 212, 255);
-    tokens.border_hover = nk_rgba(164, 176, 194, 255);
+    tokens.border = nk_rgba(181, 194, 212, 255);
+    tokens.border_hover = nk_rgba(149, 166, 189, 255);
 
-    tokens.success = nk_rgba(43, 154, 103, 255);
-    tokens.warning = nk_rgba(204, 136, 36, 255);
-    tokens.error = nk_rgba(196, 70, 70, 255);
+    tokens.success = nk_rgba(45, 143, 105, 255);
+    tokens.warning = nk_rgba(194, 129, 42, 255);
+    tokens.error = nk_rgba(182, 74, 74, 255);
 
-    tokens.row_height = 28.0f;
-    tokens.panel_width = 280.0f;
-    tokens.menu_height = 30.0f;
-    tokens.status_height = 36.0f;
-    tokens.tool_rail_width = 80.0f;
+    tokens.row_height = 30.0f;
+    tokens.panel_width = 292.0f;
+    tokens.menu_height = 34.0f;
+    tokens.status_height = 32.0f;
+    tokens.tool_rail_width = 96.0f;
 
-    tokens.padding = 4.0f;
-    tokens.margin = 12.0f;
-    tokens.gap = 8.0f;
+    tokens.padding = 5.0f;
+    tokens.margin = 0.0f;
+    tokens.gap = 0.0f;
 
-    tokens.border_radius = 4.0f;
+    tokens.border_radius = 0.0f;
 
     tokens.enable_transitions = nk_true;
-    tokens.transition_duration = 0.10f;
+    tokens.transition_duration = 0.12f;
     return tokens;
 }
 
@@ -75,8 +76,8 @@ void ui_theme_apply(struct nk_context* ctx, const UiThemeTokens* tokens)
     hover_panel = ui_theme_mix_channel(local_tokens.panel_hover, local_tokens.background, 0.35f);
 
     table[NK_COLOR_TEXT] = local_tokens.text;
-    table[NK_COLOR_WINDOW] = local_tokens.background;
-    table[NK_COLOR_HEADER] = local_tokens.panel;
+    table[NK_COLOR_WINDOW] = local_tokens.panel;
+    table[NK_COLOR_HEADER] = ui_theme_mix_channel(local_tokens.panel, local_tokens.background, 0.60f);
     table[NK_COLOR_BORDER] = local_tokens.border;
     table[NK_COLOR_BUTTON] = subtle_panel;
     table[NK_COLOR_BUTTON_HOVER] = local_tokens.panel_hover;
@@ -110,16 +111,16 @@ void ui_theme_apply(struct nk_context* ctx, const UiThemeTokens* tokens)
     nk_style_default(ctx);
     nk_style_from_table(ctx, table);
 
-    ctx->style.window.background = local_tokens.background;
-    ctx->style.window.fixed_background = nk_style_item_color(local_tokens.background);
+    ctx->style.window.background = local_tokens.panel;
+    ctx->style.window.fixed_background = nk_style_item_color(local_tokens.panel);
     ctx->style.window.border_color = local_tokens.border;
     ctx->style.window.rounding = local_tokens.border_radius;
     ctx->style.window.border = 1.0f;
-    ctx->style.window.spacing = nk_vec2(local_tokens.gap * 0.5f, local_tokens.gap * 0.5f);
-    ctx->style.window.padding = nk_vec2(local_tokens.padding * 2.0f, local_tokens.padding * 1.5f);
-    ctx->style.window.group_padding = nk_vec2(local_tokens.padding * 2.0f, local_tokens.padding * 1.5f);
-    ctx->style.window.tooltip_padding = nk_vec2(local_tokens.padding * 2.0f, local_tokens.padding * 1.5f);
-    ctx->style.window.menu_padding = nk_vec2(local_tokens.padding * 1.5f, local_tokens.padding * 1.5f);
+    ctx->style.window.spacing = nk_vec2(local_tokens.padding * 0.8f, local_tokens.padding * 0.8f);
+    ctx->style.window.padding = nk_vec2(local_tokens.padding * 1.6f, local_tokens.padding * 1.3f);
+    ctx->style.window.group_padding = nk_vec2(local_tokens.padding * 1.6f, local_tokens.padding * 1.3f);
+    ctx->style.window.tooltip_padding = nk_vec2(local_tokens.padding * 1.8f, local_tokens.padding * 1.4f);
+    ctx->style.window.menu_padding = nk_vec2(local_tokens.padding * 1.3f, local_tokens.padding * 1.1f);
     ctx->style.window.tooltip_border = 1.0f;
     ctx->style.window.tooltip_border_color = local_tokens.border_hover;
 

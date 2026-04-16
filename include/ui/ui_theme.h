@@ -18,6 +18,7 @@ typedef struct UiThemeTokens {
     struct nk_color background;
     struct nk_color panel;
     struct nk_color panel_hover;
+    struct nk_color canvas_background;
 
     /* Text */
     struct nk_color text;

@@ -41,6 +41,8 @@ struct UiSystem {
     RectF rail_bounds;
     RectF panel_bounds;
     RectF status_bounds;
+    RectF content_bounds;
+    WorkspaceLayout layout_snapshot;
     float inspector_anim_t;
     int inspector_target_visible;
     int inspector_anim_initialized;
@@ -62,6 +64,94 @@ static float ui_smoothstep(float t)
 {
     float clamped = ui_clampf(t, 0.0f, 1.0f);
     return clamped * clamped * (3.0f - 2.0f * clamped);
+}
+
+static int ui_rectf_equals(RectF a, RectF b)
+{
+    const float eps = 1e-3f;
+    return fabsf(a.x - b.x) <= eps &&
+           fabsf(a.y - b.y) <= eps &&
+           fabsf(a.w - b.w) <= eps &&
+           fabsf(a.h - b.h) <= eps;
+}
+
+static RectF ui_clamp_rect_to_window(RectF rect, RectF window_bounds)
+{
+    float max_x = window_bounds.x + window_bounds.w;
+    float max_y = window_bounds.y + window_bounds.h;
+
+    if (rect.w < 0.0f) {
+        rect.w = 0.0f;
+    }
+    if (rect.h < 0.0f) {
+        rect.h = 0.0f;
+    }
+    if (rect.x < window_bounds.x) {
+        rect.w -= (window_bounds.x - rect.x);
+        rect.x = window_bounds.x;
+    }
+    if (rect.y < window_bounds.y) {
+        rect.h -= (window_bounds.y - rect.y);
+        rect.y = window_bounds.y;
+    }
+    if (rect.x > max_x) {
+        rect.x = max_x;
+    }
+    if (rect.y > max_y) {
+        rect.y = max_y;
+    }
+    if (rect.x + rect.w > max_x) {
+        rect.w = max_x - rect.x;
+    }
+    if (rect.y + rect.h > max_y) {
+        rect.h = max_y - rect.y;
+    }
+    if (rect.w < 0.0f) {
+        rect.w = 0.0f;
+    }
+    if (rect.h < 0.0f) {
+        rect.h = 0.0f;
+    }
+
+    return rect;
+}
+
+static void ui_publish_layout(UiSystem* ui, Workspace* workspace, int width, int height)
+{
+    WorkspaceLayout next_layout;
+    RectF window_bounds;
+    int changed = 0;
+
+    if (!ui || !workspace) {
+        return;
+    }
+
+    window_bounds.x = 0.0f;
+    window_bounds.y = 0.0f;
+    window_bounds.w = (float)width;
+    window_bounds.h = (float)height;
+
+    next_layout = workspace->layout;
+    next_layout.window_bounds = window_bounds;
+    next_layout.appbar_bounds = ui_clamp_rect_to_window(ui->appbar_bounds, window_bounds);
+    next_layout.rail_bounds = ui_clamp_rect_to_window(ui->rail_bounds, window_bounds);
+    next_layout.panel_bounds = ui_clamp_rect_to_window(ui->panel_bounds, window_bounds);
+    next_layout.status_bounds = ui_clamp_rect_to_window(ui->status_bounds, window_bounds);
+    next_layout.canvas_content_bounds = ui_clamp_rect_to_window(ui->content_bounds, window_bounds);
+
+    changed = !ui_rectf_equals(workspace->layout.window_bounds, next_layout.window_bounds) ||
+              !ui_rectf_equals(workspace->layout.appbar_bounds, next_layout.appbar_bounds) ||
+              !ui_rectf_equals(workspace->layout.rail_bounds, next_layout.rail_bounds) ||
+              !ui_rectf_equals(workspace->layout.panel_bounds, next_layout.panel_bounds) ||
+              !ui_rectf_equals(workspace->layout.status_bounds, next_layout.status_bounds) ||
+              !ui_rectf_equals(workspace->layout.canvas_content_bounds, next_layout.canvas_content_bounds);
+
+    if (changed) {
+        next_layout.layout_revision = workspace->layout.layout_revision + 1u;
+        workspace->layout = next_layout;
+    }
+
+    ui->layout_snapshot = workspace->layout;
 }
 
 static ToolContext ui_tool_context(Workspace* workspace)
@@ -319,22 +409,21 @@ static void ui_selection_panel(UiSystem* ui, Workspace* workspace, RectF bounds)
 static void ui_status_bar(UiSystem* ui, Workspace* workspace, int window_width, int window_height)
 {
     struct nk_context* ctx = ui->ctx;
-    const float margin = ui->theme.margin;
     const float status_h = ui->theme.status_height;
     const char* status_text = workspace->status_message[0] ? workspace->status_message : "Ready";
     float status_row_h = ui->theme.row_height * 0.65f;
     char zoom_text[24];
 
-    ui->status_bounds.x = margin;
-    ui->status_bounds.w = (float)window_width - (margin * 2.0f);
+    ui->status_bounds.x = 0.0f;
+    ui->status_bounds.w = (float)window_width;
     ui->status_bounds.h = status_h;
-    ui->status_bounds.y = (float)window_height - margin - status_h;
+    ui->status_bounds.y = (float)window_height - status_h;
 
     if (ui->status_bounds.w <= 32.0f || ui->status_bounds.h <= 14.0f) {
         return;
     }
 
-    snprintf(zoom_text, sizeof(zoom_text), "Zoom: %.0f%%", workspace->canvas.zoom * 100.0f);
+    snprintf(zoom_text, sizeof(zoom_text), "Zoom: %.0f%%", canvas_view_zoom(&workspace->canvas) * 100.0f);
 
     if (nk_begin(ctx, "Status",
                  nk_rect(ui->status_bounds.x, ui->status_bounds.y, ui->status_bounds.w, ui->status_bounds.h),
@@ -454,26 +543,23 @@ void ui_system_build(UiSystem* ui, Workspace* workspace)
     ui->appbar_bounds.w = (float)width;
     ui->appbar_bounds.h = ui_menubar_height(ui->menu_bar);
 
-    content_top = ui->appbar_bounds.h + ui->theme.margin;
-    content_bottom = (float)height - ui->theme.margin - ui->theme.status_height;
+    content_top = ui->appbar_bounds.h;
+    content_bottom = (float)height - ui->theme.status_height;
     content_height = content_bottom - content_top;
-    if (content_height < 80.0f) {
-        content_height = 80.0f;
+    if (content_height < 1.0f) {
+        content_height = 1.0f;
     }
 
-    rail_bounds.x = ui->theme.margin;
+    rail_bounds.x = 0.0f;
     rail_bounds.y = content_top;
     rail_bounds.w = ui->theme.tool_rail_width;
     rail_bounds.h = content_height;
     ui_tool_rail(ui, workspace, rail_bounds);
 
     inspector_requested = ui_menubar_inspector_visible(ui->menu_bar);
-    needed_width = ui->theme.margin * 2.0f +
-                   ui->theme.tool_rail_width +
-                   ui->theme.gap +
-                   UI_MIN_CANVAS_WIDTH;
+    needed_width = ui->theme.tool_rail_width + UI_MIN_CANVAS_WIDTH;
     if (inspector_requested) {
-        needed_width += ui->theme.gap + ui->theme.panel_width;
+        needed_width += ui->theme.panel_width;
     }
     inspector_target_visible = inspector_requested && ((float)width >= needed_width);
     ui->inspector_target_visible = inspector_target_visible;
@@ -497,8 +583,8 @@ void ui_system_build(UiSystem* ui, Workspace* workspace)
         inspector_eased_t = ui_smoothstep(ui->inspector_anim_t);
         inspector_bounds.w = ui->theme.panel_width;
         inspector_bounds.h = content_height;
-        inspector_hidden_x = (float)width + ui->theme.gap;
-        inspector_shown_x = (float)width - ui->theme.margin - inspector_bounds.w;
+        inspector_hidden_x = (float)width;
+        inspector_shown_x = (float)width - inspector_bounds.w;
         inspector_bounds.x = inspector_hidden_x + (inspector_shown_x - inspector_hidden_x) * inspector_eased_t;
         inspector_bounds.y = content_top;
         ui_selection_panel(ui, workspace, inspector_bounds);
@@ -510,6 +596,24 @@ void ui_system_build(UiSystem* ui, Workspace* workspace)
     }
 
     ui_status_bar(ui, workspace, width, height);
+
+    ui->content_bounds.x = ui->rail_bounds.x + ui->rail_bounds.w;
+    ui->content_bounds.y = ui->appbar_bounds.y + ui->appbar_bounds.h;
+    if (ui->panel_bounds.w > 1e-3f) {
+        ui->content_bounds.w = ui->panel_bounds.x - ui->content_bounds.x;
+    } else {
+        ui->content_bounds.w = (float)width - ui->content_bounds.x;
+    }
+    ui->content_bounds.h = ui->status_bounds.y - ui->content_bounds.y;
+
+    if (ui->content_bounds.w < 1.0f) {
+        ui->content_bounds.w = 1.0f;
+    }
+    if (ui->content_bounds.h < 1.0f) {
+        ui->content_bounds.h = 1.0f;
+    }
+
+    ui_publish_layout(ui, workspace, width, height);
 }
 
 void ui_system_render(UiSystem* ui)
@@ -520,18 +624,53 @@ void ui_system_render(UiSystem* ui)
     nk_glfw3_render(&ui->glfw, NK_ANTI_ALIASING_ON, UI_MAX_VERTEX_BUFFER, UI_MAX_ELEMENT_BUFFER);
 }
 
+int ui_system_has_active_interaction(const UiSystem* ui)
+{
+    if (!ui || !ui->ctx) {
+        return 0;
+    }
+
+    return nk_item_is_any_active(ui->ctx);
+}
+
 int ui_system_blocks_pointer(const UiSystem* ui, Vec2 screen_pos)
 {
     if (!ui || !ui->ctx) {
         return 0;
     }
 
-    if (nk_item_is_any_active(ui->ctx)) {
+    if (ui_system_has_active_interaction(ui)) {
         return 1;
     }
 
-    return rectf_contains_point(&ui->appbar_bounds, screen_pos) ||
-           rectf_contains_point(&ui->rail_bounds, screen_pos) ||
-           rectf_contains_point(&ui->panel_bounds, screen_pos) ||
-           rectf_contains_point(&ui->status_bounds, screen_pos);
+    return rectf_contains_point(&ui->layout_snapshot.appbar_bounds, screen_pos) ||
+           rectf_contains_point(&ui->layout_snapshot.rail_bounds, screen_pos) ||
+           rectf_contains_point(&ui->layout_snapshot.panel_bounds, screen_pos) ||
+           rectf_contains_point(&ui->layout_snapshot.status_bounds, screen_pos);
+}
+
+RectF ui_system_content_bounds(const UiSystem* ui)
+{
+    RectF bounds = {0.0f, 0.0f, 0.0f, 0.0f};
+
+    if (!ui) {
+        return bounds;
+    }
+
+    return ui->layout_snapshot.canvas_content_bounds;
+}
+
+Color ui_system_canvas_background(const UiSystem* ui)
+{
+    Color background = {0.11f, 0.12f, 0.14f, 1.0f};
+
+    if (!ui) {
+        return background;
+    }
+
+    background.r = (float)ui->theme.canvas_background.r / 255.0f;
+    background.g = (float)ui->theme.canvas_background.g / 255.0f;
+    background.b = (float)ui->theme.canvas_background.b / 255.0f;
+    background.a = (float)ui->theme.canvas_background.a / 255.0f;
+    return background;
 }
