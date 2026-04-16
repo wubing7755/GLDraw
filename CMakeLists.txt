@@ -52,12 +52,17 @@ set(GLDRAW_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/tools/tool_controller.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/render/render_system.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ui_system.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ui_menu_def.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ui_menu_actions.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ui_menubar.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/glad.c
 )
 
-set_source_files_properties(${CMAKE_SOURCE_DIR}/src/glad.c
-    PROPERTIES COMPILE_FLAGS "-Wno-pedantic"
-)
+if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
+    set_source_files_properties(${CMAKE_SOURCE_DIR}/src/glad.c
+        PROPERTIES COMPILE_FLAGS "-Wno-pedantic"
+    )
+endif()
 
 add_executable(${PROJECT_NAME} ${GLDRAW_SOURCES})
 
