@@ -1,0 +1,29 @@
+{
+  "id": "paper-ink",
+  "label": "Paper Ink",
+  "base_theme": "gldraw-light",
+
+  "primary": "#0E5A8A",
+  "primary_hover": "#1A6DA5",
+  "primary_active": "#094566",
+
+  "background": "#F4F0E6",
+  "panel": "#FCFAF2",
+  "panel_hover": "#F3EEE0",
+  "canvas_background": "#EFE8D8",
+
+  "text": "#2D2A24",
+  "text_secondary": "#61594D",
+  "text_disabled": "#9A9184",
+
+  "border": "#C7BCA8",
+  "border_hover": "#AFA28C",
+
+  "padding": 6,
+  "panel_width": 300,
+  "tool_rail_width": 104,
+  "border_radius": 0,
+
+  "enable_transitions": true,
+  "transition_duration": 0.1
+}

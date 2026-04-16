@@ -27,16 +27,27 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #define UI_MAX_VERTEX_BUFFER (512 * 1024)
 #define UI_MAX_ELEMENT_BUFFER (128 * 1024)
 #define UI_MIN_CANVAS_WIDTH 320.0f
+#define UI_THEME_ID_CAPACITY 64
+#define UI_THEME_SETTINGS_PATH "gldraw.settings.json"
+#define UI_THEME_DIRECTORY_PATH "themes"
+#define UI_THEME_DESCRIPTOR_CACHE_MAX 64
+#define UI_THEME_WATCH_INTERVAL_SECONDS 0.35
 
 struct UiSystem {
     struct nk_glfw glfw;
     struct nk_context* ctx;
     UiMenuBar* menu_bar;
     UiThemeTokens theme;
+    char active_theme_id[UI_THEME_ID_CAPACITY];
+    char theme_settings_path[260];
+    UiThemeDescriptor theme_descriptors_cache[UI_THEME_DESCRIPTOR_CACHE_MAX];
+    unsigned long long theme_directory_signature;
+    double theme_watch_last_check_seconds;
     RectF appbar_bounds;
     RectF rail_bounds;
     RectF panel_bounds;
@@ -49,6 +60,12 @@ struct UiSystem {
     double last_frame_seconds;
 };
 
+typedef enum UiThemeReloadReason {
+    UI_THEME_RELOAD_REASON_STARTUP = 0,
+    UI_THEME_RELOAD_REASON_AUTO,
+    UI_THEME_RELOAD_REASON_MANUAL
+} UiThemeReloadReason;
+
 static float ui_clampf(float value, float min_value, float max_value)
 {
     if (value < min_value) {
@@ -58,6 +75,171 @@ static float ui_clampf(float value, float min_value, float max_value)
         return max_value;
     }
     return value;
+}
+
+static const char* ui_theme_reload_reason_label(UiThemeReloadReason reason)
+{
+    switch (reason) {
+    case UI_THEME_RELOAD_REASON_MANUAL:
+        return "manually";
+    case UI_THEME_RELOAD_REASON_AUTO:
+        return "auto";
+    case UI_THEME_RELOAD_REASON_STARTUP:
+    default:
+        return "startup";
+    }
+}
+
+static void ui_system_sync_menubar_themes(UiSystem* ui)
+{
+    int theme_count = 0;
+    int active_theme_index = 0;
+
+    if (!ui || !ui->menu_bar) {
+        return;
+    }
+
+    theme_count = ui_theme_count();
+    if (theme_count < 0) {
+        theme_count = 0;
+    }
+    if (theme_count > UI_THEME_DESCRIPTOR_CACHE_MAX) {
+        theme_count = UI_THEME_DESCRIPTOR_CACHE_MAX;
+    }
+
+    for (int i = 0; i < theme_count; ++i) {
+        const UiThemeDescriptor* descriptor = ui_theme_descriptor_at(i);
+        ui->theme_descriptors_cache[i].id = descriptor ? descriptor->id : "";
+        ui->theme_descriptors_cache[i].label = descriptor ? descriptor->label : "";
+    }
+
+    ui_menubar_set_themes(ui->menu_bar, ui->theme_descriptors_cache, theme_count);
+
+    active_theme_index = ui_theme_index_of_id(ui->active_theme_id);
+    if (active_theme_index < 0 || active_theme_index >= theme_count) {
+        active_theme_index = ui_theme_index_of_id(ui_theme_default_id());
+    }
+    if (active_theme_index < 0) {
+        active_theme_index = 0;
+    }
+    ui_menubar_set_active_theme_index(ui->menu_bar, active_theme_index);
+}
+
+static int ui_system_set_theme(UiSystem* ui, const char* theme_id, int persist_selection)
+{
+    int theme_index = -1;
+    const UiThemeDescriptor* descriptor = NULL;
+
+    if (!ui || !ui->ctx) {
+        return 0;
+    }
+
+    theme_index = ui_theme_index_of_id(theme_id);
+    if (theme_index < 0) {
+        theme_index = ui_theme_index_of_id(ui_theme_default_id());
+    }
+    descriptor = ui_theme_descriptor_at(theme_index);
+    if (!descriptor || !descriptor->id) {
+        return 0;
+    }
+
+    snprintf(ui->active_theme_id,
+             sizeof(ui->active_theme_id),
+             "%s",
+             descriptor->id);
+
+    ui->theme = ui_theme_tokens_for_id(ui->active_theme_id);
+    ui_theme_apply(ui->ctx, &ui->theme);
+
+    if (ui->menu_bar) {
+        ui_menubar_set_height(ui->menu_bar, ui->theme.menu_height);
+        ui_system_sync_menubar_themes(ui);
+    }
+
+    if (persist_selection) {
+        ui_theme_save_selected_id(ui->theme_settings_path, ui->active_theme_id);
+    }
+
+    return 1;
+}
+
+static void ui_system_reload_themes(UiSystem* ui,
+                                    Workspace* workspace,
+                                    int notify_status,
+                                    UiThemeReloadReason reason)
+{
+    char previous_theme_id[UI_THEME_ID_CAPACITY];
+    int custom_theme_count = 0;
+    int fallback_to_default = 0;
+
+    if (!ui) {
+        return;
+    }
+
+    snprintf(previous_theme_id, sizeof(previous_theme_id), "%s", ui->active_theme_id);
+    custom_theme_count = ui_theme_reload_external(UI_THEME_DIRECTORY_PATH);
+    ui->theme_directory_signature = ui_theme_external_signature(UI_THEME_DIRECTORY_PATH);
+
+    /* Keep current theme id if still present; otherwise fall back through ui_system_set_theme. */
+    ui_system_set_theme(ui, previous_theme_id, 0);
+    fallback_to_default = (strcmp(previous_theme_id, ui->active_theme_id) != 0);
+
+    if (notify_status && workspace) {
+        const char* reason_label = ui_theme_reload_reason_label(reason);
+        if (fallback_to_default) {
+            snprintf(workspace->status_message,
+                     sizeof(workspace->status_message),
+                     "Themes %s reloaded (%d custom), active theme missing -> fallback",
+                     reason_label,
+                     custom_theme_count);
+        } else {
+            snprintf(workspace->status_message,
+                     sizeof(workspace->status_message),
+                     "Themes %s reloaded (%d custom)",
+                     reason_label,
+                     custom_theme_count);
+        }
+    }
+}
+
+static void ui_system_load_theme_from_settings(UiSystem* ui)
+{
+    char loaded_theme_id[UI_THEME_ID_CAPACITY];
+
+    if (!ui) {
+        return;
+    }
+
+    if (ui_theme_load_selected_id(ui->theme_settings_path,
+                                  loaded_theme_id,
+                                  sizeof(loaded_theme_id))) {
+        if (ui_system_set_theme(ui, loaded_theme_id, 0)) {
+            return;
+        }
+    }
+
+    ui_system_set_theme(ui, ui_theme_default_id(), 0);
+}
+
+static void ui_system_poll_theme_hot_reload(UiSystem* ui, Workspace* workspace, double now_seconds)
+{
+    unsigned long long signature = 0ull;
+
+    if (!ui) {
+        return;
+    }
+
+    if ((now_seconds - ui->theme_watch_last_check_seconds) < UI_THEME_WATCH_INTERVAL_SECONDS) {
+        return;
+    }
+    ui->theme_watch_last_check_seconds = now_seconds;
+
+    signature = ui_theme_external_signature(UI_THEME_DIRECTORY_PATH);
+    if (signature == ui->theme_directory_signature) {
+        return;
+    }
+
+    ui_system_reload_themes(ui, workspace, 1, UI_THEME_RELOAD_REASON_AUTO);
 }
 
 static float ui_smoothstep(float t)
@@ -464,13 +646,19 @@ UiSystem* ui_system_create(PlatformWindow* window)
     nk_glfw3_font_stash_begin(&ui->glfw, &atlas);
     nk_glfw3_font_stash_end(&ui->glfw);
 
-    ui->theme = ui_theme_default_tokens();
-    ui_theme_apply(ui->ctx, &ui->theme);
+    snprintf(ui->theme_settings_path,
+             sizeof(ui->theme_settings_path),
+             "%s",
+             UI_THEME_SETTINGS_PATH);
+
+    ui_system_reload_themes(ui, NULL, 0, UI_THEME_RELOAD_REASON_STARTUP);
+    ui->theme_watch_last_check_seconds = glfwGetTime();
 
     ui->menu_bar = ui_menubar_create(ui->ctx);
     if (ui->menu_bar) {
-        ui_menubar_set_height(ui->menu_bar, ui->theme.menu_height);
+        ui_system_sync_menubar_themes(ui);
     }
+    ui_system_load_theme_from_settings(ui);
 
     ui->inspector_anim_t = 1.0f;
     ui->inspector_target_visible = 1;
@@ -532,10 +720,31 @@ void ui_system_build(UiSystem* ui, Workspace* workspace)
     dt_seconds = (float)(now_seconds - ui->last_frame_seconds);
     ui->last_frame_seconds = now_seconds;
     dt_seconds = ui_clampf(dt_seconds, 0.0f, 0.10f);
+    ui_system_poll_theme_hot_reload(ui, workspace, now_seconds);
 
     if (ui->menu_bar) {
+        int requested_theme_index = -1;
+        int requested_theme_reload = 0;
+        const UiThemeDescriptor* requested_theme = NULL;
+
         ui_menubar_set_height(ui->menu_bar, ui->theme.menu_height);
         ui_menubar_build(ui->menu_bar, workspace, width);
+
+        requested_theme_reload = ui_menubar_take_theme_reload_request(ui->menu_bar);
+        if (requested_theme_reload) {
+            ui_system_reload_themes(ui, workspace, 1, UI_THEME_RELOAD_REASON_MANUAL);
+        }
+
+        requested_theme_index = ui_menubar_take_theme_request(ui->menu_bar);
+        if (requested_theme_index >= 0) {
+            requested_theme = ui_theme_descriptor_at(requested_theme_index);
+            if (requested_theme && ui_system_set_theme(ui, requested_theme->id, 1)) {
+                snprintf(workspace->status_message,
+                         sizeof(workspace->status_message),
+                         "Theme: %s",
+                         requested_theme->label ? requested_theme->label : requested_theme->id);
+            }
+        }
     }
 
     ui->appbar_bounds.x = 0.0f;

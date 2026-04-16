@@ -17,11 +17,13 @@
 
 #include "nuklear/nuklear.h"
 #include "nuklear/nuklear_glfw_gl3.h"
+#include <ui/ui_theme.h>
 
 #include <stdio.h>
 #include <stdlib.h>
 
 #define MENU_BAR_HEIGHT 30.0f
+#define MENU_PARENT_THEME 900
 #define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
 
 typedef struct UiTopMenuDef {
@@ -35,6 +37,7 @@ static const UiTopMenuDef g_top_menus[] = {
     { "File", MENU_ID_FILE, {210.0f, 300.0f}, 58.0f },
     { "Edit", MENU_ID_EDIT, {210.0f, 300.0f}, 58.0f },
     { "View", MENU_ID_VIEW, {220.0f, 300.0f}, 62.0f },
+    { "Theme", MENU_PARENT_THEME, {260.0f, 280.0f}, 76.0f },
     { "Help", MENU_ID_HELP, {220.0f, 220.0f}, 62.0f },
 };
 
@@ -79,6 +82,9 @@ UiMenuBar* ui_menubar_create(void* ctx)
     menubar->ctx = (struct nk_context*)ctx;
     menubar->show_inspector = true;
     menubar->menu_height = MENU_BAR_HEIGHT;
+    menubar->active_theme_index = 0;
+    menubar->requested_theme_index = -1;
+    menubar->requested_theme_reload = 0;
 
     return menubar;
 }
@@ -105,6 +111,72 @@ void ui_menubar_set_height(UiMenuBar* menubar, float height)
     }
 
     menubar->menu_height = (height > 10.0f) ? height : MENU_BAR_HEIGHT;
+}
+
+void ui_menubar_set_themes(UiMenuBar* menubar, const UiThemeDescriptor* themes, int theme_count)
+{
+    if (!menubar) {
+        return;
+    }
+
+    menubar->themes = themes;
+    menubar->theme_count = (theme_count > 0) ? theme_count : 0;
+
+    if (menubar->theme_count == 0) {
+        menubar->active_theme_index = -1;
+    } else if (menubar->active_theme_index < 0 ||
+               menubar->active_theme_index >= menubar->theme_count) {
+        menubar->active_theme_index = 0;
+    }
+}
+
+void ui_menubar_set_active_theme_index(UiMenuBar* menubar, int theme_index)
+{
+    if (!menubar) {
+        return;
+    }
+
+    if (menubar->theme_count <= 0) {
+        menubar->active_theme_index = -1;
+        return;
+    }
+
+    if (theme_index < 0) {
+        menubar->active_theme_index = 0;
+        return;
+    }
+    if (theme_index >= menubar->theme_count) {
+        menubar->active_theme_index = menubar->theme_count - 1;
+        return;
+    }
+
+    menubar->active_theme_index = theme_index;
+}
+
+int ui_menubar_take_theme_request(UiMenuBar* menubar)
+{
+    int requested_theme_index = -1;
+
+    if (!menubar) {
+        return -1;
+    }
+
+    requested_theme_index = menubar->requested_theme_index;
+    menubar->requested_theme_index = -1;
+    return requested_theme_index;
+}
+
+int ui_menubar_take_theme_reload_request(UiMenuBar* menubar)
+{
+    int requested = 0;
+
+    if (!menubar) {
+        return 0;
+    }
+
+    requested = menubar->requested_theme_reload;
+    menubar->requested_theme_reload = 0;
+    return requested;
 }
 
 /**
@@ -159,17 +231,67 @@ static int ui_render_dropdown(struct nk_context* ctx, int parent_id)
     return clicked_id;
 }
 
-static int ui_render_top_menu(struct nk_context* ctx, const UiTopMenuDef* menu)
+static int ui_render_theme_dropdown(UiMenuBar* menubar)
 {
+    struct nk_context* ctx = NULL;
+
+    if (!menubar) {
+        return -1;
+    }
+
+    ctx = menubar->ctx;
+    if (!ctx) {
+        return -1;
+    }
+
+    if (!menubar->themes || menubar->theme_count <= 0) {
+        nk_label(ctx, "No themes available", NK_TEXT_LEFT);
+        return -1;
+    }
+
+    if (nk_menu_item_label(ctx, "Reload Themes", NK_TEXT_LEFT)) {
+        menubar->requested_theme_reload = 1;
+    }
+    nk_labelf(ctx, NK_TEXT_CENTERED, "----------------");
+
+    for (int i = 0; i < menubar->theme_count; ++i) {
+        const UiThemeDescriptor* theme = &menubar->themes[i];
+        char item_label[128];
+        const char* label = (theme->label && theme->label[0] != '\0') ? theme->label : "Unnamed Theme";
+        const char* marker = (i == menubar->active_theme_index) ? "[x]" : "[ ]";
+
+        snprintf(item_label, sizeof(item_label), "%s %s", marker, label);
+        if (nk_menu_item_label(ctx, item_label, NK_TEXT_LEFT)) {
+            return i;
+        }
+    }
+
+    return -1;
+}
+
+static int ui_render_top_menu(UiMenuBar* menubar, const UiTopMenuDef* menu)
+{
+    struct nk_context* ctx = NULL;
     int clicked_id = -1;
 
-    if (!ctx || !menu || !menu->label) {
+    if (!menubar || !menu || !menu->label) {
+        return -1;
+    }
+    ctx = menubar->ctx;
+    if (!ctx) {
         return -1;
     }
 
     if (nk_menu_begin_label(ctx, menu->label, NK_TEXT_LEFT, menu->popup_size)) {
         nk_layout_row_dynamic(ctx, 25.0f, 1);
-        clicked_id = ui_render_dropdown(ctx, menu->parent_id);
+        if (menu->parent_id == MENU_PARENT_THEME) {
+            int theme_index = ui_render_theme_dropdown(menubar);
+            if (theme_index >= 0) {
+                menubar->requested_theme_index = theme_index;
+            }
+        } else {
+            clicked_id = ui_render_dropdown(ctx, menu->parent_id);
+        }
         nk_menu_end(ctx);
     }
 
@@ -243,7 +365,7 @@ void ui_menubar_build(UiMenuBar* menubar, Workspace* workspace, int window_width
         for (size_t i = 0; i < menu_count; i++) {
             int id;
             nk_layout_row_push(ctx, g_top_menus[i].item_width);
-            id = ui_render_top_menu(ctx, &g_top_menus[i]);
+            id = ui_render_top_menu(menubar, &g_top_menus[i]);
             if (id != -1) {
                 clicked_id = id;
             }

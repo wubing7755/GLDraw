@@ -1,6 +1,8 @@
 #ifndef GLDRAW_UI_UI_THEME_H
 #define GLDRAW_UI_UI_THEME_H
 
+#include <stddef.h>
+
 #ifndef NK_NUKLEAR_H_
 typedef unsigned char nk_byte;
 typedef int nk_bool;
@@ -54,7 +56,21 @@ typedef struct UiThemeTokens {
     float transition_duration;
 } UiThemeTokens;
 
+typedef struct UiThemeDescriptor {
+    const char* id;
+    const char* label;
+} UiThemeDescriptor;
+
 UiThemeTokens ui_theme_default_tokens(void);
+UiThemeTokens ui_theme_tokens_for_id(const char* theme_id);
+int ui_theme_count(void);
+const UiThemeDescriptor* ui_theme_descriptor_at(int index);
+int ui_theme_index_of_id(const char* theme_id);
+const char* ui_theme_default_id(void);
+int ui_theme_reload_external(const char* directory_path);
+unsigned long long ui_theme_external_signature(const char* directory_path);
+int ui_theme_load_selected_id(const char* path, char* out_theme_id, size_t out_theme_id_size);
+int ui_theme_save_selected_id(const char* path, const char* theme_id);
 void ui_theme_apply(struct nk_context* ctx, const UiThemeTokens* tokens);
 
 #endif /* GLDRAW_UI_UI_THEME_H */
