@@ -12,6 +12,8 @@
 - [Architecture](architecture)
 - [Data Flow](data-flow)
 - [Extending](extending)
+- [C Contributor Guide (EN)](../c-language-must-know-for-gldraw.en.md)
+- [C 贡献者指南 (ZH)](../c-language-must-know-for-gldraw.md)
 - [Known Issues](known-issues)
 
 ### Core Systems
