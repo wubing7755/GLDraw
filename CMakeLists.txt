@@ -55,6 +55,7 @@ set(GLDRAW_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ui_menu_def.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ui_menu_actions.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ui_menubar.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ui_theme.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/glad.c
 )
 

@@ -24,4 +24,11 @@ struct Workspace;
  */
 void ui_menu_execute(struct Workspace* workspace, MenuId id);
 
+/**
+ * @brief Check whether a menu action is currently implemented and available.
+ * @param id Menu item ID
+ * @return non-zero if available, zero if it should be disabled in UI
+ */
+int ui_menu_is_action_available(MenuId id);
+
 #endif /* GLDRAW_UI_UI_MENU_ACTIONS_H */

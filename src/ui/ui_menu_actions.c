@@ -165,6 +165,20 @@ static int app_export_png(Workspace* workspace)
     return 0;
 }
 
+int ui_menu_is_action_available(MenuId id)
+{
+    switch (id) {
+    case MENU_ID_FILE_EXPORT_PNG:
+    case MENU_ID_EDIT_DELETE:
+    case MENU_ID_EDIT_CUT:
+    case MENU_ID_EDIT_COPY:
+    case MENU_ID_EDIT_PASTE:
+        return 0;
+    default:
+        return 1;
+    }
+}
+
 void ui_menu_execute(Workspace* workspace, MenuId id)
 {
     if (!workspace) {

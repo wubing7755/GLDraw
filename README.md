@@ -13,7 +13,7 @@ GLDraw is now a canvas-oriented OpenGL drawing editor. The project has been rest
 - `CanvasView` owns zoom, pan, viewport, and coordinate transforms
 - `ToolController` routes input into editing tools
 - `RenderSystem` draws the document and tool overlays
-- `UiSystem` hosts the toolbar, inspector, and status bar
+- `UiSystem` hosts the app bar, tool rail, inspector, and status strip
 
 ## Current Features
 
@@ -24,6 +24,9 @@ GLDraw is now a canvas-oriented OpenGL drawing editor. The project has been rest
 - Undo / redo for create, move, delete, and inspector edits
 - JSON document save / load using the current path or `document.json`
 - Inspector for stroke color, width, and basic geometry
+- App Bar with menu and quick actions (New/Open/Save/Undo/Redo/Zoom)
+- Left Tool Rail for Select/Hand/Line/Rect/Ellipse
+- Responsive inspector behavior (auto-hide under constrained width) with lightweight show/hide transition
 - Grid and origin axes rendering
 - Modular C11 codebase with GLFW, GLAD, and Nuklear
 

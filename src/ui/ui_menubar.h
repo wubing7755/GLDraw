@@ -59,4 +59,11 @@ bool ui_menubar_inspector_visible(const UiMenuBar* menubar);
  */
 float ui_menubar_height(const UiMenuBar* menubar);
 
+/**
+ * @brief Set menu bar height
+ * @param menubar Menu bar instance
+ * @param height Height in pixels
+ */
+void ui_menubar_set_height(UiMenuBar* menubar, float height);
+
 #endif /* GLDRAW_UI_UI_MENUBAR_H */

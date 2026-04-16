@@ -20,6 +20,8 @@ int platform_window_init(PlatformWindow* window, int width, int height, const ch
         return -1;
     }
 
+    glfwSetWindowSizeLimits(window->handle, 800, 600, GLFW_DONT_CARE, GLFW_DONT_CARE);
+
     window->width = width;
     window->height = height;
     window->title = title;
