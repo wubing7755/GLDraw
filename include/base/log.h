@@ -1,9 +1,35 @@
+/**
+ * @file log.h
+ * @brief Lightweight stderr logging helpers.
+ *
+ * Role in project:
+ * - Provides file/line scoped debug/info/warn/error logging macros.
+ * - Keeps logging dependency-free for low-level modules.
+ *
+ * Module relationships:
+ * - Used by app/document/persistence and other runtime subsystems.
+ */
 #ifndef GLDRAW_BASE_LOG_H
 #define GLDRAW_BASE_LOG_H
 
 #include <stdarg.h>
 #include <stdio.h>
 
+/**
+ * @brief Internal varargs logger writing one line to `stderr`.
+ * @param level [in] Log level tag.
+ * @param file [in] Source file path.
+ * @param line [in] Source line number.
+ * @param fmt [in] `printf`-style format string.
+ * @param ... [in] Format arguments.
+ * @return None.
+ *
+ * Edge cases:
+ * - Caller must pass a valid format string and matching varargs.
+ * - Return values of `fprintf`/`vfprintf` are intentionally ignored.
+ *
+ * Time complexity: `O(L)` where `L` is formatted output length.
+ */
 static inline void log_write_impl(const char* level,
                                   const char* file,
                                   int line,

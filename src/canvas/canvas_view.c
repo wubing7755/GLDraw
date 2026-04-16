@@ -1,9 +1,22 @@
+/**
+ * @file canvas_view.c
+ * @brief Canvas camera state and coordinate conversion implementation.
+ *
+ * Role in project:
+ * - Implements viewport/center/zoom updates and world/screen transforms.
+ * - Provides object picking against document geometry.
+ *
+ * Module relationships:
+ * - Uses `document` for object iteration and hit-testing.
+ * - Consumed by tools, renderer, and application input routing.
+ */
 #include <canvas/canvas_view.h>
 
 #include <base/math2d.h>
 
 #include <stddef.h>
 
+/** Build canonical viewport state from compatibility fields. Complexity: `O(1)`. */
 static CanvasViewportState canvas_viewport_state_from_compat(const CanvasView* canvas)
 {
     CanvasViewportState state;
@@ -24,6 +37,7 @@ static CanvasViewportState canvas_viewport_state_from_compat(const CanvasView* c
     return state;
 }
 
+/** Mirror canonical state back to legacy compatibility fields. Complexity: `O(1)`. */
 static void canvas_view_sync_compat(CanvasView* canvas)
 {
     if (!canvas) {
@@ -35,6 +49,7 @@ static void canvas_view_sync_compat(CanvasView* canvas)
     canvas->zoom = canvas->viewport_state.zoom;
 }
 
+/** Transform world point to screen coordinates. Complexity: `O(1)`. */
 static Vec2 canvas_viewport_world_to_screen(const CanvasViewportState* state, Vec2 world)
 {
     Vec2 screen = {0.0f, 0.0f};
@@ -48,6 +63,7 @@ static Vec2 canvas_viewport_world_to_screen(const CanvasViewportState* state, Ve
     return screen;
 }
 
+/** Transform screen point to world coordinates. Complexity: `O(1)`. */
 static Vec2 canvas_viewport_screen_to_world(const CanvasViewportState* state, Vec2 screen)
 {
     Vec2 world = {0.0f, 0.0f};
@@ -61,6 +77,7 @@ static Vec2 canvas_viewport_screen_to_world(const CanvasViewportState* state, Ve
     return world;
 }
 
+/** Pan center by screen delta while preserving zoom mapping. Complexity: `O(1)`. */
 static void canvas_viewport_pan_screen_delta(CanvasViewportState* state, Vec2 delta_screen)
 {
     if (!state || state->zoom <= 0.0f) {
@@ -71,6 +88,19 @@ static void canvas_viewport_pan_screen_delta(CanvasViewportState* state, Vec2 de
     state->center.y += delta_screen.y / state->zoom;
 }
 
+/**
+ * @brief Zoom around a screen anchor while keeping anchor's world point fixed.
+ * @param state [in,out] View state.
+ * @param factor [in] Multiplicative zoom factor.
+ * @param screen_anchor [in] Anchor in screen coordinates.
+ * @return None.
+ *
+ * Why:
+ * - Recomputes world point before/after zoom and shifts center by the delta.
+ *   This gives "zoom toward cursor" behavior instead of zooming to viewport center.
+ *
+ * Complexity: `O(1)`.
+ */
 static void canvas_viewport_zoom_at_screen_point(CanvasViewportState* state, float factor, Vec2 screen_anchor)
 {
     Vec2 before = {0.0f, 0.0f};
@@ -86,6 +116,7 @@ static void canvas_viewport_zoom_at_screen_point(CanvasViewportState* state, flo
     state->center = vec2_add(state->center, vec2_sub(before, after));
 }
 
+/** Compute visible world-space rectangle from viewport and zoom. Complexity: `O(1)`. */
 static RectF canvas_viewport_visible_world_rect(const CanvasViewportState* state)
 {
     RectF rect = {0.0f, 0.0f, 0.0f, 0.0f};
@@ -101,6 +132,7 @@ static RectF canvas_viewport_visible_world_rect(const CanvasViewportState* state
     return rect;
 }
 
+/** Initialize canvas defaults and bind document. Complexity: `O(1)`. */
 void canvas_view_init(CanvasView* canvas, Document* document, RectF viewport)
 {
     if (!canvas) {
@@ -119,6 +151,7 @@ void canvas_view_init(CanvasView* canvas, Document* document, RectF viewport)
     canvas->background.a = 1.0f;
 }
 
+/** Rebind document pointer. Complexity: `O(1)`. */
 void canvas_view_set_document(CanvasView* canvas, Document* document)
 {
     if (canvas) {
@@ -126,6 +159,7 @@ void canvas_view_set_document(CanvasView* canvas, Document* document)
     }
 }
 
+/** Set viewport rectangle. Complexity: `O(1)`. */
 void canvas_view_set_viewport(CanvasView* canvas, RectF viewport)
 {
     CanvasViewportState state;
@@ -140,6 +174,7 @@ void canvas_view_set_viewport(CanvasView* canvas, RectF viewport)
     canvas_view_sync_compat(canvas);
 }
 
+/** Set world center. Complexity: `O(1)`. */
 void canvas_view_set_center(CanvasView* canvas, Vec2 center)
 {
     CanvasViewportState state;
@@ -154,6 +189,7 @@ void canvas_view_set_center(CanvasView* canvas, Vec2 center)
     canvas_view_sync_compat(canvas);
 }
 
+/** Set zoom with clamp. Complexity: `O(1)`. */
 void canvas_view_set_zoom(CanvasView* canvas, float zoom)
 {
     CanvasViewportState state;
@@ -168,6 +204,7 @@ void canvas_view_set_zoom(CanvasView* canvas, float zoom)
     canvas_view_sync_compat(canvas);
 }
 
+/** Set center and zoom together. Complexity: `O(1)`. */
 void canvas_view_set_center_zoom(CanvasView* canvas, Vec2 center, float zoom)
 {
     CanvasViewportState state;
@@ -183,33 +220,39 @@ void canvas_view_set_center_zoom(CanvasView* canvas, Vec2 center, float zoom)
     canvas_view_sync_compat(canvas);
 }
 
+/** Return viewport rectangle. Complexity: `O(1)`. */
 RectF canvas_view_viewport(const CanvasView* canvas)
 {
     return canvas_viewport_state_from_compat(canvas).viewport;
 }
 
+/** Return world center. Complexity: `O(1)`. */
 Vec2 canvas_view_center(const CanvasView* canvas)
 {
     return canvas_viewport_state_from_compat(canvas).center;
 }
 
+/** Return zoom factor. Complexity: `O(1)`. */
 float canvas_view_zoom(const CanvasView* canvas)
 {
     return canvas_viewport_state_from_compat(canvas).zoom;
 }
 
+/** Public world->screen conversion wrapper. Complexity: `O(1)`. */
 Vec2 canvas_view_world_to_screen(const CanvasView* canvas, Vec2 world)
 {
     CanvasViewportState state = canvas_viewport_state_from_compat(canvas);
     return canvas_viewport_world_to_screen(&state, world);
 }
 
+/** Public screen->world conversion wrapper. Complexity: `O(1)`. */
 Vec2 canvas_view_screen_to_world(const CanvasView* canvas, Vec2 screen)
 {
     CanvasViewportState state = canvas_viewport_state_from_compat(canvas);
     return canvas_viewport_screen_to_world(&state, screen);
 }
 
+/** Pan camera from screen delta. Complexity: `O(1)`. */
 void canvas_view_pan_screen_delta(CanvasView* canvas, Vec2 delta_screen)
 {
     CanvasViewportState state;
@@ -224,6 +267,7 @@ void canvas_view_pan_screen_delta(CanvasView* canvas, Vec2 delta_screen)
     canvas_view_sync_compat(canvas);
 }
 
+/** Zoom camera around cursor/specified anchor. Complexity: `O(1)`. */
 void canvas_view_zoom_at_screen_point(CanvasView* canvas, float factor, Vec2 screen_anchor)
 {
     CanvasViewportState state;
@@ -238,6 +282,7 @@ void canvas_view_zoom_at_screen_point(CanvasView* canvas, float factor, Vec2 scr
     canvas_view_sync_compat(canvas);
 }
 
+/** Convert pixel tolerance to world units based on zoom. Complexity: `O(1)`. */
 float canvas_view_world_tolerance_for_pixels(const CanvasView* canvas, float pixels)
 {
     float zoom = canvas_view_zoom(canvas);
@@ -249,12 +294,22 @@ float canvas_view_world_tolerance_for_pixels(const CanvasView* canvas, float pix
     return pixels / zoom;
 }
 
+/** Get visible world rectangle. Complexity: `O(1)`. */
 RectF canvas_view_visible_world_rect(const CanvasView* canvas)
 {
     CanvasViewportState state = canvas_viewport_state_from_compat(canvas);
     return canvas_viewport_visible_world_rect(&state);
 }
 
+/**
+ * @brief Pick top-most object under a screen point.
+ * @return Pointer to hit object or `NULL`.
+ *
+ * Why reverse loop:
+ * - Newer objects are drawn later and visually on top, so picking scans from end.
+ *
+ * Time complexity: `O(n)` where `n` is document object count.
+ */
 GraphicObject* canvas_view_pick_object(const CanvasView* canvas, Vec2 screen_point, float tolerance_pixels)
 {
     Vec2 world_point = {0.0f, 0.0f};

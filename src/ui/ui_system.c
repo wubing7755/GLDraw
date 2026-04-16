@@ -1,3 +1,15 @@
+/**
+ * @file ui_system.c
+ * @brief Nuklear UI system implementation (menu, tool rail, inspector, status).
+ *
+ * Role in project:
+ * - Builds all editor UI panels and theme behavior each frame.
+ * - Publishes layout bounds that drive canvas viewport and pointer blocking.
+ *
+ * Module relationships:
+ * - Uses workspace/document/tools for editable UI actions.
+ * - Cooperates with application input loop and theme subsystem.
+ */
 #include <ui/ui_system.h>
 #include <ui/ui_menubar.h>
 

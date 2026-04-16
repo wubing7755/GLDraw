@@ -1,3 +1,15 @@
+/**
+ * @file ui_theme.c
+ * @brief Theme token definitions, external theme loading, and Nuklear style apply.
+ *
+ * Role in project:
+ * - Maintains built-in theme presets and runtime custom theme registry.
+ * - Parses simple JSON theme files and maps tokens into UI style structures.
+ *
+ * Module relationships:
+ * - Consumed by `ui_system`/`ui_menubar`.
+ * - Uses file-system helpers and lightweight parsing utilities.
+ */
 #include <nuklear/nuklear.h>
 #include <ui/ui_theme.h>
 

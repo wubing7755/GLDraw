@@ -1,3 +1,15 @@
+/**
+ * @file render_system.c
+ * @brief OpenGL-based canvas rendering implementation.
+ *
+ * Role in project:
+ * - Compiles shaders, owns VAO/VBO buffers, and renders each frame.
+ * - Draws grid, axes, document objects, and transient tool overlays.
+ *
+ * Module relationships:
+ * - Consumes `Document` geometry and `CanvasView` transforms.
+ * - Invoked by application once per frame.
+ */
 #include <render/render_system.h>
 
 #include <base/math2d.h>
@@ -8,6 +20,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+/** Renderer-owned GL and CPU-side buffer state. */
 struct RenderSystem {
     GLuint program;
     GLuint vao;
@@ -20,6 +33,7 @@ struct RenderSystem {
     size_t path_buffer_capacity;
 };
 
+/** Read shader source text file into heap buffer. */
 static char* read_text_file(const char* path)
 {
     FILE* file = fopen(path, "rb");
@@ -47,6 +61,7 @@ static char* read_text_file(const char* path)
     return buffer;
 }
 
+/** Compile one shader stage from source; returns 0 on compile failure. */
 static GLuint compile_shader(GLenum type, const char* source)
 {
     GLuint shader = glCreateShader(type);
@@ -65,6 +80,7 @@ static GLuint compile_shader(GLenum type, const char* source)
     return shader;
 }
 
+/** Load, compile, and link shader program; returns 0 on failure. */
 static GLuint load_program(const char* vertex_path, const char* fragment_path)
 {
     char* vertex_source = read_text_file(vertex_path);
@@ -108,6 +124,13 @@ static GLuint load_program(const char* vertex_path, const char* fragment_path)
     return program;
 }
 
+/**
+ * @brief Ensure CPU buffers can store requested point count.
+ * @return `1` on success, `0` on allocation failure.
+ *
+ * Risk note:
+ * - Uses `realloc`; on failure old buffers remain valid and unchanged.
+ */
 static int ensure_vertex_capacity(RenderSystem* renderer, size_t point_count)
 {
     size_t required_vertex_capacity = point_count * 6u;
@@ -133,6 +156,7 @@ static int ensure_vertex_capacity(RenderSystem* renderer, size_t point_count)
     return 1;
 }
 
+/** Upload world points converted to screen-space colored vertices. */
 static void upload_points(RenderSystem* renderer, const CanvasView* canvas, const Vec2* points, int count, Color color)
 {
     int i = 0;
@@ -152,6 +176,7 @@ static void upload_points(RenderSystem* renderer, const CanvasView* canvas, cons
     glBufferData(GL_ARRAY_BUFFER, (GLsizeiptr)(count * 6 * sizeof(float)), renderer->vertex_buffer, GL_DYNAMIC_DRAW);
 }
 
+/** Draw one polyline path. */
 static void draw_polyline(RenderSystem* renderer,
                           const CanvasView* canvas,
                           const Vec2* points,
@@ -168,6 +193,7 @@ static void draw_polyline(RenderSystem* renderer,
     glDrawArrays(GL_LINE_STRIP, 0, count);
 }
 
+/** Draw world grid and axis lines in currently visible world rectangle. */
 static void draw_grid(RenderSystem* renderer, const CanvasView* canvas)
 {
     RectF visible = canvas_view_visible_world_rect(canvas);
@@ -203,6 +229,7 @@ static void draw_grid(RenderSystem* renderer, const CanvasView* canvas)
     draw_polyline(renderer, canvas, line, 2, axis_color, 1.5f);
 }
 
+/** Draw one object path with optional selection highlight underlay. */
 static void draw_object(RenderSystem* renderer,
                         const CanvasView* canvas,
                         const GraphicObject* object,
@@ -222,6 +249,10 @@ static void draw_object(RenderSystem* renderer,
     draw_polyline(renderer, canvas, renderer->path_buffer, point_count, object->style.stroke_color, object->style.stroke_width);
 }
 
+/**
+ * @brief Convert canvas viewport to GL scissor box.
+ * @return `1` when resulting scissor area is valid and non-empty, else `0`.
+ */
 static int render_canvas_scissor_box(const RectF* viewport, int framebuffer_width, int framebuffer_height, GLint out_scissor[4])
 {
     int x = 0;
@@ -269,6 +300,7 @@ static int render_canvas_scissor_box(const RectF* viewport, int framebuffer_widt
     return 1;
 }
 
+/** Create renderer resources and configure OpenGL state. */
 RenderSystem* render_system_create(PlatformWindow* window)
 {
     RenderSystem* renderer = (RenderSystem*)calloc(1, sizeof(*renderer));
@@ -312,6 +344,7 @@ RenderSystem* render_system_create(PlatformWindow* window)
     return renderer;
 }
 
+/** Destroy renderer-owned GL objects and heap buffers. */
 void render_system_destroy(RenderSystem* renderer)
 {
     if (!renderer) {
@@ -326,6 +359,7 @@ void render_system_destroy(RenderSystem* renderer)
     free(renderer);
 }
 
+/** Update viewport and shader uniform after framebuffer resize. */
 void render_system_resize(RenderSystem* renderer, int width, int height)
 {
     GLint screen_size_loc = -1;
@@ -345,6 +379,13 @@ void render_system_resize(RenderSystem* renderer, int width, int height)
     glUseProgram(0);
 }
 
+/**
+ * @brief Render full canvas frame.
+ *
+ * Why preserve scissor state:
+ * - UI and renderer may share context state; previous scissor state is restored
+ *   to avoid leaking render-state changes into other draw passes.
+ */
 void render_system_draw(RenderSystem* renderer,
                         const Document* document,
                         const CanvasView* canvas,

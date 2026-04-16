@@ -1,3 +1,15 @@
+/**
+ * @file tool.h
+ * @brief Generic tool abstraction and event payload types.
+ *
+ * Role in project:
+ * - Defines polymorphic tool vtable used by the tool controller.
+ * - Carries per-event input state in screen/world coordinates.
+ *
+ * Module relationships:
+ * - Implemented by `tool_controller.c` built-in tools.
+ * - Consumes workspace/document/canvas/history through `ToolContext`.
+ */
 #ifndef GLDRAW_TOOLS_TOOL_H
 #define GLDRAW_TOOLS_TOOL_H
 
@@ -9,6 +21,7 @@ struct Document;
 struct CanvasView;
 struct DocumentHistory;
 
+/** Built-in tool identifiers. */
 typedef enum {
     TOOL_KIND_SELECT = 0,
     TOOL_KIND_PAN,
@@ -18,6 +31,7 @@ typedef enum {
     TOOL_KIND_COUNT
 } ToolKind;
 
+/** Normalized pointer/keyboard event payload passed to tools. */
 typedef struct {
     Vec2 screen_pos;
     Vec2 world_pos;
@@ -28,6 +42,7 @@ typedef struct {
     float wheel_y;
 } ToolEvent;
 
+/** Shared handles a tool needs to mutate editor state safely. */
 typedef struct {
     struct Workspace* workspace;
     struct Document* document;
