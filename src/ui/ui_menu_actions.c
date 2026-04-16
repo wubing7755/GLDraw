@@ -2,6 +2,7 @@
 
 #include <app/workspace.h>
 #include <base/log.h>
+#include <base/math2d.h>
 #include <canvas/canvas_view.h>
 #include <document/document.h>
 #include <document/history.h>
@@ -31,9 +32,7 @@ static void app_workspace_new(Workspace* workspace)
     }
 
     /* Reset canvas zoom and center */
-    workspace->canvas.zoom = 1.0f;
-    workspace->canvas.center.x = 0.0f;
-    workspace->canvas.center.y = 0.0f;
+    canvas_view_set_center_zoom(&workspace->canvas, vec2_make(0.0f, 0.0f), 1.0f);
 
     /* Clear document path */
     workspace->current_document_path[0] = '\0';
@@ -56,9 +55,7 @@ static void app_zoom_to_fit(Workspace* workspace)
 
     if (doc->count == 0) {
         /* No objects, reset to default view */
-        canvas->zoom = 1.0f;
-        canvas->center.x = 0.0f;
-        canvas->center.y = 0.0f;
+        canvas_view_set_center_zoom(canvas, vec2_make(0.0f, 0.0f), 1.0f);
         return;
     }
 
@@ -102,17 +99,18 @@ static void app_zoom_to_fit(Workspace* workspace)
     float content_h = max_y - min_y;
 
     /* Calculate zoom to fit */
-    float zoom_x = canvas->viewport.w / content_w;
-    float zoom_y = canvas->viewport.h / content_h;
+    RectF canvas_viewport = canvas_view_viewport(canvas);
+    float zoom_x = canvas_viewport.w / content_w;
+    float zoom_y = canvas_viewport.h / content_h;
     float new_zoom = (zoom_x < zoom_y) ? zoom_x : zoom_y;
 
     /* Clamp zoom to valid range */
     new_zoom = (new_zoom < 0.1f) ? 0.1f : (new_zoom > 12.0f) ? 12.0f : new_zoom;
 
     /* Set new zoom and center */
-    canvas->zoom = new_zoom;
-    canvas->center.x = (min_x + max_x) * 0.5f;
-    canvas->center.y = (min_y + max_y) * 0.5f;
+    canvas_view_set_center_zoom(canvas,
+                                vec2_make((min_x + max_x) * 0.5f, (min_y + max_y) * 0.5f),
+                                new_zoom);
 }
 
 static void app_toggle_grid(Workspace* workspace)
@@ -246,14 +244,20 @@ void ui_menu_execute(Workspace* workspace, MenuId id)
 
     /* View menu */
     case MENU_ID_VIEW_ZOOM_IN:
+    {
+        Vec2 center = canvas_view_center(&workspace->canvas);
         canvas_view_zoom_at_screen_point(&workspace->canvas, 1.25f,
-                                        canvas_view_world_to_screen(&workspace->canvas, workspace->canvas.center));
+                                         canvas_view_world_to_screen(&workspace->canvas, center));
         break;
+    }
 
     case MENU_ID_VIEW_ZOOM_OUT:
+    {
+        Vec2 center = canvas_view_center(&workspace->canvas);
         canvas_view_zoom_at_screen_point(&workspace->canvas, 0.8f,
-                                        canvas_view_world_to_screen(&workspace->canvas, workspace->canvas.center));
+                                         canvas_view_world_to_screen(&workspace->canvas, center));
         break;
+    }
 
     case MENU_ID_VIEW_ZOOM_FIT:
         app_zoom_to_fit(workspace);

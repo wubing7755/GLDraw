@@ -4,8 +4,15 @@
 #include <base/types.h>
 #include <document/document.h>
 
+typedef struct CanvasViewportState {
+    RectF viewport;
+    Vec2 center;
+    float zoom;
+} CanvasViewportState;
+
 typedef struct CanvasView {
     Document* document;
+    CanvasViewportState viewport_state;
     RectF viewport;
     Vec2 center;
     float zoom;
@@ -16,6 +23,12 @@ typedef struct CanvasView {
 void canvas_view_init(CanvasView* canvas, Document* document, RectF viewport);
 void canvas_view_set_document(CanvasView* canvas, Document* document);
 void canvas_view_set_viewport(CanvasView* canvas, RectF viewport);
+void canvas_view_set_center(CanvasView* canvas, Vec2 center);
+void canvas_view_set_zoom(CanvasView* canvas, float zoom);
+void canvas_view_set_center_zoom(CanvasView* canvas, Vec2 center, float zoom);
+RectF canvas_view_viewport(const CanvasView* canvas);
+Vec2 canvas_view_center(const CanvasView* canvas);
+float canvas_view_zoom(const CanvasView* canvas);
 Vec2 canvas_view_world_to_screen(const CanvasView* canvas, Vec2 world);
 Vec2 canvas_view_screen_to_world(const CanvasView* canvas, Vec2 screen);
 void canvas_view_pan_screen_delta(CanvasView* canvas, Vec2 delta_screen);

@@ -23,15 +23,8 @@ typedef struct {
     RenderSystem* renderer;
     UiSystem* ui;
     Vec2 cursor_screen;
+    int cursor_inside_canvas;
 } Application;
-
-/* Global application instance for menu actions */
-static Application* g_app = NULL;
-
-void* app_get_instance(void)
-{
-    return g_app;
-}
 
 static int app_workspace_save(Workspace* workspace, void* user_data);
 static int app_workspace_load(Workspace* workspace, void* user_data);
@@ -191,14 +184,169 @@ static ToolContext app_tool_context(Application* app)
     return context;
 }
 
+static RectF app_window_bounds(const Application* app)
+{
+    RectF bounds = {0.0f, 0.0f, 1.0f, 1.0f};
+
+    if (!app) {
+        return bounds;
+    }
+
+    bounds.w = (float)app->window.width;
+    bounds.h = (float)app->window.height;
+    if (bounds.w < 1.0f) {
+        bounds.w = 1.0f;
+    }
+    if (bounds.h < 1.0f) {
+        bounds.h = 1.0f;
+    }
+    return bounds;
+}
+
+static RectF app_clamp_rect_to_bounds(RectF rect, RectF bounds)
+{
+    float max_x = bounds.x + bounds.w;
+    float max_y = bounds.y + bounds.h;
+
+    if (rect.w < 0.0f) {
+        rect.w = 0.0f;
+    }
+    if (rect.h < 0.0f) {
+        rect.h = 0.0f;
+    }
+    if (rect.x < bounds.x) {
+        rect.w -= (bounds.x - rect.x);
+        rect.x = bounds.x;
+    }
+    if (rect.y < bounds.y) {
+        rect.h -= (bounds.y - rect.y);
+        rect.y = bounds.y;
+    }
+    if (rect.x > max_x) {
+        rect.x = max_x;
+    }
+    if (rect.y > max_y) {
+        rect.y = max_y;
+    }
+    if (rect.x + rect.w > max_x) {
+        rect.w = max_x - rect.x;
+    }
+    if (rect.y + rect.h > max_y) {
+        rect.h = max_y - rect.y;
+    }
+    if (rect.w < 0.0f) {
+        rect.w = 0.0f;
+    }
+    if (rect.h < 0.0f) {
+        rect.h = 0.0f;
+    }
+
+    return rect;
+}
+
+static int app_pointer_hits_canvas(const Application* app, Vec2 screen_pos)
+{
+    RectF canvas_bounds;
+
+    if (!app) {
+        return 1;
+    }
+
+    canvas_bounds = app->workspace.layout.canvas_content_bounds;
+    if (canvas_bounds.w <= 1.0f || canvas_bounds.h <= 1.0f) {
+        canvas_bounds = app_window_bounds(app);
+    }
+
+    return rectf_contains_point(&canvas_bounds, screen_pos);
+}
+
+static int app_pointer_hits_ui_region(const Application* app, Vec2 screen_pos)
+{
+    const WorkspaceLayout* layout;
+    RectF window_bounds;
+    RectF appbar_bounds;
+    RectF rail_bounds;
+    RectF panel_bounds;
+    RectF status_bounds;
+
+    if (!app) {
+        return 0;
+    }
+
+    layout = &app->workspace.layout;
+    window_bounds = app_window_bounds(app);
+    appbar_bounds = app_clamp_rect_to_bounds(layout->appbar_bounds, window_bounds);
+    rail_bounds = app_clamp_rect_to_bounds(layout->rail_bounds, window_bounds);
+    panel_bounds = app_clamp_rect_to_bounds(layout->panel_bounds, window_bounds);
+    status_bounds = app_clamp_rect_to_bounds(layout->status_bounds, window_bounds);
+
+    return rectf_contains_point(&appbar_bounds, screen_pos) ||
+           rectf_contains_point(&rail_bounds, screen_pos) ||
+           rectf_contains_point(&panel_bounds, screen_pos) ||
+           rectf_contains_point(&status_bounds, screen_pos);
+}
+
+static int app_pointer_blocks_canvas(const Application* app, Vec2 screen_pos)
+{
+    if (!app) {
+        return 0;
+    }
+
+    if (app->ui && ui_system_has_active_interaction(app->ui)) {
+        return 1;
+    }
+
+    return app_pointer_hits_ui_region(app, screen_pos) ||
+           !app_pointer_hits_canvas(app, screen_pos);
+}
+
+static void app_sync_tool_pointer_anchor(Application* app)
+{
+    if (!app) {
+        return;
+    }
+
+    app->workspace.tools.last_screen = app->cursor_screen;
+    app->workspace.tools.last_world =
+        canvas_view_screen_to_world(&app->workspace.canvas, app->cursor_screen);
+}
+
+static void app_sync_canvas_boundary(Application* app)
+{
+    int inside_canvas = 0;
+
+    if (!app || app->workspace.tools.pointer_captured) {
+        return;
+    }
+
+    inside_canvas = app_pointer_hits_canvas(app, app->cursor_screen);
+    if (inside_canvas != app->cursor_inside_canvas) {
+        app->cursor_inside_canvas = inside_canvas;
+        app_sync_tool_pointer_anchor(app);
+    }
+}
+
 static void update_canvas_viewport(Application* app)
 {
+    RectF window_bounds;
     RectF viewport;
-    viewport.x = 0.0f;
-    viewport.y = 0.0f;
-    viewport.w = (float)app->window.width;
-    viewport.h = (float)app->window.height;
+
+    if (!app) {
+        return;
+    }
+
+    window_bounds = app_window_bounds(app);
+    viewport = app_clamp_rect_to_bounds(app->workspace.layout.canvas_content_bounds, window_bounds);
+    if (viewport.w <= 1.0f || viewport.h <= 1.0f) {
+        viewport = window_bounds;
+    }
+
+    if (app->ui) {
+        app->workspace.canvas.background = ui_system_canvas_background(app->ui);
+    }
+
     canvas_view_set_viewport(&app->workspace.canvas, viewport);
+    app_sync_canvas_boundary(app);
 }
 
 static ToolEvent make_tool_event(Application* app, int button, int mods, float wheel_y)
@@ -237,13 +385,15 @@ static void cursor_pos_callback(GLFWwindow* handle, double xpos, double ypos)
     }
 
     app->cursor_screen = vec2_make((float)xpos, (float)ypos);
-    context = app_tool_context(app);
-    event = make_tool_event(app, -1, 0, 0.0f);
+    app_sync_canvas_boundary(app);
 
     if (!app->workspace.tools.pointer_captured &&
-        ui_system_blocks_pointer(app->ui, app->cursor_screen)) {
+        app_pointer_blocks_canvas(app, app->cursor_screen)) {
         return;
     }
+
+    context = app_tool_context(app);
+    event = make_tool_event(app, -1, 0, 0.0f);
 
     tool_controller_pointer_move(&app->workspace.tools, &context, &event);
 }
@@ -258,16 +408,23 @@ static void mouse_button_callback(GLFWwindow* handle, int button, int action, in
         return;
     }
 
-    context = app_tool_context(app);
-    event = make_tool_event(app, button, mods, 0.0f);
-
     if (action == GLFW_PRESS) {
         if (!app->workspace.tools.pointer_captured &&
-            ui_system_blocks_pointer(app->ui, app->cursor_screen)) {
+            app_pointer_blocks_canvas(app, app->cursor_screen)) {
             return;
         }
+        context = app_tool_context(app);
+        event = make_tool_event(app, button, mods, 0.0f);
         tool_controller_pointer_down(&app->workspace.tools, &context, &event);
     } else if (action == GLFW_RELEASE) {
+        if (!app->workspace.tools.pointer_captured) {
+            if (app_pointer_blocks_canvas(app, app->cursor_screen)) {
+                return;
+            }
+            return;
+        }
+        context = app_tool_context(app);
+        event = make_tool_event(app, button, mods, 0.0f);
         tool_controller_pointer_up(&app->workspace.tools, &context, &event);
     }
 }
@@ -344,7 +501,8 @@ static void scroll_callback(GLFWwindow* handle, double xoffset, double yoffset)
         return;
     }
 
-    if (ui_system_blocks_pointer(app->ui, app->cursor_screen)) {
+    if (!app->workspace.tools.pointer_captured &&
+        app_pointer_blocks_canvas(app, app->cursor_screen)) {
         return;
     }
 
@@ -355,8 +513,6 @@ static void scroll_callback(GLFWwindow* handle, double xoffset, double yoffset)
 static int app_init(Application* app)
 {
     RectF viewport = {0.0f, 0.0f, 1440.0f, 900.0f};
-
-    g_app = app;
 
     if (platform_window_init(&app->window, 1440, 900, "GLDraw Canvas") != 0) {
         LOG_ERROR("%s", "Failed to create window");
@@ -376,6 +532,8 @@ static int app_init(Application* app)
     app->workspace.command_user_data = app;
     workspace_mark_saved(&app->workspace);
     app_set_status(app, "Initializing editor");
+    app->cursor_screen = vec2_make(app->window.width * 0.5f, app->window.height * 0.5f);
+    app->cursor_inside_canvas = 1;
 
     app->renderer = render_system_create(&app->window);
     if (!app->renderer) {
@@ -399,7 +557,8 @@ static int app_init(Application* app)
 
     render_system_resize(app->renderer, app->window.width, app->window.height);
     update_canvas_viewport(app);
-    app->cursor_screen = vec2_make(app->window.width * 0.5f, app->window.height * 0.5f);
+    app->cursor_inside_canvas = app_pointer_hits_canvas(app, app->cursor_screen);
+    app_sync_tool_pointer_anchor(app);
     app_open_startup_document(app);
     return 0;
 }
@@ -409,8 +568,6 @@ static void app_shutdown(Application* app)
     if (!app) {
         return;
     }
-
-    g_app = NULL;
 
     ui_system_destroy(app->ui);
     render_system_destroy(app->renderer);
@@ -439,6 +596,7 @@ int app_run(void)
         platform_window_poll_events();
         ui_system_begin_frame(app->ui);
         ui_system_build(app->ui, &app->workspace);
+        update_canvas_viewport(app);
         render_system_draw(app->renderer,
                            &app->workspace.document,
                            &app->workspace.canvas,
