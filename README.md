@@ -27,6 +27,10 @@ GLDraw is now a canvas-oriented OpenGL drawing editor. The project has been rest
 - App Bar with menu and quick actions (New/Open/Save/Undo/Redo/Zoom)
 - Left Tool Rail for Select/Hand/Line/Rect/Ellipse
 - Responsive inspector behavior (auto-hide under constrained width) with lightweight show/hide transition
+- Theme framework with built-in `GLDraw Light`, `GLDraw Dark+`, and `GLDraw High Contrast`
+- External theme files loaded from `themes/*.json` (startup scan)
+- Runtime hot reload for `themes/` directory (auto-detect file changes)
+- Theme selection from the top menu, persisted in `gldraw.settings.json` via `workbench.colorTheme`
 - Grid and origin axes rendering
 - Modular C11 codebase with GLFW, GLAD, and Nuklear
 
@@ -63,6 +67,16 @@ cmake --build build --config Release
 - `Delete` / `Backspace`: Delete current selection
 - `Mouse Wheel`: Zoom at cursor
 - `Esc`: Clear tool state, or close window when already in select mode
+
+## Theme Configuration
+
+- Select themes from the `Theme` top menu.
+- Use `Theme -> Reload Themes` to force refresh theme files immediately.
+- Current choice is persisted in `gldraw.settings.json` using key `workbench.colorTheme`.
+- You can add custom themes by dropping JSON files into `themes/`.
+- Theme file edits are hot-reloaded while the app is running.
+- Status bar messages distinguish `auto` reloads and `manually` triggered reloads.
+- Theme file schema and examples are documented in [themes/README.md](./themes/README.md).
 
 ## Project Structure
 

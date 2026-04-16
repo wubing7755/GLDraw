@@ -6,6 +6,8 @@
 
 struct nk_context;
 struct Workspace;
+struct UiThemeDescriptor;
+typedef struct UiThemeDescriptor UiThemeDescriptor;
 
 /**
  * @file ui_menubar.h
@@ -22,6 +24,11 @@ typedef struct UiMenuBar {
     struct nk_context* ctx;
     bool show_inspector;        /**< Inspector panel visibility */
     float menu_height;          /**< Height of the menu bar */
+    const UiThemeDescriptor* themes;
+    int theme_count;
+    int active_theme_index;
+    int requested_theme_index;
+    int requested_theme_reload;
 } UiMenuBar;
 
 /**
@@ -65,5 +72,9 @@ float ui_menubar_height(const UiMenuBar* menubar);
  * @param height Height in pixels
  */
 void ui_menubar_set_height(UiMenuBar* menubar, float height);
+void ui_menubar_set_themes(UiMenuBar* menubar, const UiThemeDescriptor* themes, int theme_count);
+void ui_menubar_set_active_theme_index(UiMenuBar* menubar, int theme_index);
+int ui_menubar_take_theme_request(UiMenuBar* menubar);
+int ui_menubar_take_theme_reload_request(UiMenuBar* menubar);
 
 #endif /* GLDRAW_UI_UI_MENUBAR_H */
