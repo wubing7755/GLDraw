@@ -1,3 +1,15 @@
+/**
+ * @file ui_menubar.c
+ * @brief Top menu bar rendering and menu interaction handling.
+ *
+ * Role in project:
+ * - Renders top-level menus, quick action buttons, and theme menu.
+ * - Converts UI clicks into menu action dispatch requests.
+ *
+ * Module relationships:
+ * - Uses static menu definitions and action executor modules.
+ * - Called by `ui_system` once per frame.
+ */
 #include "ui_menubar.h"
 
 #include "ui_menu_def.h"

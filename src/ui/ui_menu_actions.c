@@ -1,3 +1,15 @@
+/**
+ * @file ui_menu_actions.c
+ * @brief Menu action dispatch implementation.
+ *
+ * Role in project:
+ * - Maps menu IDs to workspace/document/canvas operations.
+ * - Centralizes shortcut-equivalent command behavior.
+ *
+ * Module relationships:
+ * - Called by menu bar and application shortcut handling.
+ * - Uses workspace callbacks for save/load and document/history APIs for edits.
+ */
 #include "ui_menu_actions.h"
 
 #include <app/workspace.h>

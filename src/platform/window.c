@@ -1,5 +1,18 @@
+/**
+ * @file window.c
+ * @brief GLFW window lifecycle wrapper implementation.
+ *
+ * Role in project:
+ * - Initializes OpenGL-compatible GLFW window/context.
+ * - Provides small wrapper calls used by the app loop.
+ *
+ * Module relationships:
+ * - Called by `application.c`.
+ * - Provides valid context required by renderer/UI init.
+ */
 #include <platform/window.h>
 
+/** Initialize GLFW and create window/context. Returns 0 on success, -1 on failure. */
 int platform_window_init(PlatformWindow* window, int width, int height, const char* title)
 {
     if (!window) {
@@ -31,6 +44,7 @@ int platform_window_init(PlatformWindow* window, int width, int height, const ch
     return 0;
 }
 
+/** Destroy window handle if it exists. */
 void platform_window_shutdown(PlatformWindow* window)
 {
     if (!window) {
@@ -43,11 +57,13 @@ void platform_window_shutdown(PlatformWindow* window)
     }
 }
 
+/** Poll pending OS events. */
 void platform_window_poll_events(void)
 {
     glfwPollEvents();
 }
 
+/** Swap front/back buffers for valid window handle. */
 void platform_window_swap_buffers(PlatformWindow* window)
 {
     if (window && window->handle) {
@@ -55,6 +71,7 @@ void platform_window_swap_buffers(PlatformWindow* window)
     }
 }
 
+/** Return close-state (treat invalid window as closed). */
 int platform_window_should_close(const PlatformWindow* window)
 {
     if (!window || !window->handle) {
