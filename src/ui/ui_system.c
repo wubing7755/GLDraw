@@ -62,6 +62,7 @@ int document_history_push_scalar_edit(DocumentHistory* history,
 struct UiSystem {
     struct nk_glfw glfw;
     struct nk_context* ctx;
+    GLFWwindow* window_handle;
     UiMenuBar* menu_bar;
     UiThemeTokens theme;
     char active_theme_id[UI_THEME_ID_CAPACITY];
@@ -730,6 +731,7 @@ UiSystem* ui_system_create(PlatformWindow* window)
     ui->inspector_target_visible = 1;
     ui->inspector_anim_initialized = 0;
     ui->last_frame_seconds = glfwGetTime();
+    ui->window_handle = window->handle;
 
     return ui;
 }
@@ -778,8 +780,20 @@ void ui_system_build(UiSystem* ui, Workspace* workspace)
         return;
     }
 
-    glfwGetWindowSize(glfwGetCurrentContext(), &width, &height);
+    if (ui->window_handle) {
+        glfwGetWindowSize(ui->window_handle, &width, &height);
+    }
     if (width <= 0 || height <= 0) {
+        GLFWwindow* current_context = glfwGetCurrentContext();
+        if (current_context) {
+            glfwGetWindowSize(current_context, &width, &height);
+        }
+    }
+
+    if (width <= 0 || height <= 0) {
+        if (workspace) {
+            ui_publish_layout(ui, workspace, 1, 1);
+        }
         return;
     }
     now_seconds = glfwGetTime();

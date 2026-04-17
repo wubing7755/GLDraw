@@ -23,6 +23,26 @@
 
 #define RENDER_VERTEX_STRIDE_FLOATS 6u
 
+/* Some GLAD builds do not expose KHR_debug macros/constants; provide safe fallbacks. */
+#ifndef GL_DEBUG_OUTPUT
+#define GL_DEBUG_OUTPUT 0x92E0
+#endif
+#ifndef GL_DEBUG_OUTPUT_SYNCHRONOUS
+#define GL_DEBUG_OUTPUT_SYNCHRONOUS 0x8242
+#endif
+#ifndef GL_DEBUG_SEVERITY_NOTIFICATION
+#define GL_DEBUG_SEVERITY_NOTIFICATION 0x826B
+#endif
+#ifndef GLDEBUGPROC
+typedef void (APIENTRY* GLDEBUGPROC)(GLenum source,
+                                     GLenum type,
+                                     GLuint id,
+                                     GLenum severity,
+                                     GLsizei length,
+                                     const GLchar* message,
+                                     const void* user_param);
+#endif
+
 /** Renderer-owned GL and CPU-side buffer state. */
 struct RenderSystem {
     GLuint program;
@@ -619,11 +639,31 @@ RenderSystem* render_system_create(PlatformWindow* window)
     renderer->debug_callback_enabled = 0;
 
 #if !defined(NDEBUG)
-    if (GLAD_GL_KHR_debug || GLAD_GL_VERSION_4_3) {
-        glEnable(GL_DEBUG_OUTPUT);
-        glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
-        glDebugMessageCallback(render_debug_callback, NULL);
-        renderer->debug_callback_enabled = 1;
+    {
+        int has_debug_support = 0;
+        typedef void (APIENTRYP PFNGLDEBUGMESSAGECALLBACKPROC_LOCAL)(GLDEBUGPROC callback, const void* user_param);
+        PFNGLDEBUGMESSAGECALLBACKPROC_LOCAL debug_message_callback = NULL;
+
+#ifdef GLAD_GL_KHR_debug
+        has_debug_support = has_debug_support || GLAD_GL_KHR_debug;
+#endif
+#ifdef GLAD_GL_VERSION_4_3
+        has_debug_support = has_debug_support || GLAD_GL_VERSION_4_3;
+#endif
+
+        if (has_debug_support) {
+            debug_message_callback = (PFNGLDEBUGMESSAGECALLBACKPROC_LOCAL)glfwGetProcAddress("glDebugMessageCallback");
+            if (!debug_message_callback) {
+                debug_message_callback = (PFNGLDEBUGMESSAGECALLBACKPROC_LOCAL)glfwGetProcAddress("glDebugMessageCallbackKHR");
+            }
+        }
+
+        if (debug_message_callback) {
+            glEnable(GL_DEBUG_OUTPUT);
+            glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
+            debug_message_callback(render_debug_callback, NULL);
+            renderer->debug_callback_enabled = 1;
+        }
     }
 #endif
 

@@ -624,7 +624,17 @@ int app_run(void)
     }
 
     while (!platform_window_should_close(&app->window)) {
+        int framebuffer_w = 0;
+        int framebuffer_h = 0;
+
         platform_window_poll_events();
+        glfwGetFramebufferSize(app->window.handle, &framebuffer_w, &framebuffer_h);
+        if (framebuffer_w <= 0 || framebuffer_h <= 0) {
+            /* During monitor/fullscreen transitions some platforms briefly report
+               zero-sized framebuffers. Avoid busy rendering loops in that state. */
+            glfwWaitEventsTimeout(0.02);
+            continue;
+        }
         ui_system_begin_frame(app->ui);
         ui_system_build(app->ui, &app->workspace);
         update_canvas_viewport(app);
