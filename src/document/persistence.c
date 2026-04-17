@@ -570,6 +570,7 @@ static int json_skip_value(JsonParser* parser)
 static int parse_stroke_object(JsonParser* parser, LoadedObjectData* data)
 {
     if (!json_expect(parser, JSON_TOKEN_LBRACE)) {
+        LOG_ERROR("%s", "[persistence][parse][stroke] expected object");
         return 0;
     }
 
@@ -581,38 +582,69 @@ static int parse_stroke_object(JsonParser* parser, LoadedObjectData* data)
 
     while (1) {
         if (parser->type != JSON_TOKEN_STRING) {
+            LOG_ERROR("%s", "[persistence][parse][stroke] expected key");
             return 0;
         }
 
         if (json_token_is_string(parser, "r")) {
             json_parser_next(parser);
-            if (!json_expect(parser, JSON_TOKEN_COLON)) return 0;
+            if (!json_expect(parser, JSON_TOKEN_COLON)) {
+                LOG_ERROR("%s", "[persistence][parse][stroke] expected ':' after r");
+                return 0;
+            }
             json_parser_next(parser);
-            if (!json_parse_float(parser, &data->style.stroke_color.r)) return 0;
+            if (!json_parse_float(parser, &data->style.stroke_color.r)) {
+                LOG_ERROR("%s", "[persistence][parse][stroke] invalid r value");
+                return 0;
+            }
             data->has_stroke_r = 1;
         } else if (json_token_is_string(parser, "g")) {
             json_parser_next(parser);
-            if (!json_expect(parser, JSON_TOKEN_COLON)) return 0;
+            if (!json_expect(parser, JSON_TOKEN_COLON)) {
+                LOG_ERROR("%s", "[persistence][parse][stroke] expected ':' after g");
+                return 0;
+            }
             json_parser_next(parser);
-            if (!json_parse_float(parser, &data->style.stroke_color.g)) return 0;
+            if (!json_parse_float(parser, &data->style.stroke_color.g)) {
+                LOG_ERROR("%s", "[persistence][parse][stroke] invalid g value");
+                return 0;
+            }
             data->has_stroke_g = 1;
         } else if (json_token_is_string(parser, "b")) {
             json_parser_next(parser);
-            if (!json_expect(parser, JSON_TOKEN_COLON)) return 0;
+            if (!json_expect(parser, JSON_TOKEN_COLON)) {
+                LOG_ERROR("%s", "[persistence][parse][stroke] expected ':' after b");
+                return 0;
+            }
             json_parser_next(parser);
-            if (!json_parse_float(parser, &data->style.stroke_color.b)) return 0;
+            if (!json_parse_float(parser, &data->style.stroke_color.b)) {
+                LOG_ERROR("%s", "[persistence][parse][stroke] invalid b value");
+                return 0;
+            }
             data->has_stroke_b = 1;
         } else if (json_token_is_string(parser, "a")) {
             json_parser_next(parser);
-            if (!json_expect(parser, JSON_TOKEN_COLON)) return 0;
+            if (!json_expect(parser, JSON_TOKEN_COLON)) {
+                LOG_ERROR("%s", "[persistence][parse][stroke] expected ':' after a");
+                return 0;
+            }
             json_parser_next(parser);
-            if (!json_parse_float(parser, &data->style.stroke_color.a)) return 0;
+            if (!json_parse_float(parser, &data->style.stroke_color.a)) {
+                LOG_ERROR("%s", "[persistence][parse][stroke] invalid a value");
+                return 0;
+            }
             data->has_stroke_a = 1;
         } else if (json_token_is_string(parser, "width")) {
             json_parser_next(parser);
-            if (!json_expect(parser, JSON_TOKEN_COLON)) return 0;
+            if (!json_expect(parser, JSON_TOKEN_COLON)) {
+                LOG_ERROR("%s", "[persistence][parse][stroke] expected ':' after width");
+                return 0;
+            }
             json_parser_next(parser);
-            if (!json_parse_float(parser, &data->style.stroke_width)) return 0;
+            if (!json_parse_float(parser, &data->style.stroke_width)) {
+                LOG_ERROR("%s", "[persistence][parse][stroke] invalid width value");
+                return 0;
+            }
             data->has_stroke_width = 1;
         } else {
             json_parser_next(parser);
@@ -629,6 +661,7 @@ static int parse_stroke_object(JsonParser* parser, LoadedObjectData* data)
             json_parser_next(parser);
             return 1;
         }
+        LOG_ERROR("%s", "[persistence][parse][stroke] malformed object");
         return 0;
     }
 }
@@ -637,6 +670,7 @@ static int parse_stroke_object(JsonParser* parser, LoadedObjectData* data)
 static int parse_geometry_object(JsonParser* parser, LoadedObjectData* data)
 {
     if (!json_expect(parser, JSON_TOKEN_LBRACE)) {
+        LOG_ERROR("%s", "[persistence][parse][geometry] expected object");
         return 0;
     }
 
@@ -648,6 +682,7 @@ static int parse_geometry_object(JsonParser* parser, LoadedObjectData* data)
 
     while (1) {
         if (parser->type != JSON_TOKEN_STRING) {
+            LOG_ERROR("%s", "[persistence][parse][geometry] expected key");
             return 0;
         }
 
@@ -714,6 +749,7 @@ static int parse_geometry_object(JsonParser* parser, LoadedObjectData* data)
             json_parser_next(parser);
             return 1;
         }
+        LOG_ERROR("%s", "[persistence][parse][geometry] malformed object");
         return 0;
     }
 }
@@ -748,6 +784,17 @@ static GraphicObject* build_loaded_object(const LoadedObjectData* data)
     if (!data || !data->has_id || !data->has_type ||
         !data->has_stroke_r || !data->has_stroke_g || !data->has_stroke_b ||
         !data->has_stroke_a || !data->has_stroke_width) {
+        LOG_ERROR("%s", "[persistence][parse][object entry] missing required fields");
+        return NULL;
+    }
+
+    if (data->id == 0u) {
+        LOG_ERROR("%s", "[persistence][parse][object entry] invalid object id=0");
+        return NULL;
+    }
+    if (data->style.stroke_width <= 0.0f) {
+        LOG_ERROR("[persistence][parse][stroke] invalid stroke width=%.3f",
+                  data->style.stroke_width);
         return NULL;
     }
 
@@ -763,10 +810,22 @@ static GraphicObject* build_loaded_object(const LoadedObjectData* data)
         if (!data->has_x || !data->has_y || !data->has_width || !data->has_height) {
             return NULL;
         }
+        if (data->width <= 0.0f || data->height <= 0.0f) {
+            LOG_ERROR("[persistence][parse][geometry] invalid rect size w=%.3f h=%.3f",
+                      data->width,
+                      data->height);
+            return NULL;
+        }
         return object_create_rect((RectF){data->x, data->y, data->width, data->height},
                                   data->style);
     case GRAPHIC_OBJECT_ELLIPSE:
         if (!data->has_x || !data->has_y || !data->has_width || !data->has_height) {
+            return NULL;
+        }
+        if (data->width <= 0.0f || data->height <= 0.0f) {
+            LOG_ERROR("[persistence][parse][geometry] invalid ellipse size w=%.3f h=%.3f",
+                      data->width,
+                      data->height);
             return NULL;
         }
         return object_create_ellipse((RectF){data->x, data->y, data->width, data->height},
@@ -791,16 +850,19 @@ static int parse_object_entry(JsonParser* parser, Document* document)
     data.style = object_default_style();
 
     if (!json_expect(parser, JSON_TOKEN_LBRACE)) {
+        LOG_ERROR("%s", "[persistence][parse][object entry] expected object");
         return 0;
     }
 
     json_parser_next(parser);
     if (parser->type == JSON_TOKEN_RBRACE) {
+        LOG_ERROR("%s", "[persistence][parse][object entry] empty object entry");
         return 0;
     }
 
     while (1) {
         if (parser->type != JSON_TOKEN_STRING) {
+            LOG_ERROR("%s", "[persistence][parse][object entry] expected field name");
             return 0;
         }
 
@@ -820,12 +882,18 @@ static int parse_object_entry(JsonParser* parser, Document* document)
             json_parser_next(parser);
             if (!json_expect(parser, JSON_TOKEN_COLON)) return 0;
             json_parser_next(parser);
-            if (!parse_stroke_object(parser, &data)) return 0;
+            if (!parse_stroke_object(parser, &data)) {
+                LOG_ERROR("%s", "[persistence][parse][object entry] failed parsing stroke");
+                return 0;
+            }
         } else if (json_token_is_string(parser, "geometry")) {
             json_parser_next(parser);
             if (!json_expect(parser, JSON_TOKEN_COLON)) return 0;
             json_parser_next(parser);
-            if (!parse_geometry_object(parser, &data)) return 0;
+            if (!parse_geometry_object(parser, &data)) {
+                LOG_ERROR("%s", "[persistence][parse][object entry] failed parsing geometry");
+                return 0;
+            }
         } else {
             json_parser_next(parser);
             if (!json_expect(parser, JSON_TOKEN_COLON)) return 0;
@@ -841,11 +909,13 @@ static int parse_object_entry(JsonParser* parser, Document* document)
             json_parser_next(parser);
             break;
         }
+        LOG_ERROR("%s", "[persistence][parse][object entry] malformed fields");
         return 0;
     }
 
     object = build_loaded_object(&data);
     if (!object) {
+        LOG_ERROR("%s", "[persistence][parse][object entry] failed object build");
         return 0;
     }
 
@@ -910,6 +980,7 @@ static int parse_objects_array(JsonParser* parser, Document* document)
 
     while (1) {
         if (!parse_object_entry(parser, document)) {
+            LOG_ERROR("[persistence][parse][object entry] parse failed at index=%d", document->count);
             return 0;
         }
         if (parser->type == JSON_TOKEN_COMMA) {
@@ -943,16 +1014,19 @@ static int parse_document_root(JsonParser* parser, Document* document)
     memset(selection_ids, 0, sizeof(selection_ids));
 
     if (!json_expect(parser, JSON_TOKEN_LBRACE)) {
+        LOG_ERROR("%s", "[persistence][parse][top-level] expected root object");
         return 0;
     }
 
     json_parser_next(parser);
     if (parser->type == JSON_TOKEN_RBRACE) {
+        LOG_ERROR("%s", "[persistence][parse][top-level] empty root object");
         return 0;
     }
 
     while (1) {
         if (parser->type != JSON_TOKEN_STRING) {
+            LOG_ERROR("%s", "[persistence][parse][top-level] expected field name");
             return 0;
         }
 
@@ -1008,6 +1082,7 @@ static int parse_document_root(JsonParser* parser, Document* document)
     }
 
     if (!got_format || !got_version || version != 1 || !got_objects) {
+        LOG_ERROR("%s", "[persistence][parse][top-level] missing or invalid required keys (format/version/objects)");
         return 0;
     }
 
@@ -1121,7 +1196,7 @@ int document_load_json(Document* document, const char* path)
     if (!parse_document_root(&parser, &loaded_document) || parser.type != JSON_TOKEN_EOF) {
         document_shutdown(&loaded_document);
         free(text);
-        LOG_ERROR("Failed to parse document JSON: %s", path);
+        LOG_ERROR("[persistence][parse][top-level] Failed to parse document JSON: %s", path);
         return 0;
     }
 

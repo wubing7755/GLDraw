@@ -251,121 +251,6 @@ static ToolContext app_tool_context(Application* app)
     return context;
 }
 
-/** Compute window bounds as non-empty rectangle to avoid zero-size math. Complexity: `O(1)`. */
-static RectF app_window_bounds(const Application* app)
-{
-    RectF bounds = {0.0f, 0.0f, 1.0f, 1.0f};
-
-    if (!app) {
-        return bounds;
-    }
-
-    bounds.w = (float)app->window.width;
-    bounds.h = (float)app->window.height;
-    if (bounds.w < 1.0f) {
-        bounds.w = 1.0f;
-    }
-    if (bounds.h < 1.0f) {
-        bounds.h = 1.0f;
-    }
-    return bounds;
-}
-
-/**
- * @brief Clamp rectangle to window bounds.
- * @return Clamped rectangle with non-negative size.
- *
- * Why:
- * - UI layout can briefly produce out-of-window values during resize/animation.
- *   Clamping prevents invalid viewport/scissor calculations downstream.
- *
- * Complexity: `O(1)`.
- */
-static RectF app_clamp_rect_to_bounds(RectF rect, RectF bounds)
-{
-    float max_x = bounds.x + bounds.w;
-    float max_y = bounds.y + bounds.h;
-
-    if (rect.w < 0.0f) {
-        rect.w = 0.0f;
-    }
-    if (rect.h < 0.0f) {
-        rect.h = 0.0f;
-    }
-    if (rect.x < bounds.x) {
-        rect.w -= (bounds.x - rect.x);
-        rect.x = bounds.x;
-    }
-    if (rect.y < bounds.y) {
-        rect.h -= (bounds.y - rect.y);
-        rect.y = bounds.y;
-    }
-    if (rect.x > max_x) {
-        rect.x = max_x;
-    }
-    if (rect.y > max_y) {
-        rect.y = max_y;
-    }
-    if (rect.x + rect.w > max_x) {
-        rect.w = max_x - rect.x;
-    }
-    if (rect.y + rect.h > max_y) {
-        rect.h = max_y - rect.y;
-    }
-    if (rect.w < 0.0f) {
-        rect.w = 0.0f;
-    }
-    if (rect.h < 0.0f) {
-        rect.h = 0.0f;
-    }
-
-    return rect;
-}
-
-/** Test whether a screen point lies in current canvas content region. Complexity: `O(1)`. */
-static int app_pointer_hits_canvas(const Application* app, Vec2 screen_pos)
-{
-    RectF canvas_bounds;
-
-    if (!app) {
-        return 1;
-    }
-
-    canvas_bounds = app->workspace.layout.canvas_content_bounds;
-    if (canvas_bounds.w <= 1.0f || canvas_bounds.h <= 1.0f) {
-        canvas_bounds = app_window_bounds(app);
-    }
-
-    return rectf_contains_point(&canvas_bounds, screen_pos);
-}
-
-/** Test whether a screen point lies in UI chrome regions (menu/rail/panel/status). Complexity: `O(1)`. */
-static int app_pointer_hits_ui_region(const Application* app, Vec2 screen_pos)
-{
-    const WorkspaceLayout* layout;
-    RectF window_bounds;
-    RectF appbar_bounds;
-    RectF rail_bounds;
-    RectF panel_bounds;
-    RectF status_bounds;
-
-    if (!app) {
-        return 0;
-    }
-
-    layout = &app->workspace.layout;
-    window_bounds = app_window_bounds(app);
-    appbar_bounds = app_clamp_rect_to_bounds(layout->appbar_bounds, window_bounds);
-    rail_bounds = app_clamp_rect_to_bounds(layout->rail_bounds, window_bounds);
-    panel_bounds = app_clamp_rect_to_bounds(layout->panel_bounds, window_bounds);
-    status_bounds = app_clamp_rect_to_bounds(layout->status_bounds, window_bounds);
-
-    return rectf_contains_point(&appbar_bounds, screen_pos) ||
-           rectf_contains_point(&rail_bounds, screen_pos) ||
-           rectf_contains_point(&panel_bounds, screen_pos) ||
-           rectf_contains_point(&status_bounds, screen_pos);
-}
-
 /**
  * @brief Decide whether pointer input should be blocked from canvas tools.
  * @return Non-zero when UI interaction or non-canvas regions should consume input.
@@ -381,12 +266,11 @@ static int app_pointer_blocks_canvas(const Application* app, Vec2 screen_pos)
         return 0;
     }
 
-    if (app->ui && ui_system_has_active_interaction(app->ui)) {
+    if (app->ui && ui_system_blocks_pointer(app->ui, screen_pos)) {
         return 1;
     }
 
-    return app_pointer_hits_ui_region(app, screen_pos) ||
-           !app_pointer_hits_canvas(app, screen_pos);
+    return app->ui && !ui_system_point_in_canvas(app->ui, screen_pos);
 }
 
 /** Sync tool controller's last pointer anchor with current cursor state. Complexity: `O(1)`. */
@@ -410,7 +294,7 @@ static void app_sync_canvas_boundary(Application* app)
         return;
     }
 
-    inside_canvas = app_pointer_hits_canvas(app, app->cursor_screen);
+    inside_canvas = app->ui ? ui_system_point_in_canvas(app->ui, app->cursor_screen) : 1;
     if (inside_canvas != app->cursor_inside_canvas) {
         app->cursor_inside_canvas = inside_canvas;
         app_sync_tool_pointer_anchor(app);
@@ -420,17 +304,30 @@ static void app_sync_canvas_boundary(Application* app)
 /** Update canvas viewport and theme background from latest UI layout. Complexity: `O(1)`. */
 static void update_canvas_viewport(Application* app)
 {
-    RectF window_bounds;
     RectF viewport;
+    RectF fallback_window = {0.0f, 0.0f, 1.0f, 1.0f};
 
     if (!app) {
         return;
     }
 
-    window_bounds = app_window_bounds(app);
-    viewport = app_clamp_rect_to_bounds(app->workspace.layout.canvas_content_bounds, window_bounds);
+    if (app->ui) {
+        viewport = ui_system_content_bounds(app->ui);
+        fallback_window = ui_system_window_bounds(app->ui);
+    } else {
+        viewport = app->workspace.layout.canvas_content_bounds;
+        fallback_window.w = (float)app->window.width;
+        fallback_window.h = (float)app->window.height;
+        if (fallback_window.w < 1.0f) {
+            fallback_window.w = 1.0f;
+        }
+        if (fallback_window.h < 1.0f) {
+            fallback_window.h = 1.0f;
+        }
+    }
+
     if (viewport.w <= 1.0f || viewport.h <= 1.0f) {
-        viewport = window_bounds;
+        viewport = fallback_window;
     }
 
     if (app->ui) {
@@ -663,7 +560,6 @@ static int app_init(Application* app)
     app->ui = ui_system_create(&app->window);
     if (!app->ui) {
         LOG_ERROR("%s", "Failed to initialize UI");
-        render_system_destroy(app->renderer);
         return -1;
     }
 
@@ -676,7 +572,7 @@ static int app_init(Application* app)
 
     render_system_resize(app->renderer, app->window.width, app->window.height);
     update_canvas_viewport(app);
-    app->cursor_inside_canvas = app_pointer_hits_canvas(app, app->cursor_screen);
+    app->cursor_inside_canvas = app->ui ? ui_system_point_in_canvas(app->ui, app->cursor_screen) : 1;
     app_sync_tool_pointer_anchor(app);
     app_open_startup_document(app);
     return 0;

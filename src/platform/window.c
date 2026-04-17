@@ -12,6 +12,8 @@
  */
 #include <platform/window.h>
 
+static int g_glfw_initialized = 0;
+
 /**
  * @brief Initialize GLFW and create an OpenGL 3.3 Core Profile window and context.
  * @param window [in,out] Window structure to populate.
@@ -32,12 +34,18 @@
  */
 int platform_window_init(PlatformWindow* window, int width, int height, const char* title)
 {
+    int initialized_here = 0;
+
     if (!window) {
         return -1;
     }
 
-    if (!glfwInit()) {
-        return -1;
+    if (!g_glfw_initialized) {
+        if (!glfwInit()) {
+            return -1;
+        }
+        g_glfw_initialized = 1;
+        initialized_here = 1;
     }
 
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
@@ -46,7 +54,10 @@ int platform_window_init(PlatformWindow* window, int width, int height, const ch
 
     window->handle = glfwCreateWindow(width, height, title, NULL, NULL);
     if (!window->handle) {
-        glfwTerminate();
+        if (initialized_here) {
+            glfwTerminate();
+            g_glfw_initialized = 0;
+        }
         return -1;
     }
 
@@ -67,7 +78,7 @@ int platform_window_init(PlatformWindow* window, int width, int height, const ch
  * @return None.
  *
  * Note:
- * - Does NOT call `glfwTerminate()`; GLFW lifetime is managed separately.
+ * - Also terminates GLFW after destroying the final window for this process.
  * - Safe to call multiple times (idempotent after first call).
  */
 void platform_window_shutdown(PlatformWindow* window)
@@ -77,8 +88,14 @@ void platform_window_shutdown(PlatformWindow* window)
     }
 
     if (window->handle) {
+        glfwMakeContextCurrent(NULL);
         glfwDestroyWindow(window->handle);
         window->handle = NULL;
+    }
+
+    if (g_glfw_initialized) {
+        glfwTerminate();
+        g_glfw_initialized = 0;
     }
 }
 

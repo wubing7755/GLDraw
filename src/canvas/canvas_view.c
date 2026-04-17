@@ -16,8 +16,8 @@
 
 #include <stddef.h>
 
-/** Build canonical viewport state from legacy compatibility fields. Complexity: `O(1)`. */
-static CanvasViewportState canvas_viewport_state_from_compat(const CanvasView* canvas)
+/** Return current canonical viewport state with safe defaults for invalid input. */
+static CanvasViewportState canvas_view_state(const CanvasView* canvas)
 {
     CanvasViewportState state;
     state.viewport.x = 0.0f;
@@ -31,22 +31,11 @@ static CanvasViewportState canvas_viewport_state_from_compat(const CanvasView* c
         return state;
     }
 
-    state.viewport = canvas->viewport;
-    state.center = canvas->center;
-    state.zoom = (canvas->zoom > 0.0f) ? canvas->zoom : 1.0f;
-    return state;
-}
-
-/** Mirror canonical state back to legacy compatibility fields. Complexity: `O(1)`. */
-static void canvas_view_sync_compat(CanvasView* canvas)
-{
-    if (!canvas) {
-        return;
+    state = canvas->viewport_state;
+    if (state.zoom <= 0.0f) {
+        state.zoom = 1.0f;
     }
-
-    canvas->viewport = canvas->viewport_state.viewport;
-    canvas->center = canvas->viewport_state.center;
-    canvas->zoom = canvas->viewport_state.zoom;
+    return state;
 }
 
 /** Transform world point to screen coordinates. Complexity: `O(1)`. */
@@ -143,7 +132,6 @@ void canvas_view_init(CanvasView* canvas, Document* document, RectF viewport)
     canvas->viewport_state.viewport = viewport;
     canvas->viewport_state.center = vec2_make(0.0f, 0.0f);
     canvas->viewport_state.zoom = 1.0f;
-    canvas_view_sync_compat(canvas);
     canvas->show_grid = 1;
     canvas->background.r = 218.0f / 255.0f;
     canvas->background.g = 226.0f / 255.0f;
@@ -162,93 +150,73 @@ void canvas_view_set_document(CanvasView* canvas, Document* document)
 /** Set viewport rectangle. Complexity: `O(1)`. */
 void canvas_view_set_viewport(CanvasView* canvas, RectF viewport)
 {
-    CanvasViewportState state;
-
     if (!canvas) {
         return;
     }
 
-    state = canvas_viewport_state_from_compat(canvas);
-    state.viewport = viewport;
-    canvas->viewport_state = state;
-    canvas_view_sync_compat(canvas);
+    canvas->viewport_state.viewport = viewport;
 }
 
 /** Set world center. Complexity: `O(1)`. */
 void canvas_view_set_center(CanvasView* canvas, Vec2 center)
 {
-    CanvasViewportState state;
-
     if (!canvas) {
         return;
     }
 
-    state = canvas_viewport_state_from_compat(canvas);
-    state.center = center;
-    canvas->viewport_state = state;
-    canvas_view_sync_compat(canvas);
+    canvas->viewport_state.center = center;
 }
 
 /** Set zoom with clamp. Complexity: `O(1)`. */
 void canvas_view_set_zoom(CanvasView* canvas, float zoom)
 {
-    CanvasViewportState state;
-
     if (!canvas) {
         return;
     }
 
-    state = canvas_viewport_state_from_compat(canvas);
-    state.zoom = clampf(zoom, 0.1f, 12.0f);
-    canvas->viewport_state = state;
-    canvas_view_sync_compat(canvas);
+    canvas->viewport_state.zoom = clampf(zoom, 0.1f, 12.0f);
 }
 
 /** Set center and zoom together. Complexity: `O(1)`. */
 void canvas_view_set_center_zoom(CanvasView* canvas, Vec2 center, float zoom)
 {
-    CanvasViewportState state;
-
     if (!canvas) {
         return;
     }
 
-    state = canvas_viewport_state_from_compat(canvas);
-    state.center = center;
-    state.zoom = clampf(zoom, 0.1f, 12.0f);
-    canvas->viewport_state = state;
-    canvas_view_sync_compat(canvas);
+    canvas->viewport_state.center = center;
+    canvas->viewport_state.zoom = clampf(zoom, 0.1f, 12.0f);
 }
 
 /** Return viewport rectangle. Complexity: `O(1)`. */
 RectF canvas_view_viewport(const CanvasView* canvas)
 {
-    return canvas_viewport_state_from_compat(canvas).viewport;
+    return canvas_view_state(canvas).viewport;
 }
 
 /** Return world center. Complexity: `O(1)`. */
 Vec2 canvas_view_center(const CanvasView* canvas)
 {
-    return canvas_viewport_state_from_compat(canvas).center;
+    return canvas_view_state(canvas).center;
 }
 
 /** Return zoom factor. Complexity: `O(1)`. */
 float canvas_view_zoom(const CanvasView* canvas)
 {
-    return canvas_viewport_state_from_compat(canvas).zoom;
+    return canvas_view_state(canvas).zoom;
 }
 
 /** Public world->screen conversion wrapper. Complexity: `O(1)`. */
 Vec2 canvas_view_world_to_screen(const CanvasView* canvas, Vec2 world)
 {
-    CanvasViewportState state = canvas_viewport_state_from_compat(canvas);
+    CanvasViewportState state = canvas_view_state(canvas);
     return canvas_viewport_world_to_screen(&state, world);
 }
 
 /** Public screen->world conversion wrapper. Complexity: `O(1)`. */
 Vec2 canvas_view_screen_to_world(const CanvasView* canvas, Vec2 screen)
 {
-    CanvasViewportState state = canvas_viewport_state_from_compat(canvas);
+    CanvasViewportState state = canvas_view_state(canvas);
     return canvas_viewport_screen_to_world(&state, screen);
 }
 
@@ -261,10 +229,9 @@ void canvas_view_pan_screen_delta(CanvasView* canvas, Vec2 delta_screen)
         return;
     }
 
-    state = canvas_viewport_state_from_compat(canvas);
+    state = canvas_view_state(canvas);
     canvas_viewport_pan_screen_delta(&state, delta_screen);
     canvas->viewport_state = state;
-    canvas_view_sync_compat(canvas);
 }
 
 /** Zoom camera around cursor/specified anchor. Complexity: `O(1)`. */
@@ -276,10 +243,9 @@ void canvas_view_zoom_at_screen_point(CanvasView* canvas, float factor, Vec2 scr
         return;
     }
 
-    state = canvas_viewport_state_from_compat(canvas);
+    state = canvas_view_state(canvas);
     canvas_viewport_zoom_at_screen_point(&state, factor, screen_anchor);
     canvas->viewport_state = state;
-    canvas_view_sync_compat(canvas);
 }
 
 /** Convert pixel tolerance to world units based on zoom. Complexity: `O(1)`. */
@@ -297,7 +263,7 @@ float canvas_view_world_tolerance_for_pixels(const CanvasView* canvas, float pix
 /** Get visible world rectangle. Complexity: `O(1)`. */
 RectF canvas_view_visible_world_rect(const CanvasView* canvas)
 {
-    CanvasViewportState state = canvas_viewport_state_from_compat(canvas);
+    CanvasViewportState state = canvas_view_state(canvas);
     return canvas_viewport_visible_world_rect(&state);
 }
 

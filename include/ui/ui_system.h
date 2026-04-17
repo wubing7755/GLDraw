@@ -34,8 +34,12 @@ void ui_system_render(UiSystem* ui);
 int ui_system_has_active_interaction(const UiSystem* ui);
 /** Return non-zero when a screen point is over UI-occupied regions. */
 int ui_system_blocks_pointer(const UiSystem* ui, Vec2 screen_pos);
+/** Get clamped UI-published window bounds used for hit testing and viewport fallback. */
+RectF ui_system_window_bounds(const UiSystem* ui);
 /** Get computed content area available for canvas. */
 RectF ui_system_content_bounds(const UiSystem* ui);
+/** Return non-zero when screen point lies inside canvas content region. */
+int ui_system_point_in_canvas(const UiSystem* ui, Vec2 screen_pos);
 /** Get canvas background color derived from active theme. */
 Color ui_system_canvas_background(const UiSystem* ui);
 

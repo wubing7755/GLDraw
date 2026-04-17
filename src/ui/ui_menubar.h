@@ -77,10 +77,6 @@ float ui_menubar_height(const UiMenuBar* menubar);
  * @return None.
  */
 void ui_menubar_set_height(UiMenuBar* menubar, float height);
-void ui_menubar_set_themes(UiMenuBar* menubar, const UiThemeDescriptor* themes, int theme_count);
-void ui_menubar_set_active_theme_index(UiMenuBar* menubar, int theme_index);
-int ui_menubar_take_theme_request(UiMenuBar* menubar);
-int ui_menubar_take_theme_reload_request(UiMenuBar* menubar);
 
 /**
  * @brief Assign the available theme registry to the menu bar.

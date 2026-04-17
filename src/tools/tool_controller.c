@@ -27,11 +27,12 @@
 /** Runtime state for select tool drag/selection/history behavior. */
 typedef struct {
     int dragging;
-    int history_pending;
     int moved;
-    int selection_changed;
     Vec2 last_world;
-    DocumentSnapshot before_snapshot;
+    Vec2 drag_delta_total;
+    int drag_object_count;
+    ObjectId drag_object_ids[DOCUMENT_MAX_SELECTION];
+    unsigned int drag_revision_before;
 } SelectToolState;
 
 /** Runtime state for pan tool. */
@@ -52,6 +53,14 @@ static void snapshot_reset(DocumentSnapshot* snapshot)
     document_snapshot_free(snapshot);
     document_snapshot_init(snapshot);
 }
+
+int document_history_push_translate_edit(DocumentHistory* history,
+                                         const Document* document,
+                                         const ObjectId* object_ids,
+                                         int object_count,
+                                         Vec2 delta,
+                                         unsigned int revision_before,
+                                         unsigned int revision_after);
 
 /** Destroy active overlay object preview if present. */
 static void destroy_overlay(Tool* tool)
@@ -144,10 +153,10 @@ static void select_tool_deactivate(Tool* tool, ToolContext* context)
     SelectToolState* state = (SelectToolState*)tool->state;
     (void)context;
     state->dragging = 0;
-    state->history_pending = 0;
     state->moved = 0;
-    state->selection_changed = 0;
-    snapshot_reset(&state->before_snapshot);
+    state->drag_delta_total = vec2_make(0.0f, 0.0f);
+    state->drag_object_count = 0;
+    state->drag_revision_before = 0u;
 }
 
 /**
@@ -161,42 +170,78 @@ static void select_tool_pointer_down(Tool* tool, ToolContext* context, const Too
 {
     SelectToolState* state = (SelectToolState*)tool->state;
     GraphicObject* hit = NULL;
+    int i = 0;
 
     if (event->button != GLFW_MOUSE_BUTTON_LEFT) {
         return;
     }
 
-    snapshot_reset(&state->before_snapshot);
-    document_snapshot_capture(&state->before_snapshot, context->document);
-    state->selection_changed = 0;
+    state->dragging = 0;
+    state->moved = 0;
+    state->drag_delta_total = vec2_make(0.0f, 0.0f);
+    state->drag_object_count = 0;
+    state->drag_revision_before = 0u;
     hit = canvas_view_pick_object(context->canvas, event->screen_pos, 8.0f);
     if (!hit) {
         if ((event->mods & GLFW_MOD_SHIFT) == 0) {
-            document_clear_selection(context->document);
+            if (context->document->selection.count > 0) {
+                DocumentSnapshot before_snapshot;
+                document_snapshot_init(&before_snapshot);
+                if (document_snapshot_capture(&before_snapshot, context->document)) {
+                    document_clear_selection(context->document);
+                    document_touch(context->document);
+                    tool_commit_document_change(context, &before_snapshot);
+                }
+            }
         }
-        state->selection_changed =
-            !selection_matches_snapshot(context->document, &state->before_snapshot);
-        state->dragging = 0;
-        state->history_pending = 0;
         return;
     }
 
     if ((event->mods & GLFW_MOD_SHIFT) != 0) {
-        document_selection_toggle(context->document, hit->id);
+        DocumentSnapshot before_snapshot;
+        document_snapshot_init(&before_snapshot);
+        if (document_snapshot_capture(&before_snapshot, context->document)) {
+            document_selection_toggle(context->document, hit->id);
+            if (!selection_matches_snapshot(context->document, &before_snapshot)) {
+                document_touch(context->document);
+                tool_commit_document_change(context, &before_snapshot);
+            } else {
+                document_snapshot_free(&before_snapshot);
+            }
+        } else {
+            document_selection_toggle(context->document, hit->id);
+        }
         state->dragging = document_selection_contains(context->document, hit->id);
     } else {
         if (!document_selection_contains(context->document, hit->id) || context->document->selection.count != 1) {
-            document_clear_selection(context->document);
-            document_selection_add(context->document, hit->id);
+            DocumentSnapshot before_snapshot;
+            document_snapshot_init(&before_snapshot);
+            if (document_snapshot_capture(&before_snapshot, context->document)) {
+                document_clear_selection(context->document);
+                document_selection_add(context->document, hit->id);
+                document_touch(context->document);
+                tool_commit_document_change(context, &before_snapshot);
+            } else {
+                document_clear_selection(context->document);
+                document_selection_add(context->document, hit->id);
+            }
         }
-        state->dragging = 1;
+        state->dragging = document_selection_contains(context->document, hit->id);
     }
 
-    state->selection_changed =
-        !selection_matches_snapshot(context->document, &state->before_snapshot);
+    if (!state->dragging || context->document->selection.count <= 0) {
+        return;
+    }
+
+    state->drag_object_count = context->document->selection.count;
+    if (state->drag_object_count > DOCUMENT_MAX_SELECTION) {
+        state->drag_object_count = DOCUMENT_MAX_SELECTION;
+    }
+    for (i = 0; i < state->drag_object_count; ++i) {
+        state->drag_object_ids[i] = context->document->selection.ids[i];
+    }
     state->last_world = event->world_pos;
-    state->history_pending = state->dragging;
-    state->moved = 0;
+    state->drag_revision_before = context->document->revision;
 }
 
 /** Move all selected objects by world delta while dragging. */
@@ -215,14 +260,15 @@ static void select_tool_pointer_move(Tool* tool, ToolContext* context, const Too
         return;
     }
 
-    for (i = 0; i < context->document->selection.count; ++i) {
-        GraphicObject* object = document_find_object(context->document, context->document->selection.ids[i]);
+    for (i = 0; i < state->drag_object_count; ++i) {
+        GraphicObject* object = document_find_object(context->document, state->drag_object_ids[i]);
         if (object) {
             object_translate(object, delta);
         }
     }
 
     state->last_world = event->world_pos;
+    state->drag_delta_total = vec2_add(state->drag_delta_total, delta);
     state->moved = 1;
     document_touch(context->document);
 }
@@ -233,19 +279,27 @@ static void select_tool_pointer_up(Tool* tool, ToolContext* context, const ToolE
     SelectToolState* state = (SelectToolState*)tool->state;
     (void)event;
 
-    if (state->history_pending && state->moved && context && context->history) {
-        tool_commit_document_change(context, &state->before_snapshot);
-    } else if (state->selection_changed) {
-        document_touch(context->document);
-        tool_commit_document_change(context, &state->before_snapshot);
-    } else {
-        snapshot_reset(&state->before_snapshot);
+    if (state->dragging &&
+        state->moved &&
+        state->drag_object_count > 0 &&
+        vec2_length_sq(state->drag_delta_total) > 1e-6f &&
+        context &&
+        context->history) {
+        document_history_push_translate_edit(context->history,
+                                             context->document,
+                                             state->drag_object_ids,
+                                             state->drag_object_count,
+                                             state->drag_delta_total,
+                                             state->drag_revision_before,
+                                             context->document->revision);
+        workspace_sync_document_dirty(context->workspace);
     }
 
     state->dragging = 0;
-    state->history_pending = 0;
     state->moved = 0;
-    state->selection_changed = 0;
+    state->drag_delta_total = vec2_make(0.0f, 0.0f);
+    state->drag_object_count = 0;
+    state->drag_revision_before = 0u;
 }
 
 /** Handle select tool keyboard input (Escape clears selection). */
@@ -481,7 +535,6 @@ void tool_controller_init(ToolController* controller)
     tool_init_slot(&controller->tools[TOOL_KIND_RECT], TOOL_KIND_RECT, &g_shape_tool_vtable, sizeof(ShapeToolState));
     tool_init_slot(&controller->tools[TOOL_KIND_ELLIPSE], TOOL_KIND_ELLIPSE, &g_shape_tool_vtable, sizeof(ShapeToolState));
     controller->active_kind = TOOL_KIND_SELECT;
-    document_snapshot_init(&((SelectToolState*)controller->tools[TOOL_KIND_SELECT].state)->before_snapshot);
 }
 
 /** Shutdown all tool states and overlays. */
@@ -495,10 +548,6 @@ void tool_controller_shutdown(ToolController* controller)
 
     for (i = 0; i < TOOL_KIND_COUNT; ++i) {
         destroy_overlay(&controller->tools[i]);
-        if (controller->tools[i].kind == TOOL_KIND_SELECT && controller->tools[i].state) {
-            SelectToolState* state = (SelectToolState*)controller->tools[i].state;
-            document_snapshot_free(&state->before_snapshot);
-        }
         free(controller->tools[i].state);
         controller->tools[i].state = NULL;
     }
