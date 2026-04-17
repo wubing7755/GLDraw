@@ -1,3 +1,15 @@
+/**
+ * @file history.c
+ * @brief Snapshot-based undo/redo implementation.
+ *
+ * Role in project:
+ * - Captures deep document snapshots before/after edits.
+ * - Applies snapshots for undo and redo with bounded stack capacity.
+ *
+ * Module relationships:
+ * - Depends on document/object cloning and destruction.
+ * - Called by tools/UI commit paths for user-visible edits.
+ */
 #include <document/history.h>
 
 #include <base/log.h>
@@ -5,6 +17,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+/** Move snapshot ownership from `src` to `dst`. Complexity: `O(1)`. */
 static void snapshot_move(DocumentSnapshot* dst, DocumentSnapshot* src)
 {
     document_snapshot_free(dst);
@@ -17,12 +30,14 @@ static void snapshot_move(DocumentSnapshot* dst, DocumentSnapshot* src)
     src->selection.count = 0;
 }
 
+/** Free both snapshots in a history entry. Complexity: `O(n_before + n_after)`. */
 static void history_entry_free(DocumentHistoryEntry* entry)
 {
     document_snapshot_free(&entry->before);
     document_snapshot_free(&entry->after);
 }
 
+/** Reset history entry to empty snapshots. Complexity: `O(1)`. */
 static void history_entry_reset(DocumentHistoryEntry* entry)
 {
     if (!entry) {
@@ -33,6 +48,7 @@ static void history_entry_reset(DocumentHistoryEntry* entry)
     document_snapshot_init(&entry->after);
 }
 
+/** Allocate and initialize history entry array. Complexity: `O(capacity)`. */
 static DocumentHistoryEntry* history_alloc_entries(int capacity)
 {
     DocumentHistoryEntry* entries = NULL;
@@ -54,6 +70,12 @@ static DocumentHistoryEntry* history_alloc_entries(int capacity)
     return entries;
 }
 
+/**
+ * @brief Drop oldest entry from bounded stack.
+ * Why shift:
+ * - Keeps chronological order while enforcing fixed capacity.
+ * Complexity: `O(count)`.
+ */
 static void history_shift_left(DocumentHistoryEntry* entries, int* count)
 {
     int i = 0;
@@ -70,6 +92,16 @@ static void history_shift_left(DocumentHistoryEntry* entries, int* count)
     (*count)--;
 }
 
+/**
+ * @brief Replace document contents with deep-cloned snapshot objects.
+ * @return `1` on success, `0` on validation/allocation/clone failure.
+ *
+ * Risk note:
+ * - Uses temporary clone array first; document is only replaced after all clones
+ *   succeed, avoiding partial state corruption on failure.
+ *
+ * Complexity: `O(n)`.
+ */
 static int document_restore_snapshot(Document* document, const DocumentSnapshot* snapshot)
 {
     GraphicObject** clones = NULL;
@@ -114,6 +146,7 @@ static int document_restore_snapshot(Document* document, const DocumentSnapshot*
     return 1;
 }
 
+/** Initialize snapshot to zeroed state. Complexity: `O(1)`. */
 void document_snapshot_init(DocumentSnapshot* snapshot)
 {
     if (snapshot) {
@@ -121,6 +154,7 @@ void document_snapshot_init(DocumentSnapshot* snapshot)
     }
 }
 
+/** Free heap memory owned by snapshot. Complexity: `O(n)`. */
 void document_snapshot_free(DocumentSnapshot* snapshot)
 {
     int i = 0;
@@ -141,6 +175,7 @@ void document_snapshot_free(DocumentSnapshot* snapshot)
     snapshot->next_id = 0;
 }
 
+/** Capture deep copy of document into snapshot. Complexity: `O(n)`. */
 int document_snapshot_capture(DocumentSnapshot* snapshot, const Document* document)
 {
     int i = 0;
@@ -176,6 +211,7 @@ int document_snapshot_capture(DocumentSnapshot* snapshot, const Document* docume
     return 1;
 }
 
+/** Initialize history stacks and capacity. Complexity: `O(capacity)`. */
 int document_history_init(DocumentHistory* history)
 {
     if (!history) {
@@ -196,6 +232,7 @@ int document_history_init(DocumentHistory* history)
     return 1;
 }
 
+/** Free all history entries and internal arrays. Complexity: `O(total_snapshots)`. */
 void document_history_shutdown(DocumentHistory* history)
 {
     int i = 0;
@@ -219,6 +256,15 @@ void document_history_shutdown(DocumentHistory* history)
     history->capacity = 0;
 }
 
+/**
+ * @brief Push edit transaction (`before` + captured `after`) to undo stack.
+ * @return `1` on success, `0` on failure.
+ *
+ * Why clear redo:
+ * - Any new forward edit invalidates previous redo chain by definition.
+ *
+ * Complexity: `O(n + capacity)` worst-case.
+ */
 int document_history_push(DocumentHistory* history, DocumentSnapshot* before, const Document* after_document)
 {
     DocumentHistoryEntry entry;
@@ -257,6 +303,7 @@ int document_history_push(DocumentHistory* history, DocumentSnapshot* before, co
     return 1;
 }
 
+/** Undo latest transaction and move entry to redo stack. Complexity: `O(n + capacity)` worst-case. */
 int document_history_undo(DocumentHistory* history, Document* document)
 {
     DocumentHistoryEntry entry;
@@ -283,6 +330,7 @@ int document_history_undo(DocumentHistory* history, Document* document)
     return 1;
 }
 
+/** Redo latest undone transaction and move entry back to undo stack. Complexity: `O(n + capacity)` worst-case. */
 int document_history_redo(DocumentHistory* history, Document* document)
 {
     DocumentHistoryEntry entry;
@@ -309,11 +357,13 @@ int document_history_redo(DocumentHistory* history, Document* document)
     return 1;
 }
 
+/** Check if undo stack has entries. Complexity: `O(1)`. */
 int document_history_can_undo(const DocumentHistory* history)
 {
     return history && history->undo_count > 0;
 }
 
+/** Check if redo stack has entries. Complexity: `O(1)`. */
 int document_history_can_redo(const DocumentHistory* history)
 {
     return history && history->redo_count > 0;

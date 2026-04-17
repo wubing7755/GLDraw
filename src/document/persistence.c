@@ -1,3 +1,15 @@
+/**
+ * @file persistence.c
+ * @brief JSON serialization/deserialization for document files.
+ *
+ * Role in project:
+ * - Writes stable document JSON format (`version=1`) for save.
+ * - Parses JSON into validated runtime objects on load.
+ *
+ * Module relationships:
+ * - Uses document/object APIs for model construction and ID handling.
+ * - Called by application save/load commands.
+ */
 #include <document/persistence.h>
 
 #include <base/log.h>
@@ -38,6 +50,12 @@ typedef struct {
     double number_value;
 } JsonParser;
 
+/**
+ * @brief Intermediate staging struct for JSON deserialization.
+ *
+ * Holds all parsed fields for one object with companion `has_*` flags
+ * indicating which fields were actually present in the JSON.
+ */
 typedef struct {
     ObjectId id;
     int has_id;
@@ -67,6 +85,7 @@ typedef struct {
     int has_height;
 } LoadedObjectData;
 
+/** Read entire file into heap buffer (NUL-terminated). Caller owns returned memory. */
 static char* read_text_file(const char* path)
 {
     FILE* file = NULL;
@@ -106,6 +125,7 @@ static char* read_text_file(const char* path)
     return buffer;
 }
 
+/** Allocate `path + suffix` string. Caller owns returned memory. */
 static char* duplicate_path_with_suffix(const char* path, const char* suffix)
 {
     size_t path_length = 0;
@@ -129,6 +149,7 @@ static char* duplicate_path_with_suffix(const char* path, const char* suffix)
     return result;
 }
 
+/** Cheap file-exists check via open attempt. */
 static int file_exists_at_path(const char* path)
 {
     FILE* file = NULL;
@@ -146,6 +167,7 @@ static int file_exists_at_path(const char* path)
     return 1;
 }
 
+/** Map object type enum to persisted JSON tag. */
 static const char* object_type_tag(GraphicObjectType type)
 {
     switch (type) {
@@ -160,6 +182,11 @@ static const char* object_type_tag(GraphicObjectType type)
     }
 }
 
+/**
+ * @brief Atomically replace target file with temp file.
+ * Why:
+ * - Write-then-replace avoids corrupting existing file on partial write failure.
+ */
 static int replace_file_with_temp(const char* temp_path, const char* target_path)
 {
     if (!temp_path || !target_path) {
@@ -187,6 +214,11 @@ static int replace_file_with_temp(const char* temp_path, const char* target_path
 #endif
 }
 
+/**
+ * Serialize document as JSON into already-open file handle.
+ * Risk note: individual `fprintf` returns are not checked line-by-line; final
+ * `ferror(file)` is used as aggregate write-failure detection.
+ */
 static int write_document_json(FILE* file, const Document* document)
 {
     int i = 0;
@@ -247,6 +279,7 @@ static int write_document_json(FILE* file, const Document* document)
     return ferror(file) == 0;
 }
 
+/** Check whether parser position matches keyword and token boundary. */
 static int json_match_keyword(const JsonParser* parser, const char* keyword)
 {
     size_t length = 0;
@@ -273,6 +306,7 @@ static int json_match_keyword(const JsonParser* parser, const char* keyword)
     return !(isalnum((unsigned char)next) || next == '_');
 }
 
+/** Skip JSON whitespace from current parser position. */
 static void json_parser_skip_ws(JsonParser* parser)
 {
     while (parser->pos < parser->length &&
@@ -281,6 +315,12 @@ static void json_parser_skip_ws(JsonParser* parser)
     }
 }
 
+/**
+ * @brief Advance parser to next token.
+ * Risk note:
+ * - Keeps implementation intentionally strict; malformed escape/number forms
+ *   become `JSON_TOKEN_INVALID` to fail-fast during load.
+ */
 static void json_parser_next(JsonParser* parser)
 {
     const char* start = NULL;
@@ -386,6 +426,7 @@ static void json_parser_next(JsonParser* parser)
     parser->type = JSON_TOKEN_INVALID;
 }
 
+/** Compare current string token with literal. */
 static int json_token_is_string(const JsonParser* parser, const char* literal)
 {
     size_t literal_length = 0;
@@ -399,11 +440,13 @@ static int json_token_is_string(const JsonParser* parser, const char* literal)
            strncmp(parser->token_start, literal, literal_length) == 0;
 }
 
+/** Check expected token type. */
 static int json_expect(JsonParser* parser, JsonTokenType type)
 {
     return parser && parser->type == type;
 }
 
+/** Parse unsigned integer token with integer range validation. */
 static int json_parse_u32(JsonParser* parser, unsigned int* out_value)
 {
     double value = 0.0;
@@ -423,6 +466,7 @@ static int json_parse_u32(JsonParser* parser, unsigned int* out_value)
     return 1;
 }
 
+/** Parse float token and advance parser. */
 static int json_parse_float(JsonParser* parser, float* out_value)
 {
     if (!parser || !out_value || parser->type != JSON_TOKEN_NUMBER) {
@@ -436,6 +480,7 @@ static int json_parse_float(JsonParser* parser, float* out_value)
 
 static int json_skip_value(JsonParser* parser);
 
+/** Skip unknown JSON object recursively. */
 static int json_skip_object(JsonParser* parser)
 {
     if (!json_expect(parser, JSON_TOKEN_LBRACE)) {
@@ -472,6 +517,7 @@ static int json_skip_object(JsonParser* parser)
     }
 }
 
+/** Skip unknown JSON array recursively. */
 static int json_skip_array(JsonParser* parser)
 {
     if (!json_expect(parser, JSON_TOKEN_LBRACKET)) {
@@ -500,6 +546,7 @@ static int json_skip_array(JsonParser* parser)
     }
 }
 
+/** Skip arbitrary JSON value recursively. */
 static int json_skip_value(JsonParser* parser)
 {
     switch (parser->type) {
@@ -519,6 +566,7 @@ static int json_skip_value(JsonParser* parser)
     }
 }
 
+/** Parse `"stroke"` sub-object into loaded object staging struct. */
 static int parse_stroke_object(JsonParser* parser, LoadedObjectData* data)
 {
     if (!json_expect(parser, JSON_TOKEN_LBRACE)) {
@@ -585,6 +633,7 @@ static int parse_stroke_object(JsonParser* parser, LoadedObjectData* data)
     }
 }
 
+/** Parse `"geometry"` sub-object into loaded object staging struct. */
 static int parse_geometry_object(JsonParser* parser, LoadedObjectData* data)
 {
     if (!json_expect(parser, JSON_TOKEN_LBRACE)) {
@@ -669,6 +718,7 @@ static int parse_geometry_object(JsonParser* parser, LoadedObjectData* data)
     }
 }
 
+/** Parse and validate object `"type"` token. */
 static int parse_object_type(JsonParser* parser, LoadedObjectData* data)
 {
     if (!json_expect(parser, JSON_TOKEN_STRING)) {
@@ -692,6 +742,7 @@ static int parse_object_type(JsonParser* parser, LoadedObjectData* data)
     return 1;
 }
 
+/** Build runtime object from parsed staged fields; returns `NULL` on missing required data. */
 static GraphicObject* build_loaded_object(const LoadedObjectData* data)
 {
     if (!data || !data->has_id || !data->has_type ||
@@ -725,6 +776,11 @@ static GraphicObject* build_loaded_object(const LoadedObjectData* data)
     }
 }
 
+/**
+ * @brief Parse one object entry and append it to document.
+ * Risk note:
+ * - On append failure, allocated object is destroyed immediately to prevent leaks.
+ */
 static int parse_object_entry(JsonParser* parser, Document* document)
 {
     LoadedObjectData data;
@@ -801,6 +857,7 @@ static int parse_object_entry(JsonParser* parser, Document* document)
     return 1;
 }
 
+/** Parse selection ID array (extra IDs beyond max are safely ignored). */
 static int parse_selection_array(JsonParser* parser, ObjectId* selection_ids, int* selection_count)
 {
     if (!json_expect(parser, JSON_TOKEN_LBRACKET)) {
@@ -838,6 +895,7 @@ static int parse_selection_array(JsonParser* parser, ObjectId* selection_ids, in
     }
 }
 
+/** Parse objects array and append all parsed entries to document. */
 static int parse_objects_array(JsonParser* parser, Document* document)
 {
     if (!json_expect(parser, JSON_TOKEN_LBRACKET)) {
@@ -866,6 +924,10 @@ static int parse_objects_array(JsonParser* parser, Document* document)
     }
 }
 
+/**
+ * @brief Parse top-level document JSON object.
+ * @return `1` on valid schema/content, `0` on parse/schema mismatch.
+ */
 static int parse_document_root(JsonParser* parser, Document* document)
 {
     int got_format = 0;
@@ -965,6 +1027,10 @@ static int parse_document_root(JsonParser* parser, Document* document)
     return 1;
 }
 
+/**
+ * @brief Save document to JSON path using temp-file replacement.
+ * @return `1` on success, `0` on allocation/I/O/serialization failure.
+ */
 int document_save_json(const Document* document, const char* path)
 {
     FILE* file = NULL;
@@ -1018,6 +1084,14 @@ int document_save_json(const Document* document, const char* path)
     return 1;
 }
 
+/**
+ * @brief Load document from JSON file into runtime model.
+ * @return `1` on success, `0` on I/O/parse/validation failure.
+ *
+ * Why staged load:
+ * - Parses into a temporary `loaded_document` first; current document is only
+ *   replaced after full success, preserving previous state on failure.
+ */
 int document_load_json(Document* document, const char* path)
 {
     char* text = NULL;

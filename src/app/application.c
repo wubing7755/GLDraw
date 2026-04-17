@@ -1,3 +1,15 @@
+/**
+ * @file application.c
+ * @brief Runtime bootstrap, event wiring, and main loop orchestration.
+ *
+ * Role in project:
+ * - Owns application lifetime from initialization to shutdown.
+ * - Bridges GLFW events into tool/document/canvas operations.
+ *
+ * Module relationships:
+ * - Uses workspace as central state container.
+ * - Coordinates platform window, render system, UI system, tools, and persistence.
+ */
 #include <app/application.h>
 
 #include <app/workspace.h>
@@ -29,6 +41,20 @@ typedef struct {
 static int app_workspace_save(Workspace* workspace, void* user_data);
 static int app_workspace_load(Workspace* workspace, void* user_data);
 
+/**
+ * @brief Write formatted status text into workspace status buffer.
+ * @param app [in,out] Application state.
+ * @param fmt [in] `printf`-style format string.
+ * @param ... [in] Format arguments.
+ * @return None.
+ *
+ * Edge cases:
+ * - Safe no-op when `app` or `fmt` is null.
+ *
+ * Risk note:
+ * - Uses `vsnprintf` with explicit buffer size to avoid overflow.
+ * Time complexity: `O(L)` where `L` is formatted output length.
+ */
 static void app_set_status(Application* app, const char* fmt, ...)
 {
     va_list args;
@@ -45,6 +71,7 @@ static void app_set_status(Application* app, const char* fmt, ...)
     va_end(args);
 }
 
+/** Check if file exists by opening it in read-binary mode. Complexity: `O(1)` (metadata + open). */
 static int app_file_exists(const char* path)
 {
     FILE* file = NULL;
@@ -62,11 +89,13 @@ static int app_file_exists(const char* path)
     return 1;
 }
 
+/** Return fallback document path used when workspace path is empty. Complexity: `O(1)`. */
 static const char* app_default_document_path(void)
 {
     return "document.json";
 }
 
+/** Resolve active document path (workspace path or default). Complexity: `O(1)`. */
 static const char* app_current_document_path(const Application* app)
 {
     if (app->workspace.current_document_path[0] != '\0') {
@@ -75,6 +104,16 @@ static const char* app_current_document_path(const Application* app)
     return app_default_document_path();
 }
 
+/**
+ * @brief Copy document path into workspace path buffer.
+ * @param app [in,out] Application state.
+ * @param path [in] Source path string.
+ * @return None.
+ *
+ * Risk note:
+ * - Uses bounded copy and forced NUL termination.
+ * Time complexity: `O(min(len(path), capacity))`.
+ */
 static void app_set_document_path(Application* app, const char* path)
 {
     if (!app || !path) {
@@ -87,6 +126,7 @@ static void app_set_document_path(Application* app, const char* path)
     app->workspace.current_document_path[sizeof(app->workspace.current_document_path) - 1u] = '\0';
 }
 
+/** Reset tool controller runtime state after major document changes. Complexity: `O(tool_count)`. */
 static void app_reset_tool_state(Application* app)
 {
     if (!app) {
@@ -97,6 +137,16 @@ static void app_reset_tool_state(Application* app)
     tool_controller_init(&app->workspace.tools);
 }
 
+/**
+ * @brief Save current document to JSON and refresh dirty tracking.
+ * @param app [in,out] Application state.
+ * @return `1` on success, `0` on persistence failure.
+ *
+ * Edge cases:
+ * - Fails if serializer or file I/O fails.
+ *
+ * Time complexity: dominated by serialization, roughly `O(object_count)`.
+ */
 static int app_save_document(Application* app)
 {
     const char* path = app_current_document_path(app);
@@ -114,6 +164,17 @@ static int app_save_document(Application* app)
     return 1;
 }
 
+/**
+ * @brief Load document from current path and reset dependent runtime state.
+ * @param app [in,out] Application state.
+ * @return `1` on success, `0` on missing file/parse/init failure.
+ *
+ * Why this structure:
+ * - History and tool state are rebuilt after load so stale snapshots/pointers
+ *   cannot reference objects from the previous document.
+ *
+ * Time complexity: dominated by parse/build, roughly `O(file_size + object_count)`.
+ */
 static int app_load_document(Application* app)
 {
     const char* path = app_current_document_path(app);
@@ -130,6 +191,8 @@ static int app_load_document(Application* app)
         return 0;
     }
 
+    /* Rebuild history against the newly loaded object graph.
+       Reusing old snapshots would leave dangling object pointers. */
     document_history_shutdown(&app->workspace.history);
     if (!document_history_init(&app->workspace.history)) {
         LOG_ERROR("%s", "Failed to reinitialize history after document load");
@@ -144,18 +207,21 @@ static int app_load_document(Application* app)
     return 1;
 }
 
+/** Workspace save callback adapter. Complexity: same as `app_save_document`. */
 static int app_workspace_save(Workspace* workspace, void* user_data)
 {
     (void)workspace;
     return app_save_document((Application*)user_data);
 }
 
+/** Workspace load callback adapter. Complexity: same as `app_load_document`. */
 static int app_workspace_load(Workspace* workspace, void* user_data)
 {
     (void)workspace;
     return app_load_document((Application*)user_data);
 }
 
+/** Load startup document if present; otherwise keep empty document. Complexity: `O(file_size)` when file exists. */
 static void app_open_startup_document(Application* app)
 {
     const char* path = app_current_document_path(app);
@@ -174,6 +240,7 @@ static void app_open_startup_document(Application* app)
     app_set_status(app, "New empty document");
 }
 
+/** Build tool context struct from application-owned workspace pointers. Complexity: `O(1)`. */
 static ToolContext app_tool_context(Application* app)
 {
     ToolContext context;
@@ -184,6 +251,7 @@ static ToolContext app_tool_context(Application* app)
     return context;
 }
 
+/** Compute window bounds as non-empty rectangle to avoid zero-size math. Complexity: `O(1)`. */
 static RectF app_window_bounds(const Application* app)
 {
     RectF bounds = {0.0f, 0.0f, 1.0f, 1.0f};
@@ -203,6 +271,16 @@ static RectF app_window_bounds(const Application* app)
     return bounds;
 }
 
+/**
+ * @brief Clamp rectangle to window bounds.
+ * @return Clamped rectangle with non-negative size.
+ *
+ * Why:
+ * - UI layout can briefly produce out-of-window values during resize/animation.
+ *   Clamping prevents invalid viewport/scissor calculations downstream.
+ *
+ * Complexity: `O(1)`.
+ */
 static RectF app_clamp_rect_to_bounds(RectF rect, RectF bounds)
 {
     float max_x = bounds.x + bounds.w;
@@ -244,6 +322,7 @@ static RectF app_clamp_rect_to_bounds(RectF rect, RectF bounds)
     return rect;
 }
 
+/** Test whether a screen point lies in current canvas content region. Complexity: `O(1)`. */
 static int app_pointer_hits_canvas(const Application* app, Vec2 screen_pos)
 {
     RectF canvas_bounds;
@@ -260,6 +339,7 @@ static int app_pointer_hits_canvas(const Application* app, Vec2 screen_pos)
     return rectf_contains_point(&canvas_bounds, screen_pos);
 }
 
+/** Test whether a screen point lies in UI chrome regions (menu/rail/panel/status). Complexity: `O(1)`. */
 static int app_pointer_hits_ui_region(const Application* app, Vec2 screen_pos)
 {
     const WorkspaceLayout* layout;
@@ -286,6 +366,15 @@ static int app_pointer_hits_ui_region(const Application* app, Vec2 screen_pos)
            rectf_contains_point(&status_bounds, screen_pos);
 }
 
+/**
+ * @brief Decide whether pointer input should be blocked from canvas tools.
+ * @return Non-zero when UI interaction or non-canvas regions should consume input.
+ *
+ * Why:
+ * - Prevents accidental drawing/selection while interacting with UI widgets.
+ *
+ * Complexity: `O(1)`.
+ */
 static int app_pointer_blocks_canvas(const Application* app, Vec2 screen_pos)
 {
     if (!app) {
@@ -300,6 +389,7 @@ static int app_pointer_blocks_canvas(const Application* app, Vec2 screen_pos)
            !app_pointer_hits_canvas(app, screen_pos);
 }
 
+/** Sync tool controller's last pointer anchor with current cursor state. Complexity: `O(1)`. */
 static void app_sync_tool_pointer_anchor(Application* app)
 {
     if (!app) {
@@ -311,6 +401,7 @@ static void app_sync_tool_pointer_anchor(Application* app)
         canvas_view_screen_to_world(&app->workspace.canvas, app->cursor_screen);
 }
 
+/** Refresh cursor-in-canvas flag for uncaptured pointer movement. Complexity: `O(1)`. */
 static void app_sync_canvas_boundary(Application* app)
 {
     int inside_canvas = 0;
@@ -326,6 +417,7 @@ static void app_sync_canvas_boundary(Application* app)
     }
 }
 
+/** Update canvas viewport and theme background from latest UI layout. Complexity: `O(1)`. */
 static void update_canvas_viewport(Application* app)
 {
     RectF window_bounds;
@@ -349,6 +441,7 @@ static void update_canvas_viewport(Application* app)
     app_sync_canvas_boundary(app);
 }
 
+/** Build a `ToolEvent` from current cursor and previous anchor state. Complexity: `O(1)`. */
 static ToolEvent make_tool_event(Application* app, int button, int mods, float wheel_y)
 {
     ToolEvent event;
@@ -362,6 +455,7 @@ static ToolEvent make_tool_event(Application* app, int button, int mods, float w
     return event;
 }
 
+/** GLFW framebuffer resize callback: update viewport and renderer dimensions. */
 static void framebuffer_size_callback(GLFWwindow* handle, int width, int height)
 {
     Application* app = (Application*)glfwGetWindowUserPointer(handle);
@@ -374,6 +468,7 @@ static void framebuffer_size_callback(GLFWwindow* handle, int width, int height)
     render_system_resize(app->renderer, width, height);
 }
 
+/** GLFW cursor callback: route pointer-move to active tool when canvas is interactive. */
 static void cursor_pos_callback(GLFWwindow* handle, double xpos, double ypos)
 {
     Application* app = (Application*)glfwGetWindowUserPointer(handle);
@@ -398,6 +493,7 @@ static void cursor_pos_callback(GLFWwindow* handle, double xpos, double ypos)
     tool_controller_pointer_move(&app->workspace.tools, &context, &event);
 }
 
+/** GLFW mouse callback: route press/release with pointer capture semantics. */
 static void mouse_button_callback(GLFWwindow* handle, int button, int action, int mods)
 {
     Application* app = (Application*)glfwGetWindowUserPointer(handle);
@@ -417,6 +513,8 @@ static void mouse_button_callback(GLFWwindow* handle, int button, int action, in
         event = make_tool_event(app, button, mods, 0.0f);
         tool_controller_pointer_down(&app->workspace.tools, &context, &event);
     } else if (action == GLFW_RELEASE) {
+        /* Ignore release outside canvas unless we previously captured the pointer.
+           This keeps drag/end-state transitions consistent across window regions. */
         if (!app->workspace.tools.pointer_captured) {
             if (app_pointer_blocks_canvas(app, app->cursor_screen)) {
                 return;
@@ -429,6 +527,18 @@ static void mouse_button_callback(GLFWwindow* handle, int button, int action, in
     }
 }
 
+/**
+ * @brief GLFW key callback for global shortcuts and active-tool keys.
+ * @param handle [in] GLFW window handle.
+ * @param key [in] Virtual key code.
+ * @param scancode [in] Platform-specific scan code (unused).
+ * @param action [in] Press/release/repeat.
+ * @param mods [in] Modifier key flags.
+ *
+ * Why shortcut-first:
+ * - Global document/view commands must win over tool-specific key handlers
+ *   for predictable editor behavior.
+ */
 static void key_callback(GLFWwindow* handle, int key, int scancode, int action, int mods)
 {
     Application* app = (Application*)glfwGetWindowUserPointer(handle);
@@ -491,6 +601,7 @@ static void key_callback(GLFWwindow* handle, int key, int scancode, int action, 
     tool_controller_key_down(&app->workspace.tools, &context, key, mods);
 }
 
+/** GLFW scroll callback: zoom canvas at cursor unless blocked by UI. */
 static void scroll_callback(GLFWwindow* handle, double xoffset, double yoffset)
 {
     Application* app = (Application*)glfwGetWindowUserPointer(handle);
@@ -510,6 +621,14 @@ static void scroll_callback(GLFWwindow* handle, double xoffset, double yoffset)
     tool_controller_scroll(&app->workspace.tools, &context, app->cursor_screen, (float)yoffset);
 }
 
+/**
+ * @brief Initialize all runtime subsystems in dependency order.
+ * @return `0` on success, `-1` on failure.
+ *
+ * Risk note:
+ * - This function has multiple allocation/init branches; each failure path must
+ *   leave state safe for `app_shutdown()` best-effort cleanup.
+ */
 static int app_init(Application* app)
 {
     RectF viewport = {0.0f, 0.0f, 1440.0f, 900.0f};
@@ -563,6 +682,15 @@ static int app_init(Application* app)
     return 0;
 }
 
+/**
+ * @brief Shutdown runtime subsystems in reverse ownership order.
+ * @param app [in,out] Application state to tear down; safe no-op when `NULL`.
+ * @return None.
+ *
+ * Risk note:
+ * - Best-effort cleanup; destruction order mirrors `app_init()` to avoid
+ *   dangling references to already-destroyed subsystems.
+ */
 static void app_shutdown(Application* app)
 {
     if (!app) {
@@ -577,6 +705,13 @@ static void app_shutdown(Application* app)
     platform_window_shutdown(&app->window);
 }
 
+/**
+ * @brief Application entry implementation called by `main`.
+ * @return `0` on normal shutdown, `-1` on fatal startup failure.
+ *
+ * Time complexity:
+ * - Main loop performs per-frame `O(object_count + ui_work)` operations.
+ */
 int app_run(void)
 {
     Application* app = (Application*)calloc(1, sizeof(*app));

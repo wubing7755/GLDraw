@@ -1,0 +1,30 @@
+{
+  "id": "oceanic-night",
+  "label": "Oceanic Night",
+  "base_theme": "gldraw-dark-plus",
+
+  "primary": "#4FC3F7",
+  "primary_hover": "#81D4FA",
+  "primary_active": "#29B6F6",
+
+  "background": "#101820",
+  "panel": "#16222D",
+  "panel_hover": "#1D2C39",
+  "canvas_background": "#0C131A",
+
+  "text": "#E5EEF7",
+  "text_secondary": "#AFC4D8",
+  "text_disabled": "#6E859A",
+
+  "border": "#294258",
+  "border_hover": "#41627C",
+
+  "row_height": 30,
+  "menu_height": 34,
+  "status_height": 32,
+  "tool_rail_width": 100,
+  "border_radius": 2,
+
+  "enable_transitions": true,
+  "transition_duration": 0.14
+}
