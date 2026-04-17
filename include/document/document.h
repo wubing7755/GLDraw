@@ -27,12 +27,18 @@ typedef struct {
     int count;
 } SelectionSet;
 
+/**
+ * @brief In-memory document storing drawable objects, selection, and metadata.
+ *
+ * Concurrency note:
+ * - This struct is not thread-safe; callers must serialize access externally.
+ */
 typedef struct Document {
-    GraphicObject* objects[DOCUMENT_MAX_OBJECTS];
-    int count;
-    unsigned int revision;
-    ObjectId next_id;
-    SelectionSet selection;
+    GraphicObject* objects[DOCUMENT_MAX_OBJECTS]; /**< Bounded object array */
+    int count;                                     /**< Number of objects currently stored */
+    unsigned int revision;                         /**< Monotonically increasing edit counter */
+    ObjectId next_id;                              /**< Next auto-assign ID for new objects */
+    SelectionSet selection;                        /**< Current selection set */
 } Document;
 
 /** Initialize a document to empty state. Complexity: `O(1)`. */

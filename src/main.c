@@ -12,13 +12,10 @@
 
 /**
  * @brief Program entry.
- * @param None.
  * @return Propagates `app_run()` result.
  *
  * Edge cases:
- * - None here; failures are handled inside `app_run()`.
- *
- * Time complexity: `O(1)` for this wrapper.
+ * - Failures are handled inside `app_run()`.
  */
 int main(void)
 {

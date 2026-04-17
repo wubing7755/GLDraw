@@ -31,43 +31,63 @@ typedef enum {
     TOOL_KIND_COUNT
 } ToolKind;
 
-/** Normalized pointer/keyboard event payload passed to tools. */
+/**
+ * @brief Normalized pointer/keyboard event payload passed to tools.
+ *
+ * Contains screen/world positions, deltas, and input state at the moment
+ * of an input event. All coordinates are in the relevant space already
+ * (screen or world) so tools can use whichever is appropriate.
+ */
 typedef struct {
-    Vec2 screen_pos;
-    Vec2 world_pos;
-    Vec2 delta_screen;
-    Vec2 delta_world;
-    int button;
-    int mods;
-    float wheel_y;
+    Vec2 screen_pos;   /**< Screen-space cursor position at event time */
+    Vec2 world_pos;     /**< World-space cursor position at event time */
+    Vec2 delta_screen;  /**< Screen-space movement since last event */
+    Vec2 delta_world;   /**< World-space movement since last event */
+    int button;         /**< GLFW button index, or -1 for move events */
+    int mods;           /**< Modifier key flags at event time */
+    float wheel_y;      /**< Vertical scroll delta (0 for non-scroll events) */
 } ToolEvent;
 
-/** Shared handles a tool needs to mutate editor state safely. */
+/**
+ * @brief Shared handles a tool uses to safely read/write editor state.
+ *
+ * Passed to tool callbacks so tools can access document, canvas, history,
+ * and workspace without needing a full workspace reference.
+ */
 typedef struct {
-    struct Workspace* workspace;
-    struct Document* document;
-    struct DocumentHistory* history;
-    struct CanvasView* canvas;
+    struct Workspace* workspace;    /**< Editor state and callbacks */
+    struct Document* document;       /**< Active document objects and selection */
+    struct DocumentHistory* history; /**< Undo/redo stack */
+    struct CanvasView* canvas;       /**< Viewport, zoom, and picking */
 } ToolContext;
 
 typedef struct Tool Tool;
 typedef struct ToolVTable ToolVTable;
 
+/**
+ * @brief Virtual dispatch table for polymorphic tool implementations.
+ *
+ * Each tool kind provides function pointers for all input handling callbacks.
+ * A `NULL` vtable entry means that event type is not supported by that tool.
+ */
 struct ToolVTable {
-    const char* (*label)(const Tool* tool);
-    void (*activate)(Tool* tool, ToolContext* context);
-    void (*deactivate)(Tool* tool, ToolContext* context);
-    void (*pointer_down)(Tool* tool, ToolContext* context, const ToolEvent* event);
-    void (*pointer_move)(Tool* tool, ToolContext* context, const ToolEvent* event);
-    void (*pointer_up)(Tool* tool, ToolContext* context, const ToolEvent* event);
-    void (*key_down)(Tool* tool, ToolContext* context, int key, int mods);
+    const char* (*label)(const Tool* tool);         /**< Human-readable tool name */
+    void (*activate)(Tool* tool, ToolContext* context);       /**< Called when tool becomes active */
+    void (*deactivate)(Tool* tool, ToolContext* context);       /**< Called when tool stops being active */
+    void (*pointer_down)(Tool* tool, ToolContext* context, const ToolEvent* event);   /**< Left-press handler */
+    void (*pointer_move)(Tool* tool, ToolContext* context, const ToolEvent* event);   /**< Pointer move handler */
+    void (*pointer_up)(Tool* tool, ToolContext* context, const ToolEvent* event);     /**< Left-release handler */
+    void (*key_down)(Tool* tool, ToolContext* context, int key, int mods);           /**< Keyboard handler */
 };
 
+/**
+ * @brief Runtime instance of a tool with its kind, vtable, and per-tool state.
+ */
 struct Tool {
-    ToolKind kind;
-    const ToolVTable* vtable;
-    void* state;
-    GraphicObject* overlay_object;
+    ToolKind kind;                    /**< Which tool kind this instance represents */
+    const ToolVTable* vtable;        /**< Dispatch table for this tool's callbacks */
+    void* state;                     /**< Per-tool runtime state (e.g., drag state, anchor point) */
+    GraphicObject* overlay_object;    /**< Transient preview object currently being drawn */
 };
 
 #endif /* GLDRAW_TOOLS_TOOL_H */

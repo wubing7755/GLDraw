@@ -22,21 +22,14 @@
 
 #include <GLFW/glfw3.h>
 
-#include <stdio.h>
-#include <string.h>
-
 static void app_workspace_new(Workspace* workspace)
 {
     if (!workspace) {
         return;
     }
 
-    /* Check for unsaved changes if needed in future */
-
-    /* Reset document */
     document_reset(&workspace->document);
 
-    /* Reset history */
     document_history_shutdown(&workspace->history);
     if (!document_history_init(&workspace->history)) {
         LOG_ERROR("%s", "Failed to reinitialize history");
@@ -46,10 +39,8 @@ static void app_workspace_new(Workspace* workspace)
     /* Reset canvas zoom and center */
     canvas_view_set_center_zoom(&workspace->canvas, vec2_make(0.0f, 0.0f), 1.0f);
 
-    /* Clear document path */
     workspace->current_document_path[0] = '\0';
 
-    /* Mark as saved */
     workspace->saved_revision = workspace->document.revision;
     workspace->document_dirty = 0;
 
@@ -71,7 +62,6 @@ static void app_zoom_to_fit(Workspace* workspace)
         return;
     }
 
-    /* Calculate bounding box of all objects */
     float min_x = 0.0f, max_x = 0.0f, min_y = 0.0f, max_y = 0.0f;
     int first = 1;
 
@@ -95,18 +85,15 @@ static void app_zoom_to_fit(Workspace* workspace)
     }
 
     if (first) {
-        /* No valid objects */
         return;
     }
 
-    /* Add padding */
     float pad = 50.0f;
     min_x -= pad;
     min_y -= pad;
     max_x += pad;
     max_y += pad;
 
-    /* Calculate content size */
     float content_w = max_x - min_x;
     float content_h = max_y - min_y;
 
@@ -116,7 +103,6 @@ static void app_zoom_to_fit(Workspace* workspace)
     float zoom_y = canvas_viewport.h / content_h;
     float new_zoom = (zoom_x < zoom_y) ? zoom_x : zoom_y;
 
-    /* Clamp zoom to valid range */
     new_zoom = (new_zoom < 0.1f) ? 0.1f : (new_zoom > 12.0f) ? 12.0f : new_zoom;
 
     /* Set new zoom and center */
@@ -135,32 +121,24 @@ static void app_toggle_grid(Workspace* workspace)
 
 static void app_toggle_inspector(Workspace* workspace)
 {
-    if (!workspace) {
-        return;
-    }
-    /* This will be handled by ui_system, so we use a status message */
-    /* The actual toggle is done in ui_system */
+    (void)workspace;
     LOG_INFO("%s", "Inspector panel toggled");
 }
 
 static void app_show_shortcuts(Workspace* workspace)
 {
     (void)workspace;
-    /* This will show a dialog - placeholder for now */
     LOG_INFO("%s", "Keyboard shortcuts dialog requested");
 }
 
 static void app_show_about(Workspace* workspace)
 {
     (void)workspace;
-    /* This will show a dialog - placeholder for now */
     LOG_INFO("%s", "About dialog requested");
 }
 
 static int app_save_as(Workspace* workspace)
 {
-    /* For now, just use the same save path */
-    /* In future, this would open a file dialog */
     if (workspace->save_document) {
         return workspace->save_document(workspace, workspace->command_user_data);
     }
@@ -170,7 +148,7 @@ static int app_save_as(Workspace* workspace)
 static int app_export_png(Workspace* workspace)
 {
     (void)workspace;
-    /* TODO: Implement PNG export using framebuffer capture */
+    // TODO: Implement PNG export via framebuffer capture
     LOG_INFO("%s", "Export PNG requested");
     return 0;
 }
@@ -239,7 +217,6 @@ void ui_menu_execute(Workspace* workspace, MenuId id)
         break;
 
     case MENU_ID_EDIT_SELECT_ALL:
-        /* Select all objects */
         for (int i = 0; i < workspace->document.count; i++) {
             document_selection_add(&workspace->document,
                                    workspace->document.objects[i]->id);
@@ -250,7 +227,7 @@ void ui_menu_execute(Workspace* workspace, MenuId id)
     case MENU_ID_EDIT_CUT:
     case MENU_ID_EDIT_COPY:
     case MENU_ID_EDIT_PASTE:
-        /* TODO: Implement in issue #27 */
+        // TODO: cut/copy/paste/delete operations not yet implemented
         LOG_INFO("Menu action %d not yet implemented", id);
         break;
 

@@ -92,8 +92,8 @@ static RectF line_bounds(const GraphicObject* object)
 }
 
 /**
- * @brief Distance from point to segment AB.
- * Why projection:
+ * @brief Compute shortest distance from point to line segment AB.
+ * Why:
  * - Projecting onto AB and clamping `t` gives nearest on-segment point robustly.
  * Complexity: `O(1)`.
  */
@@ -120,14 +120,14 @@ static int line_hit_test(const GraphicObject* object, Vec2 point, float toleranc
     return line_distance_to_segment(point, line->p1, line->p2) <= tolerance;
 }
 
-/** Line path emits two points. */
+/** Returns 2 (the line segment endpoints p1 and p2). */
 static int line_get_path_point_count(const GraphicObject* object)
 {
     (void)object;
     return 2;
 }
 
-/** Write line path points into caller buffer. */
+/** Write line path points (p1, p2) into caller buffer (caller must provide at least 2 elements). */
 static void line_write_path_points(const GraphicObject* object, Vec2* out_points)
 {
     const LineData* line = (const LineData*)object->impl;
@@ -190,7 +190,7 @@ static int rect_hit_test(const GraphicObject* object, Vec2 point, float toleranc
     return rectf_contains_point(&bounds, point);
 }
 
-/** Rectangle polyline is closed with 5 points. */
+/** Returns 5 (4 corners plus closing repeat of first corner to close the polyline). */
 static int rect_get_path_point_count(const GraphicObject* object)
 {
     (void)object;
@@ -252,7 +252,7 @@ static RectF ellipse_bounds(const GraphicObject* object)
     return ellipse->bounds;
 }
 
-/** Ellipse hit-test in normalized ellipse space. Complexity: `O(1)`. */
+/** Hit-test in ellipse's normalized unit-circle coordinate space. Complexity: `O(1)`. */
 static int ellipse_hit_test(const GraphicObject* object, Vec2 point, float tolerance)
 {
     RectF bounds = ellipse_bounds(object);
@@ -322,6 +322,7 @@ static int ellipse_set_scalar(GraphicObject* object, const char* key, float valu
     return style_set_scalar(object, key, value);
 }
 
+/** Line vtable dispatch table. */
 static const GraphicObjectVTable g_line_vtable = {
     "Line",
     line_destroy,
@@ -334,6 +335,7 @@ static const GraphicObjectVTable g_line_vtable = {
     line_set_scalar
 };
 
+/** Rectangle vtable dispatch table. */
 static const GraphicObjectVTable g_rect_vtable = {
     "Rectangle",
     rect_destroy,
@@ -346,6 +348,7 @@ static const GraphicObjectVTable g_rect_vtable = {
     rect_set_scalar
 };
 
+/** Ellipse vtable dispatch table. */
 static const GraphicObjectVTable g_ellipse_vtable = {
     "Ellipse",
     ellipse_destroy,

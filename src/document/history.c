@@ -330,7 +330,7 @@ int document_history_undo(DocumentHistory* history, Document* document)
     return 1;
 }
 
-/** Redo latest reverted transaction and move entry back to undo stack. Complexity: `O(n + capacity)` worst-case. */
+/** Redo latest undone transaction and move entry back to undo stack. Complexity: `O(n + capacity)` worst-case. */
 int document_history_redo(DocumentHistory* history, Document* document)
 {
     DocumentHistoryEntry entry;
