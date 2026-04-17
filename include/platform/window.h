@@ -22,9 +22,9 @@ typedef struct {
     const char* title;
 } PlatformWindow;
 
-/** Initialize GLFW and create an OpenGL 3.3 core window. Returns 0 on success. */
+/** Initialize GLFW and create an OpenGL 3.3 Core Profile window. Returns 0 on success, -1 on failure. */
 int platform_window_init(PlatformWindow* window, int width, int height, const char* title);
-/** Destroy window handle if present. */
+/** Destroy window handle if present. Note: does not call `glfwTerminate()`. */
 void platform_window_shutdown(PlatformWindow* window);
 /** Poll pending OS/window events. */
 void platform_window_poll_events(void);

@@ -51,7 +51,7 @@ struct GraphicObject {
     unsigned int revision;
 };
 
-/** Return default style tokens for newly created objects. Complexity: `O(1)`. */
+/** Return default style values for newly created objects. Complexity: `O(1)`. */
 GraphicStyle object_default_style(void);
 /** Return human-readable type name. Complexity: `O(1)`. */
 const char* object_type_name(GraphicObjectType type);

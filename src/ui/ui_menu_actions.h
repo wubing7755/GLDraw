@@ -10,14 +10,14 @@ struct Workspace;
  * @brief Menu action handler interface.
  *
  * This module provides centralized menu action handling.
- * All menu item clicks are routed through ui_menu_execute()
+ * All menu item clicks are routed through `ui_menu_execute()`
  * which dispatches to the appropriate handler.
  */
 
 /**
- * @brief Execute a menu action
- * @param workspace The workspace to operate on
- * @param id The menu item ID to execute
+ * @brief Execute a menu action.
+ * @param workspace [in,out] The workspace to operate on.
+ * @param id [in] The menu item ID to execute.
  *
  * Routes the menu ID to the appropriate handler function.
  * This is the single entry point for all menu actions.
@@ -26,8 +26,8 @@ void ui_menu_execute(struct Workspace* workspace, MenuId id);
 
 /**
  * @brief Check whether a menu action is currently implemented and available.
- * @param id Menu item ID
- * @return non-zero if available, zero if it should be disabled in UI
+ * @param id [in] Menu item ID.
+ * @return Non-zero if available, zero if it should be disabled in UI.
  */
 int ui_menu_is_action_available(MenuId id);
 

@@ -43,9 +43,9 @@ void tool_controller_pointer_down(ToolController* controller, ToolContext* conte
 void tool_controller_pointer_move(ToolController* controller, ToolContext* context, const ToolEvent* event);
 /** Dispatch pointer release and release pointer capture. */
 void tool_controller_pointer_up(ToolController* controller, ToolContext* context, const ToolEvent* event);
-/** Dispatch keyboard input including global shortcuts (undo/redo/tool switching). */
+/** Dispatch keyboard input to global shortcuts or active tool. */
 void tool_controller_key_down(ToolController* controller, ToolContext* context, int key, int mods);
-/** Handle wheel zoom at given screen anchor. */
+/** Handle mouse wheel scroll for zoom around a screen anchor. */
 void tool_controller_scroll(ToolController* controller, ToolContext* context, Vec2 screen_pos, float yoffset);
 
 #endif /* GLDRAW_TOOLS_TOOL_CONTROLLER_H */

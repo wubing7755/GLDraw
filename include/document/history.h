@@ -32,16 +32,22 @@ typedef struct {
 
 /** One undo/redo transaction pair (`before` -> `after`). */
 typedef struct {
-    DocumentSnapshot before;
-    DocumentSnapshot after;
+    DocumentSnapshot before; /**< Document state before the edit */
+    DocumentSnapshot after;  /**< Document state after the edit */
 } DocumentHistoryEntry;
 
+/**
+ * @brief Undo/redo history with bounded stacks.
+ *
+ * Concurrency note:
+ * - Stacks are mutable and unsynchronized; use from one thread only.
+ */
 typedef struct DocumentHistory {
-    DocumentHistoryEntry* undo_stack;
-    DocumentHistoryEntry* redo_stack;
-    int capacity;
-    int undo_count;
-    int redo_count;
+    DocumentHistoryEntry* undo_stack; /**< Uncommitted edits stack */
+    DocumentHistoryEntry* redo_stack; /**< Reverted edits stack */
+    int capacity;                      /**< Max entries per stack */
+    int undo_count;                    /**< Number of entries in undo stack */
+    int redo_count;                    /**< Number of entries in redo stack */
 } DocumentHistory;
 
 /** Initialize snapshot to empty state. Complexity: `O(1)`. */

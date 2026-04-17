@@ -7,7 +7,7 @@
  * - Keeps logging dependency-free for low-level modules.
  *
  * Module relationships:
- * - Used by app/document/persistence and other runtime subsystems.
+ * - Used by app, canvas, document, render, tools, and UI subsystems.
  */
 #ifndef GLDRAW_BASE_LOG_H
 #define GLDRAW_BASE_LOG_H
@@ -17,18 +17,15 @@
 
 /**
  * @brief Internal varargs logger writing one line to `stderr`.
- * @param level [in] Log level tag.
- * @param file [in] Source file path.
- * @param line [in] Source line number.
+ * @param level [in] Log level tag string.
+ * @param file [in] Source file path from caller.
+ * @param line [in] Source line number from caller.
  * @param fmt [in] `printf`-style format string.
  * @param ... [in] Format arguments.
- * @return None.
  *
- * Edge cases:
- * - Caller must pass a valid format string and matching varargs.
+ * Note:
  * - Return values of `fprintf`/`vfprintf` are intentionally ignored.
- *
- * Time complexity: `O(L)` where `L` is formatted output length.
+ * - Caller must ensure `fmt` and varargs match.
  */
 static inline void log_write_impl(const char* level,
                                   const char* file,

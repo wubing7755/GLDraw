@@ -16,22 +16,28 @@
 #include <base/types.h>
 #include <document/document.h>
 
-/** Canonical camera state used for compatibility migration. */
+/** Canonical camera state used for migration from legacy fields. */
 typedef struct CanvasViewportState {
     RectF viewport;
     Vec2 center;
     float zoom;
 } CanvasViewportState;
 
-/** Runtime canvas view state. */
+/**
+ * @brief Runtime canvas view state.
+ *
+ * Stores viewport, center, zoom, and presentation flags.
+ * Supports both canonical `viewport_state` and legacy compatibility fields
+ * that are kept in sync via `canvas_view_sync_compat()`.
+ */
 typedef struct CanvasView {
-    Document* document;
-    CanvasViewportState viewport_state;
-    RectF viewport;
-    Vec2 center;
-    float zoom;
-    int show_grid;
-    Color background;
+    Document* document;             /**< Document used for picking */
+    CanvasViewportState viewport_state; /**< Canonical camera state */
+    RectF viewport;                 /**< Legacy compatibility field */
+    Vec2 center;                   /**< Legacy compatibility field */
+    float zoom;                    /**< Legacy compatibility field */
+    int show_grid;                 /**< Non-zero to draw grid */
+    Color background;              /**< Canvas background color */
 } CanvasView;
 
 /** Initialize canvas state and bind a document. Complexity: `O(1)`. */
@@ -65,9 +71,16 @@ float canvas_view_world_tolerance_for_pixels(const CanvasView* canvas, float pix
 /** Get currently visible world-space rectangle. Complexity: `O(1)`. */
 RectF canvas_view_visible_world_rect(const CanvasView* canvas);
 /**
- * Pick top-most object at a screen point.
- * Returns `NULL` when canvas/document is invalid or no hit is found.
- * Complexity: `O(n)` where `n` is object count (reverse scan for top-most hit).
+ * @brief Pick top-most object under a screen point.
+ * @param canvas [in] Canvas view instance.
+ * @param screen_point [in] Screen-space pixel coordinate.
+ * @param tolerance_pixels [in] Pick tolerance in screen pixels.
+ * @return Pointer to the top-most hit object, or `NULL` if no hit or invalid input.
+ *
+ * Why reverse loop:
+ * - Newer objects are drawn later and visually on top, so picking scans from end.
+ *
+ * Complexity: `O(n)` where `n` is document object count (reverse linear scan).
  */
 GraphicObject* canvas_view_pick_object(const CanvasView* canvas, Vec2 screen_point, float tolerance_pixels);
 

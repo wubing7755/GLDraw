@@ -15,7 +15,6 @@
 
 /**
  * @brief Run the GLDraw application loop.
- * @param None.
  * @return `0` on normal exit, `-1` on unrecoverable init/runtime failure.
  *
  * Edge cases:

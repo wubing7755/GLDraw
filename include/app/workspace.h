@@ -39,20 +39,23 @@ typedef struct WorkspaceLayout {
  * Memory ownership notes:
  * - `document`, `history`, `canvas`, and `tools` are embedded values (no extra indirection).
  * - `save_document`/`load_document` are callbacks owned by the application layer.
+ *
+ * Concurrency note:
+ * - This struct is not thread-safe; all access must be serialized by the caller.
  */
 typedef struct Workspace {
-    Document document;
-    DocumentHistory history;
-    CanvasView canvas;
-    ToolController tools;
-    WorkspaceLayout layout;
-    char current_document_path[260];
-    char status_message[256];
-    unsigned int saved_revision;
-    int document_dirty;
-    WorkspaceCommandFn save_document;
-    WorkspaceCommandFn load_document;
-    void* command_user_data;
+    Document document;              /**< In-memory document with objects and selection */
+    DocumentHistory history;        /**< Undo/redo stacks */
+    CanvasView canvas;              /**< Viewport, zoom, pan, and coordinate transforms */
+    ToolController tools;           /**< Active tool and its runtime state */
+    WorkspaceLayout layout;        /**< UI-computed layout rectangles (set by UI system) */
+    char current_document_path[260]; /**< Active file path (empty for new documents) */
+    char status_message[256];       /**< Current status bar message */
+    unsigned int saved_revision;     /**< Document revision last marked as saved */
+    int document_dirty;             /**< Non-zero when current revision differs from saved_revision */
+    WorkspaceCommandFn save_document; /**< Workspace-level save callback */
+    WorkspaceCommandFn load_document; /**< Workspace-level load callback */
+    void* command_user_data;        /**< Caller-supplied context for command callbacks */
 } Workspace;
 
 /**

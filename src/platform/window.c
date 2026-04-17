@@ -12,7 +12,24 @@
  */
 #include <platform/window.h>
 
-/** Initialize GLFW and create window/context. Returns 0 on success, -1 on failure. */
+/**
+ * @brief Initialize GLFW and create an OpenGL 3.3 Core Profile window and context.
+ * @param window [in,out] Window structure to populate.
+ * @param width [in] Requested window width in pixels.
+ * @param height [in] Requested window height in pixels.
+ * @param title [in] Window title string.
+ * @return `0` on success; `-1` on GLFW init failure or window creation failure.
+ *
+ * Error conditions:
+ * - Returns `-1` if `window` is `NULL`.
+ * - Returns `-1` if GLFW fails to initialize.
+ * - Returns `-1` if window or OpenGL context creation fails.
+ *
+ * Side effects:
+ * - Makes the OpenGL context current for the created window.
+ * - Sets swap interval to 1 (vsync enabled).
+ * - Enforces a minimum window size of 800×600 pixels.
+ */
 int platform_window_init(PlatformWindow* window, int width, int height, const char* title)
 {
     if (!window) {
@@ -44,7 +61,15 @@ int platform_window_init(PlatformWindow* window, int width, int height, const ch
     return 0;
 }
 
-/** Destroy window handle if it exists. */
+/**
+ * @brief Destroy window handle if present.
+ * @param window [in,out] Window to destroy; safe no-op when `NULL`.
+ * @return None.
+ *
+ * Note:
+ * - Does NOT call `glfwTerminate()`; GLFW lifetime is managed separately.
+ * - Safe to call multiple times (idempotent after first call).
+ */
 void platform_window_shutdown(PlatformWindow* window)
 {
     if (!window) {

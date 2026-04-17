@@ -50,6 +50,12 @@ typedef struct {
     double number_value;
 } JsonParser;
 
+/**
+ * @brief Intermediate staging struct for JSON deserialization.
+ *
+ * Holds all parsed fields for one object with companion `has_*` flags
+ * indicating which fields were actually present in the JSON.
+ */
 typedef struct {
     ObjectId id;
     int has_id;
@@ -440,7 +446,7 @@ static int json_expect(JsonParser* parser, JsonTokenType type)
     return parser && parser->type == type;
 }
 
-/** Parse unsigned integer token with range/integrality validation. */
+/** Parse unsigned integer token with integer range validation. */
 static int json_parse_u32(JsonParser* parser, unsigned int* out_value)
 {
     double value = 0.0;
@@ -851,7 +857,7 @@ static int parse_object_entry(JsonParser* parser, Document* document)
     return 1;
 }
 
-/** Parse selection ID array (extra IDs beyond max are ignored safely). */
+/** Parse selection ID array (extra IDs beyond max are safely ignored). */
 static int parse_selection_array(JsonParser* parser, ObjectId* selection_ids, int* selection_count)
 {
     if (!json_expect(parser, JSON_TOKEN_LBRACKET)) {

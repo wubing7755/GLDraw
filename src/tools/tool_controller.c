@@ -112,7 +112,7 @@ static int selection_matches_snapshot(const Document* document, const DocumentSn
 
 /**
  * @brief Push document edit to history and sync dirty flag.
- * Edge case: safely resets snapshot even when context/history is invalid.
+ * @remark Safely resets snapshot even when context/history is invalid.
  */
 static void tool_commit_document_change(ToolContext* context, DocumentSnapshot* before_snapshot)
 {
@@ -248,7 +248,7 @@ static void select_tool_pointer_up(Tool* tool, ToolContext* context, const ToolE
     state->selection_changed = 0;
 }
 
-/** Handle select tool keyboard shortcuts (currently Escape clear-selection). */
+/** Handle select tool keyboard input (Escape clears selection). */
 static void select_tool_key_down(Tool* tool, ToolContext* context, int key, int mods)
 {
     (void)tool;

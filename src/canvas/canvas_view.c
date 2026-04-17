@@ -16,7 +16,7 @@
 
 #include <stddef.h>
 
-/** Build canonical viewport state from compatibility fields. Complexity: `O(1)`. */
+/** Build canonical viewport state from legacy compatibility fields. Complexity: `O(1)`. */
 static CanvasViewportState canvas_viewport_state_from_compat(const CanvasView* canvas)
 {
     CanvasViewportState state;

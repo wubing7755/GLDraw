@@ -529,6 +529,11 @@ static void mouse_button_callback(GLFWwindow* handle, int button, int action, in
 
 /**
  * @brief GLFW key callback for global shortcuts and active-tool keys.
+ * @param handle [in] GLFW window handle.
+ * @param key [in] Virtual key code.
+ * @param scancode [in] Platform-specific scan code (unused).
+ * @param action [in] Press/release/repeat.
+ * @param mods [in] Modifier key flags.
  *
  * Why shortcut-first:
  * - Global document/view commands must win over tool-specific key handlers
@@ -677,7 +682,15 @@ static int app_init(Application* app)
     return 0;
 }
 
-/** Shutdown runtime subsystems in reverse ownership order. */
+/**
+ * @brief Shutdown runtime subsystems in reverse ownership order.
+ * @param app [in,out] Application state to tear down; safe no-op when `NULL`.
+ * @return None.
+ *
+ * Risk note:
+ * - Best-effort cleanup; destruction order mirrors `app_init()` to avoid
+ *   dangling references to already-destroyed subsystems.
+ */
 static void app_shutdown(Application* app)
 {
     if (!app) {
