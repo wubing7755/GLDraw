@@ -20,10 +20,10 @@ cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build --parallel
 ./build/bin/GLDraw
 
-# VS Code convenience scripts
-./vscode_build.sh          # Release build
-./vscode_build.sh debug    # Debug build
-./vscode_build.sh clean    # Clean artifacts
+# Convenience script
+./build.sh          # Release build
+./build.sh debug    # Debug build
+./build.sh clean    # Clean artifacts
 ```
 
 **Dependencies**: GLFW 3.3.9 (fetched via CMake), GLAD (committed), Nuklear (header-only). Tests run via CTest (Linux/macOS only in CI).
