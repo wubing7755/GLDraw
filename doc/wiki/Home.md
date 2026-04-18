@@ -1,46 +1,40 @@
 # GLDraw Wiki
 
-**GLDraw** is a canvas-centered OpenGL drawing editor built with GLFW, GLAD, and Nuklear.
+**GLDraw** is a canvas-centered OpenGL drawing editor built with C11, GLFW, GLAD, and Nuklear.
 
-The project now follows the same split used by common graphics tools:
+## Architecture
 
-- `Window` hosts the application shell
-- `Document` stores graphic objects and selection
+The project follows the same split used by common graphics tools:
+
+- `Window` hosts the application shell and platform events
+- `Document` stores graphic objects and selection state
 - `CanvasView` controls zoom, pan, viewport, and coordinate transforms
-- `ToolController` routes user intent into editing tools
+- `ToolController` routes user input into editing tools
 - `RenderSystem` draws document geometry and overlays
-- `UiSystem` builds the editor chrome
+- `UiSystem` builds the editor chrome (toolbar, inspector, status bar)
 
-## Start Here
+## Design Goals
 
-1. [Introduction](introduction)
-2. [Getting Started](getting-started)
-3. [Project Structure](project-structure)
-4. [Architecture](architecture)
+- Graphic objects live in world coordinates inside `Document`
+- `CanvasView` converts between world and screen space
+- Tools translate pointer input into document changes through canvas-aware events
+- Stable object identity via `ObjectId` (not raw pointers)
+- Rendering is stateless with respect to editing logic
 
-## Contributor Quick Prep
+## Technology Stack
 
-If you plan to contribute code, read the C contributor guide first.  
-It summarizes repository-specific C patterns (callbacks, pointers, vtable usage, memory ownership) and common PR pitfalls.
+| Component | Technology |
+|---|---|
+| Graphics API | OpenGL 3.3 Core Profile |
+| Window / Input | GLFW 3.3.9 |
+| OpenGL Loader | GLAD |
+| UI | Nuklear |
+| Build System | CMake 3.15+ |
+| Language | C11 |
 
-- [C Contributor Guide (EN)](../c-language-must-know-for-gldraw.en.md)
-- [C 贡献者指南 (ZH)](../c-language-must-know-for-gldraw.md)
+## Where to Start
 
-## Core Systems
-
-- [Overview](core-systems-overview)
-- [Rendering](core-systems-rendering)
-- [Shape / Object Model](core-systems-shape)
-- [Tool System](core-systems-tool)
-- [UI System](core-systems-ui)
-- [Input and Canvas Routing](core-systems-input)
-- [Selection System](core-systems-selection)
-
-## Guides
-
-- [Data Flow](data-flow)
-- [Extending the Project](extending)
-- [C Contributor Guide (EN)](../c-language-must-know-for-gldraw.en.md)
-- [C 贡献者指南 (ZH)](../c-language-must-know-for-gldraw.md)
-- [Known Issues](known-issues)
-- [FAQ](faq)
+1. [Getting Started](Getting-Started) — build and run the application
+2. [Data Flow](Data-Flow) — understand how events become drawings
+3. [Extending](Extending) — add new object types or tools
+4. [Controls](../../README.md#controls) — keyboard and mouse shortcuts
