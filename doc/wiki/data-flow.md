@@ -9,6 +9,7 @@ while (!platform_window_should_close(&app.window)) {
     platform_window_poll_events();
     ui_system_begin_frame(app.ui);
     ui_system_build(app.ui, &app.workspace);
+    update_canvas_viewport(app);
     render_system_draw(app.renderer, &app.workspace.document, &app.workspace.canvas, overlay);
     ui_system_render(app.ui);
     platform_window_swap_buffers(&app.window);
@@ -20,7 +21,7 @@ while (!platform_window_should_close(&app.window)) {
 ```text
 GLFW
     -> application.c callback
-    -> ui_system_blocks_pointer?
+    -> ui_system_blocks_pointer / ui_system_point_in_canvas
     -> ToolEvent { screen_pos, world_pos, delta_* }
     -> tool_controller_*
     -> document or canvas update
@@ -43,9 +44,11 @@ Pointer up
 ```text
 Pointer down in Select tool
     -> canvas picking
-    -> document selection update
+    -> selection change (snapshot history path)
 Pointer move while dragging
-    -> translate selected objects in world space
+    -> translate fixed object-id set in world space (no per-move history push)
+Pointer up after drag
+    -> one translate transaction entry pushed to history
 ```
 
 ## Render Flow
@@ -55,16 +58,17 @@ Document object
     -> object_write_path_points()
     -> world polyline
     -> canvas world_to_screen
-    -> transient vertex upload
-    -> OpenGL line strip
+    -> frame batch append
+    -> batched GPU upload/flush
+    -> OpenGL line draw
 ```
 
 ## Property Editing Flow
 
 ```text
 Inspector widget change
-    -> object_set_scalar() / object_set_stroke_*
-    -> object revision bump
+    -> object id/key/before/after capture
+    -> scalar transaction push to history
     -> next frame draws updated geometry
 ```
 
@@ -82,4 +86,9 @@ Ctrl+O / Toolbar Load
     -> history reset
     -> tool transient state reset
     -> canvas view preserved
+
+Theme reload flow
+    -> ui_system_poll_theme_hot_reload()
+    -> ui_theme_reload_external()
+    -> on parse failure: keep previous runtime theme set + status error summary
 ```

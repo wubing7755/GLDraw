@@ -89,6 +89,8 @@ const char* ui_theme_default_id(void);
 int ui_theme_reload_external(const char* directory_path);
 /** Compute signature hash of external theme directory contents. */
 unsigned long long ui_theme_external_signature(const char* directory_path);
+/** Return last external reload error summary, or empty string when clean. */
+const char* ui_theme_last_reload_error(void);
 /** Load selected theme ID from settings file. Returns 1 on success. */
 int ui_theme_load_selected_id(const char* path, char* out_theme_id, size_t out_theme_id_size);
 /** Save selected theme ID to settings file. Returns 1 on success. */

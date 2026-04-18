@@ -16,7 +16,7 @@
 #include <base/types.h>
 #include <document/document.h>
 
-/** Canonical camera state used for migration from legacy fields. */
+/** Canonical camera state for viewport transforms. */
 typedef struct CanvasViewportState {
     RectF viewport;
     Vec2 center;
@@ -27,15 +27,10 @@ typedef struct CanvasViewportState {
  * @brief Runtime canvas view state.
  *
  * Stores viewport, center, zoom, and presentation flags.
- * Supports both canonical `viewport_state` and legacy compatibility fields
- * that are kept in sync via `canvas_view_sync_compat()`.
  */
 typedef struct CanvasView {
     Document* document;             /**< Document used for picking */
     CanvasViewportState viewport_state; /**< Canonical camera state */
-    RectF viewport;                 /**< Legacy compatibility field */
-    Vec2 center;                   /**< Legacy compatibility field */
-    float zoom;                    /**< Legacy compatibility field */
     int show_grid;                 /**< Non-zero to draw grid */
     Color background;              /**< Canvas background color */
 } CanvasView;

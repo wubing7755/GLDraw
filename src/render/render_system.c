@@ -12,6 +12,7 @@
  */
 #include <render/render_system.h>
 
+#include <base/log.h>
 #include <base/math2d.h>
 
 #include <glad/glad.h>
@@ -20,18 +21,120 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#define RENDER_VERTEX_STRIDE_FLOATS 6u
+
+/* Some GLAD builds do not expose KHR_debug macros/constants; provide safe fallbacks. */
+#ifndef GL_DEBUG_OUTPUT
+#define GL_DEBUG_OUTPUT 0x92E0
+#endif
+#ifndef GL_DEBUG_OUTPUT_SYNCHRONOUS
+#define GL_DEBUG_OUTPUT_SYNCHRONOUS 0x8242
+#endif
+#ifndef GL_DEBUG_SEVERITY_NOTIFICATION
+#define GL_DEBUG_SEVERITY_NOTIFICATION 0x826B
+#endif
+#ifndef GLDEBUGPROC
+typedef void (APIENTRY* GLDEBUGPROC)(GLenum source,
+                                     GLenum type,
+                                     GLuint id,
+                                     GLenum severity,
+                                     GLsizei length,
+                                     const GLchar* message,
+                                     const void* user_param);
+#endif
+
 /** Renderer-owned GL and CPU-side buffer state. */
 struct RenderSystem {
     GLuint program;
     GLuint vao;
     GLuint vbo;
+    GLint screen_size_loc;
     int width;
     int height;
     float* vertex_buffer;
     size_t vertex_buffer_capacity;
+    size_t gpu_vertex_buffer_capacity;
     Vec2* path_buffer;
     size_t path_buffer_capacity;
+    GLenum current_primitive;
+    float current_line_width;
+    int batched_vertex_count;
+    int frame_draw_calls;
+    int frame_uploads;
+    int debug_callback_enabled;
+    unsigned int debug_frame_counter;
 };
+
+/** Log and drain all pending GL errors for a render stage marker. */
+static void log_gl_error_if_any(const char* stage)
+{
+    GLenum error_code = glGetError();
+    int has_error = 0;
+
+    while (error_code != GL_NO_ERROR) {
+        has_error = 1;
+        LOG_ERROR("[render][gl_error] stage=%s code=0x%04X",
+                  stage ? stage : "unknown",
+                  (unsigned int)error_code);
+        error_code = glGetError();
+    }
+
+    if (!has_error) {
+        return;
+    }
+}
+
+/** KHR_debug callback used in debug builds for richer driver diagnostics. */
+static void APIENTRY render_debug_callback(GLenum source,
+                                           GLenum type,
+                                           GLuint id,
+                                           GLenum severity,
+                                           GLsizei length,
+                                           const GLchar* message,
+                                           const void* user_param)
+{
+    (void)source;
+    (void)type;
+    (void)id;
+    (void)length;
+    (void)user_param;
+
+#if !defined(NDEBUG)
+    if (severity == GL_DEBUG_SEVERITY_NOTIFICATION) {
+        return;
+    }
+    LOG_ERROR("[render][debug] severity=0x%04X id=%u message=%s",
+              (unsigned int)severity,
+              (unsigned int)id,
+              message ? (const char*)message : "(null)");
+#else
+    (void)severity;
+    (void)message;
+#endif
+}
+
+/** Debug-only lightweight frame stats log with throttling to avoid console spam. */
+static void render_log_frame_stats(const RenderSystem* renderer)
+{
+#if !defined(NDEBUG)
+    const unsigned int stats_period_frames = 120u;
+
+    if (!renderer) {
+        return;
+    }
+    if ((renderer->debug_frame_counter % stats_period_frames) != 0u) {
+        return;
+    }
+
+    LOG_INFO("[render][frame_stats] draws=%d uploads=%d batched_vertices=%d debug_cb=%d",
+             renderer->frame_draw_calls,
+             renderer->frame_uploads,
+             renderer->batched_vertex_count,
+             renderer->debug_callback_enabled);
+#else
+    (void)renderer;
+#endif
+}
 
 /** Read shader source text file into heap buffer. */
 static char* read_text_file(const char* path)
@@ -62,7 +165,7 @@ static char* read_text_file(const char* path)
 }
 
 /** Compile one shader stage from source; returns 0 on compile failure. */
-static GLuint compile_shader(GLenum type, const char* source)
+static GLuint compile_shader(GLenum type, const char* source, const char* label)
 {
     GLuint shader = glCreateShader(type);
     GLint success = 0;
@@ -73,6 +176,9 @@ static GLuint compile_shader(GLenum type, const char* source)
     if (!success) {
         char info[1024];
         glGetShaderInfoLog(shader, (GLsizei)sizeof(info), NULL, info);
+        LOG_ERROR("Shader compilation failed for %s: %s",
+                  label ? label : "unknown stage",
+                  info);
         glDeleteShader(shader);
         return 0;
     }
@@ -91,13 +197,16 @@ static GLuint load_program(const char* vertex_path, const char* fragment_path)
     GLint success = 0;
 
     if (!vertex_source || !fragment_source) {
+        LOG_ERROR("[render][load_program][read_sources] Failed to read shader sources: vertex=%s fragment=%s",
+                  vertex_path ? vertex_path : "(null)",
+                  fragment_path ? fragment_path : "(null)");
         free(vertex_source);
         free(fragment_source);
         return 0;
     }
 
-    vertex_shader = compile_shader(GL_VERTEX_SHADER, vertex_source);
-    fragment_shader = compile_shader(GL_FRAGMENT_SHADER, fragment_source);
+    vertex_shader = compile_shader(GL_VERTEX_SHADER, vertex_source, vertex_path);
+    fragment_shader = compile_shader(GL_FRAGMENT_SHADER, fragment_source, fragment_path);
     free(vertex_source);
     free(fragment_source);
 
@@ -117,6 +226,12 @@ static GLuint load_program(const char* vertex_path, const char* fragment_path)
     glDeleteShader(fragment_shader);
 
     if (!success) {
+        char info[1024];
+        glGetProgramInfoLog(program, (GLsizei)sizeof(info), NULL, info);
+        LOG_ERROR("[render][load_program][link_program] Program link failed: %s (vertex=%s fragment=%s)",
+                  info,
+                  vertex_path ? vertex_path : "(null)",
+                  fragment_path ? fragment_path : "(null)");
         glDeleteProgram(program);
         return 0;
     }
@@ -125,15 +240,15 @@ static GLuint load_program(const char* vertex_path, const char* fragment_path)
 }
 
 /**
- * @brief Ensure CPU buffers can store requested point count.
+ * @brief Ensure CPU screen-vertex buffer can store requested vertex count.
  * @return `1` on success, `0` on allocation failure.
  *
  * Risk note:
  * - Uses `realloc`; on failure old buffers remain valid and unchanged.
  */
-static int ensure_vertex_capacity(RenderSystem* renderer, size_t point_count)
+static int ensure_screen_vertex_capacity(RenderSystem* renderer, size_t vertex_count)
 {
-    size_t required_vertex_capacity = point_count * 6u;
+    size_t required_vertex_capacity = vertex_count * RENDER_VERTEX_STRIDE_FLOATS;
 
     if (required_vertex_capacity > renderer->vertex_buffer_capacity) {
         float* new_buffer = (float*)realloc(renderer->vertex_buffer, required_vertex_capacity * sizeof(float));
@@ -144,6 +259,12 @@ static int ensure_vertex_capacity(RenderSystem* renderer, size_t point_count)
         renderer->vertex_buffer_capacity = required_vertex_capacity;
     }
 
+    return 1;
+}
+
+/** Ensure world-space path buffer can store requested point count. */
+static int ensure_path_capacity(RenderSystem* renderer, size_t point_count)
+{
     if (point_count > renderer->path_buffer_capacity) {
         Vec2* new_points = (Vec2*)realloc(renderer->path_buffer, point_count * sizeof(Vec2));
         if (!new_points) {
@@ -156,24 +277,182 @@ static int ensure_vertex_capacity(RenderSystem* renderer, size_t point_count)
     return 1;
 }
 
-/** Upload world points converted to screen-space colored vertices. */
-static void upload_points(RenderSystem* renderer, const CanvasView* canvas, const Vec2* points, int count, Color color)
+/** Ensure GPU vertex buffer can store the current batch without reallocation on every draw. */
+static int ensure_gpu_vertex_capacity(RenderSystem* renderer, size_t vertex_count)
 {
-    int i = 0;
-    float* cursor = renderer->vertex_buffer;
+    size_t required_vertex_capacity = vertex_count * RENDER_VERTEX_STRIDE_FLOATS;
 
-    for (i = 0; i < count; ++i) {
-        Vec2 screen = canvas_view_world_to_screen(canvas, points[i]);
-        *cursor++ = screen.x;
-        *cursor++ = screen.y;
-        *cursor++ = color.r;
-        *cursor++ = color.g;
-        *cursor++ = color.b;
-        *cursor++ = color.a;
+    if (!renderer) {
+        return 0;
+    }
+
+    if (required_vertex_capacity > renderer->gpu_vertex_buffer_capacity) {
+        glBindBuffer(GL_ARRAY_BUFFER, renderer->vbo);
+        glBufferData(GL_ARRAY_BUFFER,
+                     (GLsizeiptr)(required_vertex_capacity * sizeof(float)),
+                     NULL,
+                     GL_DYNAMIC_DRAW);
+        renderer->gpu_vertex_buffer_capacity = required_vertex_capacity;
+    }
+
+    return 1;
+}
+
+/** Append one colored screen-space vertex into the CPU staging buffer. */
+static void write_screen_vertex(float** cursor, Vec2 screen, Color color)
+{
+    *(*cursor)++ = screen.x;
+    *(*cursor)++ = screen.y;
+    *(*cursor)++ = color.r;
+    *(*cursor)++ = color.g;
+    *(*cursor)++ = color.b;
+    *(*cursor)++ = color.a;
+}
+
+/** Normalize line-strip draws to line segments so multiple paths can share one batch. */
+static GLenum batch_primitive_for(GLenum primitive)
+{
+    return (primitive == GL_LINE_STRIP) ? GL_LINES : primitive;
+}
+
+/** Return the number of staged vertices needed for one batched line draw. */
+static int batch_vertex_count_for(GLenum primitive, int point_count)
+{
+    if (point_count <= 0) {
+        return 0;
+    }
+
+    if (primitive == GL_LINE_STRIP) {
+        return (point_count > 1) ? (point_count - 1) * 2 : 0;
+    }
+
+    return point_count;
+}
+
+/** Upload staged screen-space vertices into the dynamic VBO. */
+static int upload_vertices(RenderSystem* renderer, int vertex_count)
+{
+    if (!renderer || vertex_count <= 0) {
+        return 0;
+    }
+
+    if (!ensure_gpu_vertex_capacity(renderer, (size_t)vertex_count)) {
+        return 0;
     }
 
     glBindBuffer(GL_ARRAY_BUFFER, renderer->vbo);
-    glBufferData(GL_ARRAY_BUFFER, (GLsizeiptr)(count * 6 * sizeof(float)), renderer->vertex_buffer, GL_DYNAMIC_DRAW);
+    glBufferSubData(GL_ARRAY_BUFFER,
+                    0,
+                    (GLsizeiptr)(vertex_count * RENDER_VERTEX_STRIDE_FLOATS * sizeof(float)),
+                    renderer->vertex_buffer);
+    return 1;
+}
+
+/** Reset frame-local batch state and counters. */
+static void begin_frame_batch(RenderSystem* renderer)
+{
+    if (!renderer) {
+        return;
+    }
+
+    renderer->current_primitive = 0;
+    renderer->current_line_width = 1.0f;
+    renderer->batched_vertex_count = 0;
+    renderer->frame_draw_calls = 0;
+    renderer->frame_uploads = 0;
+}
+
+/** Return whether the requested line draw can be appended to the current frame batch. */
+static int can_append_line_batch(RenderSystem* renderer,
+                                 GLenum primitive,
+                                 float line_width,
+                                 int append_vertices)
+{
+    GLenum batch_primitive = batch_primitive_for(primitive);
+    float effective_line_width = (line_width > 0.5f) ? line_width : 1.0f;
+
+    if (!renderer || append_vertices <= 0) {
+        return 0;
+    }
+
+    if (renderer->batched_vertex_count <= 0) {
+        return 1;
+    }
+
+    return renderer->current_primitive == batch_primitive &&
+           fabsf(renderer->current_line_width - effective_line_width) <= 0.01f;
+}
+
+/** Upload and draw the currently staged line batch, if any. */
+static void flush_batch(RenderSystem* renderer)
+{
+    if (!renderer || renderer->batched_vertex_count <= 0) {
+        return;
+    }
+
+    if (upload_vertices(renderer, renderer->batched_vertex_count)) {
+        glLineWidth(renderer->current_line_width);
+        glDrawArrays(renderer->current_primitive, 0, renderer->batched_vertex_count);
+        renderer->frame_draw_calls++;
+        renderer->frame_uploads++;
+    }
+
+    renderer->current_primitive = 0;
+    renderer->current_line_width = 1.0f;
+    renderer->batched_vertex_count = 0;
+}
+
+/** Append line vertices into the current frame batch without drawing immediately. */
+static int append_line_vertices(RenderSystem* renderer,
+                                const CanvasView* canvas,
+                                const Vec2* points,
+                                int count,
+                                Color color,
+                                GLenum primitive,
+                                float line_width)
+{
+    GLenum batch_primitive = batch_primitive_for(primitive);
+    float effective_line_width = (line_width > 0.5f) ? line_width : 1.0f;
+    int append_vertices = batch_vertex_count_for(primitive, count);
+    float* cursor = NULL;
+    int i = 0;
+
+    if (!renderer || !canvas || !points || append_vertices <= 0) {
+        return 0;
+    }
+
+    if (renderer->batched_vertex_count <= 0) {
+        renderer->current_primitive = batch_primitive;
+        renderer->current_line_width = effective_line_width;
+    }
+
+    if (!ensure_screen_vertex_capacity(renderer,
+                                       (size_t)(renderer->batched_vertex_count + append_vertices))) {
+        return 0;
+    }
+
+    cursor = renderer->vertex_buffer +
+             ((size_t)renderer->batched_vertex_count * RENDER_VERTEX_STRIDE_FLOATS);
+
+    if (primitive == GL_LINE_STRIP) {
+        for (i = 0; i < count - 1; ++i) {
+            write_screen_vertex(&cursor, canvas_view_world_to_screen(canvas, points[i]), color);
+            write_screen_vertex(&cursor, canvas_view_world_to_screen(canvas, points[i + 1]), color);
+        }
+    } else {
+        for (i = 0; i < count; ++i) {
+            write_screen_vertex(&cursor, canvas_view_world_to_screen(canvas, points[i]), color);
+        }
+    }
+
+    renderer->batched_vertex_count += append_vertices;
+    return 1;
+}
+
+/** Flush any remaining frame batch at the end of the render pass. */
+static void end_frame_batch(RenderSystem* renderer)
+{
+    flush_batch(renderer);
 }
 
 /** Draw one polyline path. */
@@ -184,13 +463,36 @@ static void draw_polyline(RenderSystem* renderer,
                           Color color,
                           float line_width)
 {
-    if (count <= 1 || !ensure_vertex_capacity(renderer, (size_t)count)) {
+    int append_vertices = batch_vertex_count_for(GL_LINE_STRIP, count);
+
+    if (append_vertices <= 0) {
         return;
     }
 
-    upload_points(renderer, canvas, points, count, color);
-    glLineWidth((line_width > 0.5f) ? line_width : 1.0f);
-    glDrawArrays(GL_LINE_STRIP, 0, count);
+    if (!can_append_line_batch(renderer, GL_LINE_STRIP, line_width, append_vertices)) {
+        flush_batch(renderer);
+    }
+
+    append_line_vertices(renderer, canvas, points, count, color, GL_LINE_STRIP, line_width);
+}
+
+/** Count regularly spaced grid lines across one visible axis span. */
+static int count_grid_lines(float start, float end, float spacing)
+{
+    int count = 0;
+    float value = start;
+    float limit = end + spacing * 0.5f;
+
+    if (spacing <= 0.0f) {
+        return 0;
+    }
+
+    while (value <= limit) {
+        count++;
+        value += spacing;
+    }
+
+    return count;
 }
 
 /** Draw world grid and axis lines in currently visible world rectangle. */
@@ -204,29 +506,49 @@ static void draw_grid(RenderSystem* renderer, const CanvasView* canvas)
     float end_x = rectf_right(&visible);
     float start_y = floorf(visible.y / spacing) * spacing;
     float end_y = rectf_top(&visible);
-    Vec2 line[2];
+    int vertical_count = count_grid_lines(start_x, end_x, spacing);
+    int horizontal_count = count_grid_lines(start_y, end_y, spacing);
+    int grid_vertex_count = (vertical_count + horizontal_count) * 2;
+    Vec2 axis_points[4];
+    int point_index = 0;
     float x = 0.0f;
     float y = 0.0f;
 
-    for (x = start_x; x <= end_x; x += spacing) {
-        line[0] = vec2_make(x, visible.y);
-        line[1] = vec2_make(x, visible.y + visible.h);
-        draw_polyline(renderer, canvas, line, 2, grid_color, 1.0f);
+    if (grid_vertex_count > 0 &&
+        ensure_path_capacity(renderer, (size_t)grid_vertex_count)) {
+        for (x = start_x; x <= end_x + spacing * 0.5f; x += spacing) {
+            renderer->path_buffer[point_index++] = vec2_make(x, visible.y);
+            renderer->path_buffer[point_index++] = vec2_make(x, visible.y + visible.h);
+        }
+
+        for (y = start_y; y <= end_y + spacing * 0.5f; y += spacing) {
+            renderer->path_buffer[point_index++] = vec2_make(visible.x, y);
+            renderer->path_buffer[point_index++] = vec2_make(visible.x + visible.w, y);
+        }
+
+        if (!can_append_line_batch(renderer, GL_LINES, 1.0f, grid_vertex_count)) {
+            flush_batch(renderer);
+        }
+
+        append_line_vertices(renderer,
+                             canvas,
+                             renderer->path_buffer,
+                             grid_vertex_count,
+                             grid_color,
+                             GL_LINES,
+                             1.0f);
     }
 
-    for (y = start_y; y <= end_y; y += spacing) {
-        line[0] = vec2_make(visible.x, y);
-        line[1] = vec2_make(visible.x + visible.w, y);
-        draw_polyline(renderer, canvas, line, 2, grid_color, 1.0f);
+    axis_points[0] = vec2_make(visible.x, 0.0f);
+    axis_points[1] = vec2_make(visible.x + visible.w, 0.0f);
+    axis_points[2] = vec2_make(0.0f, visible.y);
+    axis_points[3] = vec2_make(0.0f, visible.y + visible.h);
+
+    if (!can_append_line_batch(renderer, GL_LINES, 1.5f, 4)) {
+        flush_batch(renderer);
     }
 
-    line[0] = vec2_make(visible.x, 0.0f);
-    line[1] = vec2_make(visible.x + visible.w, 0.0f);
-    draw_polyline(renderer, canvas, line, 2, axis_color, 1.5f);
-
-    line[0] = vec2_make(0.0f, visible.y);
-    line[1] = vec2_make(0.0f, visible.y + visible.h);
-    draw_polyline(renderer, canvas, line, 2, axis_color, 1.5f);
+    append_line_vertices(renderer, canvas, axis_points, 4, axis_color, GL_LINES, 1.5f);
 }
 
 /** Draw one object path with optional selection highlight underlay. */
@@ -238,7 +560,7 @@ static void draw_object(RenderSystem* renderer,
     int point_count = object_get_path_point_count(object);
     Color highlight = {0.98f, 0.86f, 0.24f, 1.0f};
 
-    if (point_count <= 1 || !ensure_vertex_capacity(renderer, (size_t)point_count)) {
+    if (point_count <= 1 || !ensure_path_capacity(renderer, (size_t)point_count)) {
         return;
     }
 
@@ -304,7 +626,6 @@ static int render_canvas_scissor_box(const RectF* viewport, int framebuffer_widt
 RenderSystem* render_system_create(PlatformWindow* window)
 {
     RenderSystem* renderer = (RenderSystem*)calloc(1, sizeof(*renderer));
-    GLint screen_size_loc = -1;
 
     if (!renderer) {
         return NULL;
@@ -314,6 +635,37 @@ RenderSystem* render_system_create(PlatformWindow* window)
         free(renderer);
         return NULL;
     }
+
+    renderer->debug_callback_enabled = 0;
+
+#if !defined(NDEBUG)
+    {
+        int has_debug_support = 0;
+        typedef void (APIENTRYP PFNGLDEBUGMESSAGECALLBACKPROC_LOCAL)(GLDEBUGPROC callback, const void* user_param);
+        PFNGLDEBUGMESSAGECALLBACKPROC_LOCAL debug_message_callback = NULL;
+
+#ifdef GLAD_GL_KHR_debug
+        has_debug_support = has_debug_support || GLAD_GL_KHR_debug;
+#endif
+#ifdef GLAD_GL_VERSION_4_3
+        has_debug_support = has_debug_support || GLAD_GL_VERSION_4_3;
+#endif
+
+        if (has_debug_support) {
+            debug_message_callback = (PFNGLDEBUGMESSAGECALLBACKPROC_LOCAL)glfwGetProcAddress("glDebugMessageCallback");
+            if (!debug_message_callback) {
+                debug_message_callback = (PFNGLDEBUGMESSAGECALLBACKPROC_LOCAL)glfwGetProcAddress("glDebugMessageCallbackKHR");
+            }
+        }
+
+        if (debug_message_callback) {
+            glEnable(GL_DEBUG_OUTPUT);
+            glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
+            debug_message_callback(render_debug_callback, NULL);
+            renderer->debug_callback_enabled = 1;
+        }
+    }
+#endif
 
     renderer->width = window->width;
     renderer->height = window->height;
@@ -334,9 +686,9 @@ RenderSystem* render_system_create(PlatformWindow* window)
     glBindVertexArray(0);
 
     glUseProgram(renderer->program);
-    screen_size_loc = glGetUniformLocation(renderer->program, "uScreenSize");
-    if (screen_size_loc >= 0) {
-        glUniform2f(screen_size_loc, (float)renderer->width, (float)renderer->height);
+    renderer->screen_size_loc = glGetUniformLocation(renderer->program, "uScreenSize");
+    if (renderer->screen_size_loc >= 0) {
+        glUniform2f(renderer->screen_size_loc, (float)renderer->width, (float)renderer->height);
     }
     glUseProgram(0);
     glEnable(GL_BLEND);
@@ -362,8 +714,6 @@ void render_system_destroy(RenderSystem* renderer)
 /** Update viewport and shader uniform after framebuffer resize. */
 void render_system_resize(RenderSystem* renderer, int width, int height)
 {
-    GLint screen_size_loc = -1;
-
     if (!renderer) {
         return;
     }
@@ -372,9 +722,8 @@ void render_system_resize(RenderSystem* renderer, int width, int height)
     renderer->height = height;
     glViewport(0, 0, width, height);
     glUseProgram(renderer->program);
-    screen_size_loc = glGetUniformLocation(renderer->program, "uScreenSize");
-    if (screen_size_loc >= 0) {
-        glUniform2f(screen_size_loc, (float)width, (float)height);
+    if (renderer->screen_size_loc >= 0) {
+        glUniform2f(renderer->screen_size_loc, (float)width, (float)height);
     }
     glUseProgram(0);
 }
@@ -423,9 +772,11 @@ void render_system_draw(RenderSystem* renderer,
     glScissor(canvas_scissor_box[0], canvas_scissor_box[1], canvas_scissor_box[2], canvas_scissor_box[3]);
     glClearColor(canvas->background.r, canvas->background.g, canvas->background.b, canvas->background.a);
     glClear(GL_COLOR_BUFFER_BIT);
+    log_gl_error_if_any("render_system_draw:after_clear");
 
     glUseProgram(renderer->program);
     glBindVertexArray(renderer->vao);
+    begin_frame_batch(renderer);
 
     if (canvas->show_grid) {
         draw_grid(renderer, canvas);
@@ -441,9 +792,15 @@ void render_system_draw(RenderSystem* renderer,
         draw_object(renderer, canvas, overlay_object, 0);
     }
 
+    end_frame_batch(renderer);
+    log_gl_error_if_any("render_system_draw:after_batch_flush");
     glLineWidth(1.0f);
     glBindVertexArray(0);
     glUseProgram(0);
+    log_gl_error_if_any("render_system_draw:before_finalize");
+
+    renderer->debug_frame_counter++;
+    render_log_frame_stats(renderer);
 
     if (scissor_was_enabled) {
         glScissor(previous_scissor_box[0],

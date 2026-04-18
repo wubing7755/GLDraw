@@ -50,9 +50,19 @@
 #define UI_THEME_DESCRIPTOR_CACHE_MAX 64
 #define UI_THEME_WATCH_INTERVAL_SECONDS 0.35
 
+int document_history_push_scalar_edit(DocumentHistory* history,
+                                      const Document* document,
+                                      ObjectId object_id,
+                                      const char* key,
+                                      float before_value,
+                                      float after_value,
+                                      unsigned int revision_before,
+                                      unsigned int revision_after);
+
 struct UiSystem {
     struct nk_glfw glfw;
     struct nk_context* ctx;
+    GLFWwindow* window_handle;
     UiMenuBar* menu_bar;
     UiThemeTokens theme;
     char active_theme_id[UI_THEME_ID_CAPACITY];
@@ -190,6 +200,18 @@ static void ui_system_reload_themes(UiSystem* ui,
 
     snprintf(previous_theme_id, sizeof(previous_theme_id), "%s", ui->active_theme_id);
     custom_theme_count = ui_theme_reload_external(UI_THEME_DIRECTORY_PATH);
+    if (custom_theme_count < 0) {
+        ui->theme_directory_signature = ui_theme_external_signature(UI_THEME_DIRECTORY_PATH);
+        if (notify_status && workspace) {
+            const char* error_summary = ui_theme_last_reload_error();
+            snprintf(workspace->status_message,
+                     sizeof(workspace->status_message),
+                     "Theme reload failed: %s",
+                     (error_summary && error_summary[0] != '\0') ? error_summary : "invalid theme file");
+        }
+        return;
+    }
+
     ui->theme_directory_signature = ui_theme_external_signature(UI_THEME_DIRECTORY_PATH);
 
     /* Keep current theme id if still present; otherwise fall back through ui_system_set_theme. */
@@ -358,33 +380,72 @@ static ToolContext ui_tool_context(Workspace* workspace)
     return context;
 }
 
-static void ui_commit_document_change(Workspace* workspace, DocumentSnapshot* before_snapshot)
+static void ui_commit_scalar_edit(Workspace* workspace,
+                                  GraphicObject* object,
+                                  const char* key,
+                                  float before_value,
+                                  float after_value)
 {
-    document_touch(&workspace->document);
-    document_history_push(&workspace->history, before_snapshot, &workspace->document);
+    unsigned int revision_before = 0;
+
+    if (!workspace || !object || !key || key[0] == '\0') {
+        return;
+    }
+    if (fabsf(after_value - before_value) <= 1e-6f) {
+        return;
+    }
+
+    revision_before = workspace->document.revision;
+    if (!object_set_scalar(object, key, after_value)) {
+        return;
+    }
+    if (!document_history_push_scalar_edit(&workspace->history,
+                                           &workspace->document,
+                                           object->id,
+                                           key,
+                                           before_value,
+                                           after_value,
+                                           revision_before,
+                                           workspace->document.revision)) {
+        /* Keep the edit even if history push fails; avoid rolling back UI interaction state. */
+    }
+
     workspace_sync_document_dirty(workspace);
 }
 
 static void ui_apply_stroke_color(Workspace* workspace, GraphicObject* object, Color color)
 {
-    DocumentSnapshot before_snapshot;
-    document_snapshot_init(&before_snapshot);
-    if (!document_snapshot_capture(&before_snapshot, &workspace->document)) {
+    Color before;
+
+    if (!workspace || !object) {
         return;
     }
-    object_set_stroke_color(object, color);
-    ui_commit_document_change(workspace, &before_snapshot);
+
+    before = object->style.stroke_color;
+    if (fabsf(color.r - before.r) > 1e-6f) {
+        ui_commit_scalar_edit(workspace, object, "stroke_r", before.r, color.r);
+    }
+    if (fabsf(color.g - before.g) > 1e-6f) {
+        ui_commit_scalar_edit(workspace, object, "stroke_g", before.g, color.g);
+    }
+    if (fabsf(color.b - before.b) > 1e-6f) {
+        ui_commit_scalar_edit(workspace, object, "stroke_b", before.b, color.b);
+    }
+    if (fabsf(color.a - before.a) > 1e-6f) {
+        ui_commit_scalar_edit(workspace, object, "stroke_a", before.a, color.a);
+    }
 }
 
 static void ui_apply_stroke_width(Workspace* workspace, GraphicObject* object, float stroke_width)
 {
-    DocumentSnapshot before_snapshot;
-    document_snapshot_init(&before_snapshot);
-    if (!document_snapshot_capture(&before_snapshot, &workspace->document)) {
+    float before = 0.0f;
+
+    if (!workspace || !object) {
         return;
     }
-    object_set_stroke_width(object, stroke_width);
-    ui_commit_document_change(workspace, &before_snapshot);
+
+    before = object->style.stroke_width;
+    ui_commit_scalar_edit(workspace, object, "stroke_width", before, stroke_width);
 }
 
 static void ui_property_apply_float(struct nk_context* ctx,
@@ -399,16 +460,10 @@ static void ui_property_apply_float(struct nk_context* ctx,
                                     float inc_per_pixel)
 {
     float before = *value;
-    DocumentSnapshot before_snapshot;
 
     nk_property_float(ctx, label, min_value, value, max_value, step, inc_per_pixel);
     if (fabsf(*value - before) > 1e-6f) {
-        document_snapshot_init(&before_snapshot);
-        if (!document_snapshot_capture(&before_snapshot, &workspace->document)) {
-            return;
-        }
-        object_set_scalar(object, key, *value);
-        ui_commit_document_change(workspace, &before_snapshot);
+        ui_commit_scalar_edit(workspace, object, key, before, *value);
     }
 }
 
@@ -676,6 +731,7 @@ UiSystem* ui_system_create(PlatformWindow* window)
     ui->inspector_target_visible = 1;
     ui->inspector_anim_initialized = 0;
     ui->last_frame_seconds = glfwGetTime();
+    ui->window_handle = window->handle;
 
     return ui;
 }
@@ -724,8 +780,20 @@ void ui_system_build(UiSystem* ui, Workspace* workspace)
         return;
     }
 
-    glfwGetWindowSize(glfwGetCurrentContext(), &width, &height);
+    if (ui->window_handle) {
+        glfwGetWindowSize(ui->window_handle, &width, &height);
+    }
     if (width <= 0 || height <= 0) {
+        GLFWwindow* current_context = glfwGetCurrentContext();
+        if (current_context) {
+            glfwGetWindowSize(current_context, &width, &height);
+        }
+    }
+
+    if (width <= 0 || height <= 0) {
+        if (workspace) {
+            ui_publish_layout(ui, workspace, 1, 1);
+        }
         return;
     }
     now_seconds = glfwGetTime();
@@ -870,6 +938,24 @@ int ui_system_blocks_pointer(const UiSystem* ui, Vec2 screen_pos)
            rectf_contains_point(&ui->layout_snapshot.status_bounds, screen_pos);
 }
 
+RectF ui_system_window_bounds(const UiSystem* ui)
+{
+    RectF bounds = {0.0f, 0.0f, 1.0f, 1.0f};
+
+    if (!ui) {
+        return bounds;
+    }
+
+    bounds = ui->layout_snapshot.window_bounds;
+    if (bounds.w < 1.0f) {
+        bounds.w = 1.0f;
+    }
+    if (bounds.h < 1.0f) {
+        bounds.h = 1.0f;
+    }
+    return bounds;
+}
+
 RectF ui_system_content_bounds(const UiSystem* ui)
 {
     RectF bounds = {0.0f, 0.0f, 0.0f, 0.0f};
@@ -879,6 +965,18 @@ RectF ui_system_content_bounds(const UiSystem* ui)
     }
 
     return ui->layout_snapshot.canvas_content_bounds;
+}
+
+int ui_system_point_in_canvas(const UiSystem* ui, Vec2 screen_pos)
+{
+    RectF canvas_bounds = ui_system_content_bounds(ui);
+    RectF window_bounds = ui_system_window_bounds(ui);
+
+    if (canvas_bounds.w <= 1.0f || canvas_bounds.h <= 1.0f) {
+        canvas_bounds = window_bounds;
+    }
+
+    return rectf_contains_point(&canvas_bounds, screen_pos);
 }
 
 Color ui_system_canvas_background(const UiSystem* ui)

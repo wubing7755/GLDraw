@@ -26,13 +26,19 @@ Each object exposes:
 - `get_path_point_count`
 - `write_path_points`
 
-The renderer asks the object for a world-space polyline, converts it through `CanvasView`, uploads that polyline, and renders it as `GL_LINE_STRIP`.
+The renderer asks the object for a world-space polyline, converts it through `CanvasView`, expands strip segments when needed, appends into a frame batch, then flushes compatible draws together.
 
 ## Current Object Rendering
 
 - `Line`: 2 points
 - `Rectangle`: 5 points, closed loop
 - `Ellipse`: 65 points, closed loop approximation
+
+Batching behavior:
+
+- grid + axes + object strokes share a frame-level line batch when primitive/line-width are compatible
+- object `GL_LINE_STRIP` paths are normalized into segment pairs for safe cross-object batching
+- flush points happen only when state is incompatible or at frame end
 
 ## Shader
 
@@ -47,4 +53,4 @@ That keeps the projection logic simple:
 
 - line width still relies on `glLineWidth`
 - rendering is outline-only
-- there is no retained GPU cache yet
+- there is no retained GPU cache yet (object paths are rebuilt on CPU each frame)

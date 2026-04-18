@@ -44,7 +44,7 @@ Application
 
 ### CanvasView
 
-- owns viewport size, zoom, pan center, and background
+- owns viewport/camera state (single canonical `viewport_state`) and background
 - converts between screen and world space
 - performs picking in canvas space
 
@@ -57,12 +57,15 @@ Application
 ### RenderSystem
 
 - maps world geometry to screen coordinates through the canvas
-- draws grid, axes, objects, and tool overlay geometry
+- frame-batches compatible line primitives (grid + object strokes + overlay)
+- tracks per-frame draw/upload counters for diagnostics
 
 ### UiSystem
 
 - builds toolbar, inspector, and status bar
 - blocks canvas interaction while the pointer is over UI
+- owns authoritative UI layout hit bounds via `layout_snapshot`
+- supports theme switching and hot reload with failure-safe fallback behavior
 
 ## Key Decisions
 
@@ -71,3 +74,4 @@ Application
 3. Rendering is stateless with respect to editing logic.
 4. Stable object identity uses `ObjectId`, not raw selection pointers.
 5. Old direct-coupled `ShapeManager` and `ToolManager` layers were removed.
+6. History is hybrid: full snapshots for broad edits + targeted transactions for high-frequency edits.
