@@ -29,9 +29,9 @@ GLFW callback (application.c)
 
 ```
 pointer_down (ShapeTool)
-    -> canvas_view_pick_object()  [if hit existing object, cancel]
     -> state->anchor = world_pos
-    -> tool->overlay_object = object_create_line/rect/ellipse()
+    -> state->current = world_pos
+    -> tool->overlay_object = object_create_line/rect/ellipse()  [translucent preview]
 
 pointer_move (ShapeTool)
     -> state->current = world_pos
@@ -39,9 +39,9 @@ pointer_move (ShapeTool)
     -> tool->overlay_object = object_create_line/rect/ellipse()  [rebuild preview]
 
 pointer_up (ShapeTool)
-    -> object_destroy(tool->overlay_object)
-    -> add_object(document, object_create_line/rect/ellipse())
-    -> document_assign_id()
+    -> destroy_overlay(tool)  [free translucent preview]
+    -> build final object: build_shape_object(kind, anchor, current)
+    -> add_object(document, object)  [assigns ObjectId via next_id]
     -> document_touch()
     -> tool_commit_document_change()  [push HISTORY_ENTRY_SNAPSHOT]
 ```
