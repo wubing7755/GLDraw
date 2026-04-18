@@ -1,42 +1,20 @@
 GLDraw
 ======================================
 
-[![C Version](https://img.shields.io/badge/C-C11-blue)](https://en.wikipedia.org/wiki/C_(programming_language))
-[![CMake](https://img.shields.io/badge/CMake-3.15+-blue)](https://cmake.org/)
-[![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
-[![CN](https://img.shields.io/badge/中文-red)](./doc/README-zh.md)
+A canvas-oriented OpenGL drawing editor in C11.
 
-GLDraw is now a canvas-oriented OpenGL drawing editor. The project has been restructured around the same separation used by common graphics tools:
+Build & Run
+-----------
 
-- `Window` hosts the application shell and platform events
-- `Document` owns graphic objects and selection state
-- `CanvasView` owns zoom, pan, viewport, and coordinate transforms
-- `ToolController` routes input into editing tools
-- `RenderSystem` draws the document and tool overlays
-- `UiSystem` hosts the app bar, tool rail, inspector, and status strip
+Linux / macOS:
 
-## Current Features
+```sh
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build --parallel
+./build/bin/GLDraw
+```
 
-- Single-window, single-document editor
-- Infinite-style canvas with zoom at cursor and pan
-- Line, rectangle, and ellipse drawing tools
-- Selection, shift-multi-select, drag move, delete selection
-- Undo / redo for create, move, delete, and inspector edits
-- JSON document save / load using the current path or `document.json`
-- Inspector for stroke color, width, and basic geometry
-- App Bar with menu and quick actions (New/Open/Save/Undo/Redo/Zoom)
-- Left Tool Rail for Select/Hand/Line/Rect/Ellipse
-- Responsive inspector behavior (auto-hide under constrained width) with lightweight show/hide transition
-- Theme framework with built-in `GLDraw Light`, `GLDraw Dark+`, and `GLDraw High Contrast`
-- External theme files loaded from `themes/*.json` (startup scan)
-- Runtime hot reload for `themes/` directory (auto-detect file changes)
-- Theme selection from the top menu, persisted in `gldraw.settings.json` via `workbench.colorTheme`
-- Grid and origin axes rendering
-- Modular C11 codebase with GLFW, GLAD, and Nuklear
-
-## Quick Start
-
-Windows with MinGW / MSYS2:
+Windows (MinGW / MSYS2):
 
 ```sh
 cmake -S . -B build-mingw -G "MinGW Makefiles"
@@ -44,7 +22,7 @@ cmake --build build-mingw --parallel
 ./build-mingw/bin/GLDraw.exe
 ```
 
-Windows with Visual Studio 2022:
+Windows (Visual Studio 2022):
 
 ```sh
 cmake -S . -B build -G "Visual Studio 17 2022" -A x64
@@ -52,93 +30,36 @@ cmake --build build --config Release
 ./build/bin/Release/GLDraw.exe
 ```
 
-## Controls
+Or use the convenience script:
 
-- `V`: Select tool
-- `H`: Hand / pan tool
-- `L`: Line tool
-- `R`: Rectangle tool
-- `E`: Ellipse tool
-- `Shift+Click`: Toggle selection
-- `Ctrl+Z`: Undo
-- `Ctrl+Y` or `Ctrl+Shift+Z`: Redo
-- `Ctrl+S`: Save document JSON to the current path
-- `Ctrl+O`: Load document JSON from the current path
-- `Delete` / `Backspace`: Delete current selection
-- `Mouse Wheel`: Zoom at cursor
-- `Esc`: Clear tool state, or close window when already in select mode
-
-## Theme Configuration
-
-- Select themes from the `Theme` top menu.
-- Use `Theme -> Reload Themes` to force refresh theme files immediately.
-- Current choice is persisted in `gldraw.settings.json` using key `workbench.colorTheme`.
-- You can add custom themes by dropping JSON files into `themes/`.
-- Theme file edits are hot-reloaded while the app is running.
-- Status bar messages distinguish `auto` reloads and `manually` triggered reloads.
-- Theme file schema and examples are documented in [themes/README.md](./themes/README.md).
-
-## Project Structure
-
-```text
-GLDraw/
-├── include/
-│   ├── app/        # Application bootstrap and workspace wiring
-│   ├── base/       # Shared math, logging, and primitive types
-│   ├── canvas/     # Canvas view and coordinate transforms
-│   ├── document/   # Graphic objects, document, selection
-│   ├── platform/   # GLFW window abstraction
-│   ├── render/     # OpenGL renderer
-│   ├── tools/      # Tool protocol and tool controller
-│   ├── ui/         # Nuklear UI integration
-│   ├── glad/
-│   ├── KHR/
-│   └── nuklear/
-├── src/
-│   ├── app/
-│   ├── canvas/
-│   ├── document/
-│   ├── platform/
-│   ├── render/
-│   ├── tools/
-│   ├── ui/
-│   ├── glad.c
-│   └── main.c
-└── shaders/
+```sh
+./build.sh          # Release build
+./build.sh debug    # Debug build
+./build.sh clean    # Clean artifacts
 ```
 
-## Architecture Notes
+Controls
+--------
 
-The key relationship in the new design is:
+| Key | Action |
+|-----|--------|
+| V | Select tool |
+| H | Hand / pan tool |
+| L | Line tool |
+| R | Rectangle tool |
+| E | Ellipse tool |
+| Shift+Click | Toggle selection |
+| Ctrl+Z | Undo |
+| Ctrl+Y / Ctrl+Shift+Z | Redo |
+| Ctrl+S | Save document |
+| Ctrl+O | Load document |
+| Delete / Backspace | Delete selection |
+| Mouse Wheel | Zoom at cursor |
+| Esc | Clear tool state |
 
-`Window -> Workspace -> Document + CanvasView + ToolController + UiSystem + RenderSystem`
+Documentation
+-------------
 
-Important boundaries:
+Full documentation: [doc/wiki/](doc/wiki/)
 
-- Graphic objects are stored in world coordinates inside `Document`
-- `Document` persists as JSON and currently includes the selection set
-- `CanvasView` converts between world and screen space
-- Tools modify the document only through canvas-aware events
-- The renderer consumes document state and a canvas transform, but does not own editing state
-
-## Dependencies
-
-| Dependency | Role | Management |
-|---|---|---|
-| GLFW 3.3.9 | Windowing and input | Local cached source via CMake |
-| GLAD | OpenGL loader | Committed in repo |
-| Nuklear | Immediate-mode UI | Header-only local include |
-
-## Documentation
-
-- Wiki Home: [doc/wiki/Home.md](./doc/wiki/Home.md)
-- C Contributor Guide (EN): [doc/c-language-must-know-for-gldraw.en.md](./doc/c-language-must-know-for-gldraw.en.md)
-- C 贡献者指南 (ZH): [doc/c-language-must-know-for-gldraw.md](./doc/c-language-must-know-for-gldraw.md)
-
-## Status
-
-This is the current baseline of the refactor. The new architecture is in place, the old direct-coupled runtime has been removed from the build, and the editor now supports document history plus JSON persistence. Future work can extend this foundation with:
-
-- layers and grouping
-- snapping and guides
-- multiple canvases or multiple documents
+License: MIT
