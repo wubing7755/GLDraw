@@ -366,10 +366,22 @@ static void pan_tool_pointer_move(Tool* tool, ToolContext* context, const ToolEv
 static void pan_tool_pointer_up(Tool* tool, ToolContext* context, const ToolEvent* event)
 {
     PanToolState* state = (PanToolState*)tool->state;
-    (void)tool;
     (void)context;
     (void)event;
-    state->panning = 0;
+    if (state->panning) {
+        state->panning = 0;
+    }
+}
+
+/** Handle pan tool keyboard input (Escape cancels panning). */
+static void pan_tool_key_down(Tool* tool, ToolContext* context, int key, int mods)
+{
+    PanToolState* state = (PanToolState*)tool->state;
+    (void)context;
+    (void)mods;
+    if (key == GLFW_KEY_ESCAPE && state->panning) {
+        state->panning = 0;
+    }
 }
 
 static const ToolVTable g_pan_tool_vtable = {
@@ -379,7 +391,7 @@ static const ToolVTable g_pan_tool_vtable = {
     pan_tool_pointer_down,
     pan_tool_pointer_move,
     pan_tool_pointer_up,
-    NULL
+    pan_tool_key_down
 };
 
 /** Return label by shape kind. */
