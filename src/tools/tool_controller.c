@@ -54,14 +54,6 @@ static void snapshot_reset(DocumentSnapshot* snapshot)
     document_snapshot_init(snapshot);
 }
 
-int document_history_push_translate_edit(DocumentHistory* history,
-                                         const Document* document,
-                                         const ObjectId* object_ids,
-                                         int object_count,
-                                         Vec2 delta,
-                                         unsigned int revision_before,
-                                         unsigned int revision_after);
-
 /** Destroy active overlay object preview if present. */
 static void destroy_overlay(Tool* tool)
 {

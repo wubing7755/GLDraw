@@ -50,15 +50,6 @@
 #define UI_THEME_DESCRIPTOR_CACHE_MAX 64
 #define UI_THEME_WATCH_INTERVAL_SECONDS 0.35
 
-int document_history_push_scalar_edit(DocumentHistory* history,
-                                      const Document* document,
-                                      ObjectId object_id,
-                                      const char* key,
-                                      float before_value,
-                                      float after_value,
-                                      unsigned int revision_before,
-                                      unsigned int revision_after);
-
 struct UiSystem {
     struct nk_glfw glfw;
     struct nk_context* ctx;

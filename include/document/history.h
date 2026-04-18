@@ -63,6 +63,10 @@ int document_history_init(DocumentHistory* history);
 void document_history_shutdown(DocumentHistory* history);
 /** Push one transaction and clear redo stack. Complexity: `O(n + capacity)` worst-case. */
 int document_history_push(DocumentHistory* history, DocumentSnapshot* before, const Document* after_document);
+/** Push lightweight scalar edit transaction without full document snapshots. Returns 1 on success, 0 on failure. */
+int document_history_push_scalar_edit(DocumentHistory* history, const Document* document, ObjectId object_id, const char* key, float before_value, float after_value, unsigned int revision_before, unsigned int revision_after);
+/** Push lightweight translate transaction for a fixed object-id set. Returns 1 on success, 0 on failure. */
+int document_history_push_translate_edit(DocumentHistory* history, const Document* document, const ObjectId* object_ids, int object_count, Vec2 delta, unsigned int revision_before, unsigned int revision_after);
 /** Apply latest undo entry. Returns 0 when stack empty/failure. Complexity: `O(n + capacity)` worst-case. */
 int document_history_undo(DocumentHistory* history, Document* document);
 /** Apply latest redo entry. Returns 0 when stack empty/failure. Complexity: `O(n + capacity)` worst-case. */
