@@ -29,31 +29,13 @@ The simplest extension path is to add another `GraphicObject` implementation.
 4. Register the tool in `tool_controller_init()`.
 5. Add a toolbar button and optional keyboard shortcut.
 
-## Add Undo / Redo
-
-The next clean extension point is a command layer between tools and document mutation.
-
-Recommended shape:
-
-- tools create editor commands
-- commands apply to the document
-- command history stores inverse data
-
-Document ownership and `ObjectId` already make this feasible.
-
-## Add Save / Load
-
-Recommended shape:
-
-- serialize `Document`
-- serialize `CanvasView` only for session state, not required document data
-- keep UI state out of document files
-
 ## Add Layers
 
-Recommended shape:
+To add layer support:
 
-- add layer containers inside `Document`
-- move object storage from one flat array to per-layer lists
-- keep `CanvasView` unchanged
-- keep tools operating on active layer selection
+1. Add layer containers inside `Document`
+2. Move object storage from one flat array to per-layer lists
+3. Keep `CanvasView` unchanged
+4. Keep tools operating on active layer selection
+
+See `include/document/document.h` for the current flat structure as a starting point.

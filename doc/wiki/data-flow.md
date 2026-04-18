@@ -2,8 +2,6 @@
 
 ## Main Loop
 
-The current frame loop is:
-
 ```c
 while (!platform_window_should_close(&app.window)) {
     platform_window_poll_events();
@@ -18,77 +16,104 @@ while (!platform_window_should_close(&app.window)) {
 
 ## Event Flow
 
-```text
-GLFW
-    -> application.c callback
-    -> ui_system_blocks_pointer / ui_system_point_in_canvas
-    -> ToolEvent { screen_pos, world_pos, delta_* }
-    -> tool_controller_*
-    -> document or canvas update
+```
+GLFW callback (application.c)
+    -> ui_system_blocks_pointer() / ui_system_point_in_canvas()
+    -> ToolEvent { screen_pos, world_pos, delta_screen, delta_world, button, mods }
+    -> tool_controller_pointer_down() / tool_controller_pointer_move() / tool_controller_pointer_up()
+    -> ToolVTable callbacks (tool-specific)
+    -> Document mutation via document_*() or CanvasView mutation via canvas_view_*
 ```
 
-## Drawing Flow
+## Drawing Flow (Line / Rectangle / Ellipse)
 
-```text
-Pointer down
-    -> shape tool stores anchor point
-Pointer move
-    -> shape tool rebuilds overlay object
-Pointer up
-    -> shape tool creates a document object
-    -> document assigns ObjectId
+```
+pointer_down (ShapeTool)
+    -> canvas_view_pick_object()  [if hit existing object, cancel]
+    -> state->anchor = world_pos
+    -> tool->overlay_object = object_create_line/rect/ellipse()
+
+pointer_move (ShapeTool)
+    -> state->current = world_pos
+    -> object_destroy(tool->overlay_object)
+    -> tool->overlay_object = object_create_line/rect/ellipse()  [rebuild preview]
+
+pointer_up (ShapeTool)
+    -> object_destroy(tool->overlay_object)
+    -> add_object(document, object_create_line/rect/ellipse())
+    -> document_assign_id()
+    -> document_touch()
+    -> tool_commit_document_change()  [push HISTORY_ENTRY_SNAPSHOT]
 ```
 
 ## Selection Flow
 
-```text
-Pointer down in Select tool
-    -> canvas picking
-    -> selection change (snapshot history path)
-Pointer move while dragging
-    -> translate fixed object-id set in world space (no per-move history push)
-Pointer up after drag
-    -> one translate transaction entry pushed to history
+```
+pointer_down (SelectTool)
+    -> canvas_view_pick_object()
+    -> if hit: document_selection_add/remove/toggle()
+    -> tool_commit_document_change()  [push HISTORY_ENTRY_SNAPSHOT]
+    -> state->dragging = 1, state->drag_object_ids = selection
+
+pointer_move (SelectTool, while dragging)
+    -> for each drag_object_id: object_translate(object, delta_world)
+    -> state->drag_delta_total += delta_world
+    -> NO history push (avoids flooding undo stack)
+
+pointer_up (SelectTool, after drag)
+    -> document_history_push_translate_edit()
+    -> tool_commit_document_change()
 ```
 
 ## Render Flow
 
-```text
-Document object
-    -> object_write_path_points()
-    -> world polyline
-    -> canvas world_to_screen
-    -> frame batch append
-    -> batched GPU upload/flush
-    -> OpenGL line draw
+```
+render_system_draw()
+    -> glClear()  [canvas background]
+    -> glEnable(GL_SCISSOR_TEST)
+    -> glScissor(viewport)
+    -> render_grid()  [world_to_screen transform per line]
+    -> for each document object (oldest to newest):
+        -> object_get_bounds()
+        -> if visible: object_write_path_points()
+        -> world_to_screen per vertex
+        -> batch append to VBO
+    -> glBufferData()  [batched GPU upload]
+    -> glDrawArrays()  [batched line draw]
+    -> render overlay_object if present (ShapeTool preview)
+    -> glDisable(GL_SCISSOR_TEST)
 ```
 
-## Property Editing Flow
+## Property Editing Flow (Inspector)
 
-```text
-Inspector widget change
-    -> object id/key/before/after capture
-    -> scalar transaction push to history
-    -> next frame draws updated geometry
+```
+Inspector widget change (ui_system.c)
+    -> ui_commit_scalar_edit()
+        -> document_history_push_scalar_edit(object_id, key, before, after)
+        -> object_set_scalar(object, key, after)
+        -> document_touch()
 ```
 
 ## Persistence Flow
 
-```text
-Ctrl+S / Toolbar Save
-    -> application save command
-    -> document_save_json()
-    -> current path or document.json
+```
+Ctrl+S / Menu Save
+    -> application.c: app_on_save()
+    -> document_save_json(path ?: "document.json")
 
-Ctrl+O / Toolbar Load
-    -> application load command
-    -> document_load_json()
-    -> history reset
-    -> tool transient state reset
-    -> canvas view preserved
+Ctrl+O / Menu Load
+    -> application.c: app_on_open()
+    -> document_load_json(path)
+    -> document_history_reset()
+    -> tool_controller_reset_active_tool()
+    -> CanvasView state preserved (zoom, pan, viewport)
+```
 
-Theme reload flow
+## Theme Hot-Reload Flow
+
+```
+ui_system_build()
     -> ui_system_poll_theme_hot_reload()
-    -> ui_theme_reload_external()
-    -> on parse failure: keep previous runtime theme set + status error summary
+    -> if themes/ changed: ui_theme_reload_external()
+    -> on parse error: keep previous theme + status bar error message
 ```
