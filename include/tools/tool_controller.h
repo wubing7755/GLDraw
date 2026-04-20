@@ -1,20 +1,22 @@
 /**
  * @file tool_controller.h
- * @brief Active tool routing and input dispatch API.
- *
- * Role in project:
- * - Stores all tool instances and tracks the current active tool.
- * - Forwards pointer/key/scroll events to the active tool implementation.
- *
- * Module relationships:
- * - Built on `tool.h` abstractions.
- * - Called by application event callbacks and UI tool selectors.
+ * @brief 活动工具管理与输入分发接口。
  */
 #ifndef GLDRAW_TOOLS_TOOL_CONTROLLER_H
 #define GLDRAW_TOOLS_TOOL_CONTROLLER_H
 
 #include <tools/tool.h>
 
+/**
+ * @struct ToolController
+ * @brief 工具控制器状态。
+ *
+ * @member tools 工具实例数组。
+ * @member active_kind 当前激活工具类型。
+ * @member pointer_captured 指针是否被工具捕获。
+ * @member last_screen 最近一次屏幕坐标。
+ * @member last_world 最近一次世界坐标。
+ */
 typedef struct {
     Tool tools[TOOL_KIND_COUNT];
     ToolKind active_kind;
@@ -23,29 +25,95 @@ typedef struct {
     Vec2 last_world;
 } ToolController;
 
-/** Initialize all tool slots and internal state. Complexity: `O(tool_count)`. */
+/**
+ * @brief 初始化工具控制器。
+ * @param controller 控制器实例。
+ * @return 无。
+ */
 void tool_controller_init(ToolController* controller);
-/** Shutdown tools and free per-tool state. Complexity: `O(tool_count)`. */
+
+/**
+ * @brief 关闭工具控制器并释放工具状态。
+ * @param controller 控制器实例。
+ * @return 无。
+ */
 void tool_controller_shutdown(ToolController* controller);
 
-/** Switch active tool and run deactivate/activate hooks as needed. Complexity: `O(1)`. */
+/**
+ * @brief 切换当前激活工具。
+ * @param controller 控制器实例。
+ * @param context 工具上下文。
+ * @param kind 目标工具类型。
+ * @return 无。
+ */
 void tool_controller_set_active(ToolController* controller, ToolContext* context, ToolKind kind);
-/** Get mutable pointer to currently active tool, or `NULL` if controller invalid. */
+
+/**
+ * @brief 获取当前激活工具。
+ * @param controller 控制器实例。
+ * @return 激活工具指针；参数非法时返回 `NULL`。
+ */
 Tool* tool_controller_get_active(ToolController* controller);
-/** Get active tool display label. */
+
+/**
+ * @brief 获取当前激活工具标签文本。
+ * @param controller 控制器实例。
+ * @return 工具标签字符串。
+ */
 const char* tool_controller_active_label(const ToolController* controller);
-/** Get overlay object owned by active tool (preview rendering). */
+
+/**
+ * @brief 获取当前激活工具的叠加预览对象。
+ * @param controller 控制器实例。
+ * @return 叠加对象指针；无预览时返回 `NULL`。
+ */
 GraphicObject* tool_controller_overlay_object(const ToolController* controller);
 
-/** Dispatch pointer press and capture pointer ownership. */
+/**
+ * @brief 分发鼠标按下事件。
+ * @param controller 控制器实例。
+ * @param context 工具上下文。
+ * @param event 输入事件。
+ * @return 无。
+ */
 void tool_controller_pointer_down(ToolController* controller, ToolContext* context, const ToolEvent* event);
-/** Dispatch pointer move to active tool. */
+
+/**
+ * @brief 分发鼠标移动事件。
+ * @param controller 控制器实例。
+ * @param context 工具上下文。
+ * @param event 输入事件。
+ * @return 无。
+ */
 void tool_controller_pointer_move(ToolController* controller, ToolContext* context, const ToolEvent* event);
-/** Dispatch pointer release and release pointer capture. */
+
+/**
+ * @brief 分发鼠标释放事件。
+ * @param controller 控制器实例。
+ * @param context 工具上下文。
+ * @param event 输入事件。
+ * @return 无。
+ */
 void tool_controller_pointer_up(ToolController* controller, ToolContext* context, const ToolEvent* event);
-/** Dispatch keyboard input to global shortcuts or active tool. */
+
+/**
+ * @brief 分发键盘按下事件。
+ * @param controller 控制器实例。
+ * @param context 工具上下文。
+ * @param key GLFW 键值。
+ * @param mods 修饰键掩码。
+ * @return 无。
+ */
 void tool_controller_key_down(ToolController* controller, ToolContext* context, int key, int mods);
-/** Handle mouse wheel scroll for zoom around a screen anchor. */
+
+/**
+ * @brief 处理滚轮缩放事件。
+ * @param controller 控制器实例。
+ * @param context 工具上下文。
+ * @param screen_pos 当前屏幕坐标锚点。
+ * @param yoffset 滚轮 Y 增量。
+ * @return 无。
+ */
 void tool_controller_scroll(ToolController* controller, ToolContext* context, Vec2 screen_pos, float yoffset);
 
 #endif /* GLDRAW_TOOLS_TOOL_CONTROLLER_H */

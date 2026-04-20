@@ -64,6 +64,14 @@ static UiThemeTokens ui_theme_dark_plus_tokens(void);
 static UiThemeTokens ui_theme_high_contrast_tokens(void);
 static int ui_theme_builtin_count(void);
 
+/**
+ * @brief ui_theme_mix_channel 函数。
+ *
+ * @param a 参数 `a`。
+ * @param b 参数 `b`。
+ * @param t 参数 `t`。
+ * @return 函数返回值。
+ */
 static struct nk_color ui_theme_mix_channel(struct nk_color a, struct nk_color b, float t)
 {
     struct nk_color out;
@@ -82,6 +90,12 @@ static struct nk_color ui_theme_mix_channel(struct nk_color a, struct nk_color b
     return out;
 }
 
+/**
+ * @brief ui_theme_light_tokens 函数。
+ *
+ * @param void 无参数。
+ * @return 函数返回值。
+ */
 static UiThemeTokens ui_theme_light_tokens(void)
 {
     UiThemeTokens tokens;
@@ -123,6 +137,12 @@ static UiThemeTokens ui_theme_light_tokens(void)
     return tokens;
 }
 
+/**
+ * @brief ui_theme_dark_plus_tokens 函数。
+ *
+ * @param void 无参数。
+ * @return 函数返回值。
+ */
 static UiThemeTokens ui_theme_dark_plus_tokens(void)
 {
     UiThemeTokens tokens;
@@ -164,6 +184,12 @@ static UiThemeTokens ui_theme_dark_plus_tokens(void)
     return tokens;
 }
 
+/**
+ * @brief ui_theme_high_contrast_tokens 函数。
+ *
+ * @param void 无参数。
+ * @return 函数返回值。
+ */
 static UiThemeTokens ui_theme_high_contrast_tokens(void)
 {
     UiThemeTokens tokens;
@@ -205,16 +231,34 @@ static UiThemeTokens ui_theme_high_contrast_tokens(void)
     return tokens;
 }
 
+/**
+ * @brief ui_theme_default_tokens 函数。
+ *
+ * @param void 无参数。
+ * @return 函数返回值。
+ */
 UiThemeTokens ui_theme_default_tokens(void)
 {
     return ui_theme_light_tokens();
 }
 
+/**
+ * @brief ui_theme_builtin_count 函数。
+ *
+ * @param void 无参数。
+ * @return 函数返回值。
+ */
 static int ui_theme_builtin_count(void)
 {
     return (int)(sizeof(g_builtin_theme_descriptors) / sizeof(g_builtin_theme_descriptors[0]));
 }
 
+/**
+ * @brief ui_theme_builtin_descriptor_at 函数。
+ *
+ * @param index 参数 `index`。
+ * @return 函数返回值。
+ */
 static const UiThemeDescriptor* ui_theme_builtin_descriptor_at(int index)
 {
     if (index < 0 || index >= ui_theme_builtin_count()) {
@@ -223,6 +267,12 @@ static const UiThemeDescriptor* ui_theme_builtin_descriptor_at(int index)
     return &g_builtin_theme_descriptors[index];
 }
 
+/**
+ * @brief ui_theme_builtin_tokens_at 函数。
+ *
+ * @param index 参数 `index`。
+ * @return 函数返回值。
+ */
 static UiThemeTokens ui_theme_builtin_tokens_at(int index)
 {
     switch (index) {
@@ -236,6 +286,12 @@ static UiThemeTokens ui_theme_builtin_tokens_at(int index)
     }
 }
 
+/**
+ * @brief ui_theme_custom_index_of_id 函数。
+ *
+ * @param theme_id 参数 `theme_id`。
+ * @return 函数返回值。
+ */
 static int ui_theme_custom_index_of_id(const char* theme_id)
 {
     if (!theme_id || theme_id[0] == '\0') {
@@ -250,11 +306,23 @@ static int ui_theme_custom_index_of_id(const char* theme_id)
     return -1;
 }
 
+/**
+ * @brief ui_theme_count 函数。
+ *
+ * @param void 无参数。
+ * @return 函数返回值。
+ */
 int ui_theme_count(void)
 {
     return ui_theme_builtin_count() + g_custom_theme_count;
 }
 
+/**
+ * @brief ui_theme_descriptor_at 函数。
+ *
+ * @param index 参数 `index`。
+ * @return 函数返回值。
+ */
 const UiThemeDescriptor* ui_theme_descriptor_at(int index)
 {
     int builtin_count = ui_theme_builtin_count();
@@ -269,6 +337,12 @@ const UiThemeDescriptor* ui_theme_descriptor_at(int index)
     return &g_custom_theme_entries[custom_index].descriptor;
 }
 
+/**
+ * @brief ui_theme_index_of_id 函数。
+ *
+ * @param theme_id 参数 `theme_id`。
+ * @return 函数返回值。
+ */
 int ui_theme_index_of_id(const char* theme_id)
 {
     int builtin_count = ui_theme_builtin_count();
@@ -292,11 +366,23 @@ int ui_theme_index_of_id(const char* theme_id)
     return -1;
 }
 
+/**
+ * @brief ui_theme_default_id 函数。
+ *
+ * @param void 无参数。
+ * @return 函数返回值。
+ */
 const char* ui_theme_default_id(void)
 {
     return g_builtin_theme_descriptors[UI_THEME_LIGHT_INDEX].id;
 }
 
+/**
+ * @brief ui_theme_tokens_for_id 函数。
+ *
+ * @param theme_id 参数 `theme_id`。
+ * @return 函数返回值。
+ */
 UiThemeTokens ui_theme_tokens_for_id(const char* theme_id)
 {
     int theme_index = ui_theme_index_of_id(theme_id);
@@ -311,6 +397,12 @@ UiThemeTokens ui_theme_tokens_for_id(const char* theme_id)
     return g_custom_theme_entries[theme_index - builtin_count].tokens;
 }
 
+/**
+ * @brief ui_read_text_file 函数。
+ *
+ * @param path 参数 `path`。
+ * @return 函数返回值。
+ */
 static char* ui_read_text_file(const char* path)
 {
     FILE* file = NULL;
@@ -354,6 +446,15 @@ static char* ui_read_text_file(const char* path)
     return buffer;
 }
 
+/**
+ * @brief ui_extract_json_string_value 函数。
+ *
+ * @param text 参数 `text`。
+ * @param key 参数 `key`。
+ * @param out_value 参数 `out_value`。
+ * @param out_value_size 参数 `out_value_size`。
+ * @return 函数返回值。
+ */
 static int ui_extract_json_string_value(const char* text,
                                         const char* key,
                                         char* out_value,
@@ -419,6 +520,14 @@ static int ui_extract_json_string_value(const char* text,
     return 0;
 }
 
+/**
+ * @brief ui_extract_json_number_value 函数。
+ *
+ * @param text 参数 `text`。
+ * @param key 参数 `key`。
+ * @param out_value 参数 `out_value`。
+ * @return 函数返回值。
+ */
 static int ui_extract_json_number_value(const char* text, const char* key, float* out_value)
 {
     char key_pattern[96];
@@ -463,6 +572,14 @@ static int ui_extract_json_number_value(const char* text, const char* key, float
     return 1;
 }
 
+/**
+ * @brief ui_extract_json_bool_value 函数。
+ *
+ * @param text 参数 `text`。
+ * @param key 参数 `key`。
+ * @param out_value 参数 `out_value`。
+ * @return 函数返回值。
+ */
 static int ui_extract_json_bool_value(const char* text, const char* key, int* out_value)
 {
     char key_pattern[96];
@@ -507,6 +624,13 @@ static int ui_extract_json_bool_value(const char* text, const char* key, int* ou
     return 0;
 }
 
+/**
+ * @brief ui_json_key_exists 函数。
+ *
+ * @param text 参数 `text`。
+ * @param key 参数 `key`。
+ * @return 函数返回值。
+ */
 static int ui_json_key_exists(const char* text, const char* key)
 {
     char key_pattern[96];
@@ -523,6 +647,12 @@ static int ui_json_key_exists(const char* text, const char* key)
     return strstr(text, key_pattern) != NULL;
 }
 
+/**
+ * @brief ui_hex_digit_value 函数。
+ *
+ * @param c 参数 `c`。
+ * @return 函数返回值。
+ */
 static int ui_hex_digit_value(char c)
 {
     if (c >= '0' && c <= '9') {
@@ -537,6 +667,13 @@ static int ui_hex_digit_value(char c)
     return -1;
 }
 
+/**
+ * @brief ui_parse_hex_byte 函数。
+ *
+ * @param text 参数 `text`。
+ * @param out_value 参数 `out_value`。
+ * @return 函数返回值。
+ */
 static int ui_parse_hex_byte(const char* text, unsigned char* out_value)
 {
     int hi = 0;
@@ -556,6 +693,13 @@ static int ui_parse_hex_byte(const char* text, unsigned char* out_value)
     return 1;
 }
 
+/**
+ * @brief ui_parse_hex_color 函数。
+ *
+ * @param hex_text 参数 `hex_text`。
+ * @param out_color 参数 `out_color`。
+ * @return 函数返回值。
+ */
 static int ui_parse_hex_color(const char* hex_text, struct nk_color* out_color)
 {
     size_t length = 0u;
@@ -589,6 +733,12 @@ static int ui_parse_hex_color(const char* hex_text, struct nk_color* out_color)
     return 1;
 }
 
+/**
+ * @brief ui_theme_path_has_json_extension 函数。
+ *
+ * @param path 参数 `path`。
+ * @return 函数返回值。
+ */
 static int ui_theme_path_has_json_extension(const char* path)
 {
     size_t length = 0u;
@@ -611,6 +761,14 @@ static int ui_theme_path_has_json_extension(const char* path)
            (tolower((unsigned char)ext[4]) == 'n');
 }
 
+/**
+ * @brief ui_theme_hash_bytes 函数。
+ *
+ * @param seed 参数 `seed`。
+ * @param data 参数 `data`。
+ * @param size 参数 `size`。
+ * @return 函数返回值。
+ */
 static unsigned long long ui_theme_hash_bytes(unsigned long long seed, const void* data, size_t size)
 {
     const unsigned char* bytes = (const unsigned char*)data;
@@ -627,6 +785,13 @@ static unsigned long long ui_theme_hash_bytes(unsigned long long seed, const voi
     return hash;
 }
 
+/**
+ * @brief ui_theme_hash_cstring 函数。
+ *
+ * @param seed 参数 `seed`。
+ * @param text 参数 `text`。
+ * @return 函数返回值。
+ */
 static unsigned long long ui_theme_hash_cstring(unsigned long long seed, const char* text)
 {
     if (!text) {
@@ -635,11 +800,24 @@ static unsigned long long ui_theme_hash_cstring(unsigned long long seed, const c
     return ui_theme_hash_bytes(seed, text, strlen(text));
 }
 
+/**
+ * @brief ui_theme_hash_u64 函数。
+ *
+ * @param seed 参数 `seed`。
+ * @param value 参数 `value`。
+ * @return 函数返回值。
+ */
 static unsigned long long ui_theme_hash_u64(unsigned long long seed, unsigned long long value)
 {
     return ui_theme_hash_bytes(seed, &value, sizeof(value));
 }
 
+/**
+ * @brief ui_theme_id_is_safe_for_json 函数。
+ *
+ * @param theme_id 参数 `theme_id`。
+ * @return 函数返回值。
+ */
 static int ui_theme_id_is_safe_for_json(const char* theme_id)
 {
     const unsigned char* cursor = (const unsigned char*)theme_id;
@@ -658,6 +836,12 @@ static int ui_theme_id_is_safe_for_json(const char* theme_id)
     return 1;
 }
 
+/**
+ * @brief ui_theme_filename_from_path 函数。
+ *
+ * @param path 参数 `path`。
+ * @return 函数返回值。
+ */
 static const char* ui_theme_filename_from_path(const char* path)
 {
     const char* last_slash = NULL;
@@ -681,6 +865,14 @@ static const char* ui_theme_filename_from_path(const char* path)
     return (last_slash > last_backslash) ? (last_slash + 1) : (last_backslash + 1);
 }
 
+/**
+ * @brief ui_theme_id_from_path 函数。
+ *
+ * @param path 参数 `path`。
+ * @param out_id 参数 `out_id`。
+ * @param out_id_size 参数 `out_id_size`。
+ * @return 函数返回值。
+ */
 static int ui_theme_id_from_path(const char* path, char* out_id, size_t out_id_size)
 {
     const char* filename = NULL;
@@ -710,6 +902,14 @@ static int ui_theme_id_from_path(const char* path, char* out_id, size_t out_id_s
     return write_length > 0u;
 }
 
+/**
+ * @brief ui_theme_apply_color_overrides 函数。
+ *
+ * @param source_path 参数 `source_path`。
+ * @param text 参数 `text`。
+ * @param tokens 参数 `tokens`。
+ * @return 无。
+ */
 static void ui_theme_apply_color_overrides(const char* source_path, const char* text, UiThemeTokens* tokens)
 {
     typedef struct UiThemeColorField {
@@ -758,6 +958,14 @@ static void ui_theme_apply_color_overrides(const char* source_path, const char* 
     }
 }
 
+/**
+ * @brief ui_theme_apply_float_overrides 函数。
+ *
+ * @param source_path 参数 `source_path`。
+ * @param text 参数 `text`。
+ * @param tokens 参数 `tokens`。
+ * @return 无。
+ */
 static void ui_theme_apply_float_overrides(const char* source_path, const char* text, UiThemeTokens* tokens)
 {
     typedef struct UiThemeFloatField {
@@ -796,6 +1004,14 @@ static void ui_theme_apply_float_overrides(const char* source_path, const char* 
     }
 }
 
+/**
+ * @brief ui_theme_apply_bool_overrides 函数。
+ *
+ * @param source_path 参数 `source_path`。
+ * @param text 参数 `text`。
+ * @param tokens 参数 `tokens`。
+ * @return 无。
+ */
 static void ui_theme_apply_bool_overrides(const char* source_path, const char* text, UiThemeTokens* tokens)
 {
     int bool_value = 0;
@@ -812,6 +1028,14 @@ static void ui_theme_apply_bool_overrides(const char* source_path, const char* t
     }
 }
 
+/**
+ * @brief ui_theme_clamp 函数。
+ *
+ * @param value 参数 `value`。
+ * @param min_value 参数 `min_value`。
+ * @param max_value 参数 `max_value`。
+ * @return 函数返回值。
+ */
 static float ui_theme_clamp(float value, float min_value, float max_value)
 {
     if (value < min_value) {
@@ -823,6 +1047,12 @@ static float ui_theme_clamp(float value, float min_value, float max_value)
     return value;
 }
 
+/**
+ * @brief ui_theme_clamp_tokens 函数。
+ *
+ * @param tokens 参数 `tokens`。
+ * @return 无。
+ */
 static void ui_theme_clamp_tokens(UiThemeTokens* tokens)
 {
     if (!tokens) {
@@ -837,6 +1067,14 @@ static void ui_theme_clamp_tokens(UiThemeTokens* tokens)
     tokens->transition_duration = ui_theme_clamp(tokens->transition_duration, 0.0f, 2.0f);
 }
 
+/**
+ * @brief ui_theme_store_custom_entry 函数。
+ *
+ * @param theme_id 参数 `theme_id`。
+ * @param label 参数 `label`。
+ * @param tokens 参数 `tokens`。
+ * @return 函数返回值。
+ */
 static int ui_theme_store_custom_entry(const char* theme_id,
                                        const char* label,
                                        const UiThemeTokens* tokens)
@@ -880,6 +1118,12 @@ static int ui_theme_store_custom_entry(const char* theme_id,
     return 1;
 }
 
+/**
+ * @brief ui_theme_load_external_file 函数。
+ *
+ * @param path 参数 `path`。
+ * @return 函数返回值。
+ */
 static int ui_theme_load_external_file(const char* path)
 {
     char* text = NULL;
@@ -944,6 +1188,17 @@ static int ui_theme_load_external_file(const char* path)
     return loaded;
 }
 
+/**
+ * @brief 重新扫描并加载外部主题目录。
+ * @param directory_path [in] 主题目录路径。
+ * @return 成功加载的主题数量。
+ *
+ * 算法步骤：
+ * 1. 备份当前外部主题集合；
+ * 2. 清空运行时外部主题表；
+ * 3. 扫描目录内 `.json` 文件并逐个解析；
+ * 4. 若本轮全部失败且之前有缓存，则回退到旧集合。
+ */
 int ui_theme_reload_external(const char* directory_path)
 {
     int loaded_count = 0;
@@ -1051,11 +1306,23 @@ int ui_theme_reload_external(const char* directory_path)
     return loaded_count;
 }
 
+/**
+ * @brief ui_theme_last_reload_error 函数。
+ *
+ * @param void 无参数。
+ * @return 函数返回值。
+ */
 const char* ui_theme_last_reload_error(void)
 {
     return g_last_reload_error;
 }
 
+/**
+ * @brief ui_theme_external_signature 函数。
+ *
+ * @param directory_path 参数 `directory_path`。
+ * @return 函数返回值。
+ */
 unsigned long long ui_theme_external_signature(const char* directory_path)
 {
     unsigned long long aggregate_hash = UI_THEME_HASH_OFFSET_BASIS;
@@ -1149,6 +1416,14 @@ unsigned long long ui_theme_external_signature(const char* directory_path)
     return aggregate_hash;
 }
 
+/**
+ * @brief ui_theme_load_selected_id 函数。
+ *
+ * @param path 参数 `path`。
+ * @param out_theme_id 参数 `out_theme_id`。
+ * @param out_theme_id_size 参数 `out_theme_id_size`。
+ * @return 函数返回值。
+ */
 int ui_theme_load_selected_id(const char* path, char* out_theme_id, size_t out_theme_id_size)
 {
     char* text = NULL;
@@ -1179,6 +1454,13 @@ int ui_theme_load_selected_id(const char* path, char* out_theme_id, size_t out_t
     return loaded && out_theme_id[0] != '\0';
 }
 
+/**
+ * @brief ui_duplicate_path_with_suffix 函数。
+ *
+ * @param path 参数 `path`。
+ * @param suffix 参数 `suffix`。
+ * @return 函数返回值。
+ */
 static char* ui_duplicate_path_with_suffix(const char* path, const char* suffix)
 {
     size_t path_length = 0u;
@@ -1202,6 +1484,13 @@ static char* ui_duplicate_path_with_suffix(const char* path, const char* suffix)
     return result;
 }
 
+/**
+ * @brief ui_replace_file_with_temp 函数。
+ *
+ * @param temp_path 参数 `temp_path`。
+ * @param target_path 参数 `target_path`。
+ * @return 函数返回值。
+ */
 static int ui_replace_file_with_temp(const char* temp_path, const char* target_path)
 {
     if (!temp_path || !target_path) {
@@ -1225,6 +1514,13 @@ static int ui_replace_file_with_temp(const char* temp_path, const char* target_p
 #endif
 }
 
+/**
+ * @brief ui_theme_save_selected_id 函数。
+ *
+ * @param path 参数 `path`。
+ * @param theme_id 参数 `theme_id`。
+ * @return 函数返回值。
+ */
 int ui_theme_save_selected_id(const char* path, const char* theme_id)
 {
     FILE* file = NULL;
@@ -1278,6 +1574,13 @@ int ui_theme_save_selected_id(const char* path, const char* theme_id)
     return 1;
 }
 
+/**
+ * @brief ui_theme_apply 函数。
+ *
+ * @param ctx 参数 `ctx`。
+ * @param tokens 参数 `tokens`。
+ * @return 无。
+ */
 void ui_theme_apply(struct nk_context* ctx, const UiThemeTokens* tokens)
 {
     struct nk_color table[NK_COLOR_COUNT];

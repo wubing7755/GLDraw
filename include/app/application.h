@@ -1,29 +1,17 @@
 /**
  * @file application.h
- * @brief Process-level application entry point.
- *
- * Role in project:
- * - Exposes the single runtime entry used by `main`.
- * - Owns startup, main loop, and shutdown orchestration.
- *
- * Module relationships:
- * - Called by `src/main.c`.
- * - Coordinates workspace, window, render, tools, and UI systems.
+ * @brief 应用层入口接口。
  */
 #ifndef GLDRAW_APP_APPLICATION_H
 #define GLDRAW_APP_APPLICATION_H
 
 /**
- * @brief Run the GLDraw application loop.
- * @return `0` on normal exit, `-1` on unrecoverable init/runtime failure.
+ * @brief 启动并运行 GLDraw 主循环。
  *
- * Edge cases:
- * - Returns early if critical resources fail to initialize.
- * - Performs internal cleanup on failure paths.
+ * 该函数负责初始化窗口、渲染系统、UI 系统与工作区，
+ * 在退出时完成资源释放与收尾。
  *
- * Time complexity:
- * - Init/teardown are effectively `O(1)`.
- * - Per-frame work depends on scene size and active UI/tool state.
+ * @return 正常退出返回 `0`；初始化失败或运行期不可恢复错误返回 `-1`。
  */
 int app_run(void);
 

@@ -17,6 +17,13 @@
  * Edge cases:
  * - Failures are handled inside `app_run()`.
  */
+
+/**
+ * @brief main 函数。
+ *
+ * @param void 无参数。
+ * @return 函数返回值。
+ */
 int main(void)
 {
     return app_run();

@@ -34,7 +34,12 @@ typedef struct {
     RectF bounds;
 } EllipseData;
 
-/** Bump per-object revision after successful mutations. Complexity: `O(1)`. */
+/**
+ * @brief object_bump_revision 函数。
+ *
+ * @param object 参数 `object`。
+ * @return 无。
+ */
 static void object_bump_revision(GraphicObject* object)
 {
     if (object) {
@@ -42,7 +47,14 @@ static void object_bump_revision(GraphicObject* object)
     }
 }
 
-/** Read style scalar by key. Complexity: `O(1)` with small fixed key set. */
+/**
+ * @brief style_get_scalar 函数。
+ *
+ * @param object 参数 `object`。
+ * @param key 参数 `key`。
+ * @param out_value 参数 `out_value`。
+ * @return 函数返回值。
+ */
 static int style_get_scalar(const GraphicObject* object, const char* key, float* out_value)
 {
     if (strcmp(key, "stroke_r") == 0) { *out_value = object->style.stroke_color.r; return 1; }
@@ -53,7 +65,14 @@ static int style_get_scalar(const GraphicObject* object, const char* key, float*
     return 0;
 }
 
-/** Write style scalar by key. Complexity: `O(1)` with small fixed key set. */
+/**
+ * @brief style_set_scalar 函数。
+ *
+ * @param object 参数 `object`。
+ * @param key 参数 `key`。
+ * @param value 参数 `value`。
+ * @return 函数返回值。
+ */
 static int style_set_scalar(GraphicObject* object, const char* key, float value)
 {
     if (strcmp(key, "stroke_r") == 0) { object->style.stroke_color.r = value; return 1; }
@@ -64,14 +83,25 @@ static int style_set_scalar(GraphicObject* object, const char* key, float value)
     return 0;
 }
 
-/** Line object destructor; releases `impl` then wrapper object. */
+/**
+ * @brief line_destroy 函数。
+ *
+ * @param object 参数 `object`。
+ * @return 无。
+ */
 static void line_destroy(GraphicObject* object)
 {
     free(object->impl);
     free(object);
 }
 
-/** Translate line endpoints by world delta. Complexity: `O(1)`. */
+/**
+ * @brief line_translate 函数。
+ *
+ * @param object 参数 `object`。
+ * @param delta 参数 `delta`。
+ * @return 无。
+ */
 static void line_translate(GraphicObject* object, Vec2 delta)
 {
     LineData* line = (LineData*)object->impl;
@@ -79,7 +109,12 @@ static void line_translate(GraphicObject* object, Vec2 delta)
     line->p2 = vec2_add(line->p2, delta);
 }
 
-/** Axis-aligned bounds for line segment. Complexity: `O(1)`. */
+/**
+ * @brief line_bounds 函数。
+ *
+ * @param object 参数 `object`。
+ * @return 函数返回值。
+ */
 static RectF line_bounds(const GraphicObject* object)
 {
     const LineData* line = (const LineData*)object->impl;
@@ -92,10 +127,12 @@ static RectF line_bounds(const GraphicObject* object)
 }
 
 /**
- * @brief Compute shortest distance from point to line segment AB.
- * Why:
- * - Projecting onto AB and clamping `t` gives nearest on-segment point robustly.
- * Complexity: `O(1)`.
+ * @brief line_distance_to_segment 函数。
+ *
+ * @param point 参数 `point`。
+ * @param a 参数 `a`。
+ * @param b 参数 `b`。
+ * @return 函数返回值。
  */
 static float line_distance_to_segment(Vec2 point, Vec2 a, Vec2 b)
 {
@@ -113,21 +150,39 @@ static float line_distance_to_segment(Vec2 point, Vec2 a, Vec2 b)
     return vec2_length(vec2_sub(point, nearest));
 }
 
-/** Line hit-test uses geometric point-to-segment distance. Complexity: `O(1)`. */
+/**
+ * @brief line_hit_test 函数。
+ *
+ * @param object 参数 `object`。
+ * @param point 参数 `point`。
+ * @param tolerance 参数 `tolerance`。
+ * @return 函数返回值。
+ */
 static int line_hit_test(const GraphicObject* object, Vec2 point, float tolerance)
 {
     const LineData* line = (const LineData*)object->impl;
     return line_distance_to_segment(point, line->p1, line->p2) <= tolerance;
 }
 
-/** Returns 2 (the line segment endpoints p1 and p2). */
+/**
+ * @brief line_get_path_point_count 函数。
+ *
+ * @param object 参数 `object`。
+ * @return 函数返回值。
+ */
 static int line_get_path_point_count(const GraphicObject* object)
 {
     (void)object;
     return 2;
 }
 
-/** Write line path points (p1, p2) into caller buffer (caller must provide at least 2 elements). */
+/**
+ * @brief line_write_path_points 函数。
+ *
+ * @param object 参数 `object`。
+ * @param out_points 参数 `out_points`。
+ * @return 无。
+ */
 static void line_write_path_points(const GraphicObject* object, Vec2* out_points)
 {
     const LineData* line = (const LineData*)object->impl;
@@ -135,7 +190,14 @@ static void line_write_path_points(const GraphicObject* object, Vec2* out_points
     out_points[1] = line->p2;
 }
 
-/** Read line scalar property or fallback to style scalar. */
+/**
+ * @brief line_get_scalar 函数。
+ *
+ * @param object 参数 `object`。
+ * @param key 参数 `key`。
+ * @param out_value 参数 `out_value`。
+ * @return 函数返回值。
+ */
 static int line_get_scalar(const GraphicObject* object, const char* key, float* out_value)
 {
     const LineData* line = (const LineData*)object->impl;
@@ -146,7 +208,14 @@ static int line_get_scalar(const GraphicObject* object, const char* key, float* 
     return style_get_scalar(object, key, out_value);
 }
 
-/** Write line scalar property or fallback to style scalar. */
+/**
+ * @brief line_set_scalar 函数。
+ *
+ * @param object 参数 `object`。
+ * @param key 参数 `key`。
+ * @param value 参数 `value`。
+ * @return 函数返回值。
+ */
 static int line_set_scalar(GraphicObject* object, const char* key, float value)
 {
     LineData* line = (LineData*)object->impl;
@@ -157,14 +226,25 @@ static int line_set_scalar(GraphicObject* object, const char* key, float value)
     return style_set_scalar(object, key, value);
 }
 
-/** Rectangle object destructor. */
+/**
+ * @brief rect_destroy 函数。
+ *
+ * @param object 参数 `object`。
+ * @return 无。
+ */
 static void rect_destroy(GraphicObject* object)
 {
     free(object->impl);
     free(object);
 }
 
-/** Translate rectangle origin by world delta. */
+/**
+ * @brief rect_translate 函数。
+ *
+ * @param object 参数 `object`。
+ * @param delta 参数 `delta`。
+ * @return 无。
+ */
 static void rect_translate(GraphicObject* object, Vec2 delta)
 {
     RectData* rect = (RectData*)object->impl;
@@ -172,14 +252,26 @@ static void rect_translate(GraphicObject* object, Vec2 delta)
     rect->rect.y += delta.y;
 }
 
-/** Return rectangle bounds directly from payload. */
+/**
+ * @brief rect_bounds 函数。
+ *
+ * @param object 参数 `object`。
+ * @return 函数返回值。
+ */
 static RectF rect_bounds(const GraphicObject* object)
 {
     const RectData* rect = (const RectData*)object->impl;
     return rect->rect;
 }
 
-/** Rectangle hit-test expands bounds by tolerance for easier selection. */
+/**
+ * @brief rect_hit_test 函数。
+ *
+ * @param object 参数 `object`。
+ * @param point 参数 `point`。
+ * @param tolerance 参数 `tolerance`。
+ * @return 函数返回值。
+ */
 static int rect_hit_test(const GraphicObject* object, Vec2 point, float tolerance)
 {
     RectF bounds = rect_bounds(object);
@@ -190,14 +282,25 @@ static int rect_hit_test(const GraphicObject* object, Vec2 point, float toleranc
     return rectf_contains_point(&bounds, point);
 }
 
-/** Returns 5 (4 corners plus closing repeat of first corner to close the polyline). */
+/**
+ * @brief rect_get_path_point_count 函数。
+ *
+ * @param object 参数 `object`。
+ * @return 函数返回值。
+ */
 static int rect_get_path_point_count(const GraphicObject* object)
 {
     (void)object;
     return 5;
 }
 
-/** Emit rectangle corners plus closing point. */
+/**
+ * @brief rect_write_path_points 函数。
+ *
+ * @param object 参数 `object`。
+ * @param out_points 参数 `out_points`。
+ * @return 无。
+ */
 static void rect_write_path_points(const GraphicObject* object, Vec2* out_points)
 {
     const RectData* rect = (const RectData*)object->impl;
@@ -208,7 +311,14 @@ static void rect_write_path_points(const GraphicObject* object, Vec2* out_points
     out_points[4] = out_points[0];
 }
 
-/** Read rectangle scalar property or style scalar. */
+/**
+ * @brief rect_get_scalar 函数。
+ *
+ * @param object 参数 `object`。
+ * @param key 参数 `key`。
+ * @param out_value 参数 `out_value`。
+ * @return 函数返回值。
+ */
 static int rect_get_scalar(const GraphicObject* object, const char* key, float* out_value)
 {
     const RectData* rect = (const RectData*)object->impl;
@@ -219,7 +329,14 @@ static int rect_get_scalar(const GraphicObject* object, const char* key, float* 
     return style_get_scalar(object, key, out_value);
 }
 
-/** Write rectangle scalar property or style scalar. */
+/**
+ * @brief rect_set_scalar 函数。
+ *
+ * @param object 参数 `object`。
+ * @param key 参数 `key`。
+ * @param value 参数 `value`。
+ * @return 函数返回值。
+ */
 static int rect_set_scalar(GraphicObject* object, const char* key, float value)
 {
     RectData* rect = (RectData*)object->impl;
@@ -230,14 +347,25 @@ static int rect_set_scalar(GraphicObject* object, const char* key, float value)
     return style_set_scalar(object, key, value);
 }
 
-/** Ellipse object destructor. */
+/**
+ * @brief ellipse_destroy 函数。
+ *
+ * @param object 参数 `object`。
+ * @return 无。
+ */
 static void ellipse_destroy(GraphicObject* object)
 {
     free(object->impl);
     free(object);
 }
 
-/** Translate ellipse bounds origin by world delta. */
+/**
+ * @brief ellipse_translate 函数。
+ *
+ * @param object 参数 `object`。
+ * @param delta 参数 `delta`。
+ * @return 无。
+ */
 static void ellipse_translate(GraphicObject* object, Vec2 delta)
 {
     EllipseData* ellipse = (EllipseData*)object->impl;
@@ -245,14 +373,26 @@ static void ellipse_translate(GraphicObject* object, Vec2 delta)
     ellipse->bounds.y += delta.y;
 }
 
-/** Return ellipse axis-aligned bounds. */
+/**
+ * @brief ellipse_bounds 函数。
+ *
+ * @param object 参数 `object`。
+ * @return 函数返回值。
+ */
 static RectF ellipse_bounds(const GraphicObject* object)
 {
     const EllipseData* ellipse = (const EllipseData*)object->impl;
     return ellipse->bounds;
 }
 
-/** Hit-test in ellipse's normalized unit-circle coordinate space. Complexity: `O(1)`. */
+/**
+ * @brief ellipse_hit_test 函数。
+ *
+ * @param object 参数 `object`。
+ * @param point 参数 `point`。
+ * @param tolerance 参数 `tolerance`。
+ * @return 函数返回值。
+ */
 static int ellipse_hit_test(const GraphicObject* object, Vec2 point, float tolerance)
 {
     RectF bounds = ellipse_bounds(object);
@@ -271,7 +411,12 @@ static int ellipse_hit_test(const GraphicObject* object, Vec2 point, float toler
     return (nx * nx + ny * ny) <= 1.0f;
 }
 
-/** Ellipse polyline uses fixed segment count plus closure point. */
+/**
+ * @brief ellipse_get_path_point_count 函数。
+ *
+ * @param object 参数 `object`。
+ * @return 函数返回值。
+ */
 static int ellipse_get_path_point_count(const GraphicObject* object)
 {
     (void)object;
@@ -279,9 +424,11 @@ static int ellipse_get_path_point_count(const GraphicObject* object)
 }
 
 /**
- * @brief Emit sampled ellipse perimeter.
- * Risk note:
- * - Caller must provide at least `ELLIPSE_SEGMENTS + 1` output points.
+ * @brief ellipse_write_path_points 函数。
+ *
+ * @param object 参数 `object`。
+ * @param out_points 参数 `out_points`。
+ * @return 无。
  */
 static void ellipse_write_path_points(const GraphicObject* object, Vec2* out_points)
 {
@@ -300,7 +447,14 @@ static void ellipse_write_path_points(const GraphicObject* object, Vec2* out_poi
     out_points[ELLIPSE_SEGMENTS] = out_points[0];
 }
 
-/** Read ellipse scalar property or style scalar. */
+/**
+ * @brief ellipse_get_scalar 函数。
+ *
+ * @param object 参数 `object`。
+ * @param key 参数 `key`。
+ * @param out_value 参数 `out_value`。
+ * @return 函数返回值。
+ */
 static int ellipse_get_scalar(const GraphicObject* object, const char* key, float* out_value)
 {
     const EllipseData* ellipse = (const EllipseData*)object->impl;
@@ -311,7 +465,14 @@ static int ellipse_get_scalar(const GraphicObject* object, const char* key, floa
     return style_get_scalar(object, key, out_value);
 }
 
-/** Write ellipse scalar property or style scalar. */
+/**
+ * @brief ellipse_set_scalar 函数。
+ *
+ * @param object 参数 `object`。
+ * @param key 参数 `key`。
+ * @param value 参数 `value`。
+ * @return 函数返回值。
+ */
 static int ellipse_set_scalar(GraphicObject* object, const char* key, float value)
 {
     EllipseData* ellipse = (EllipseData*)object->impl;
@@ -361,7 +522,15 @@ static const GraphicObjectVTable g_ellipse_vtable = {
     ellipse_set_scalar
 };
 
-/** Allocate common object wrapper; takes ownership of `impl` on success. */
+/**
+ * @brief object_alloc 函数。
+ *
+ * @param type 参数 `type`。
+ * @param vtable 参数 `vtable`。
+ * @param impl 参数 `impl`。
+ * @param style 参数 `style`。
+ * @return 函数返回值。
+ */
 static GraphicObject* object_alloc(GraphicObjectType type,
                                    const GraphicObjectVTable* vtable,
                                    void* impl,
@@ -381,7 +550,12 @@ static GraphicObject* object_alloc(GraphicObjectType type,
     return object;
 }
 
-/** Return default stroke style for new objects. */
+/**
+ * @brief object_default_style 函数。
+ *
+ * @param void 无参数。
+ * @return 函数返回值。
+ */
 GraphicStyle object_default_style(void)
 {
     GraphicStyle style;
@@ -393,7 +567,12 @@ GraphicStyle object_default_style(void)
     return style;
 }
 
-/** Return debug/display name by object type. */
+/**
+ * @brief object_type_name 函数。
+ *
+ * @param type 参数 `type`。
+ * @return 函数返回值。
+ */
 const char* object_type_name(GraphicObjectType type)
 {
     switch (type) {
@@ -408,7 +587,14 @@ const char* object_type_name(GraphicObjectType type)
     }
 }
 
-/** Create line object from two endpoints. */
+/**
+ * @brief object_create_line 函数。
+ *
+ * @param p1 参数 `p1`。
+ * @param p2 参数 `p2`。
+ * @param style 参数 `style`。
+ * @return 函数返回值。
+ */
 GraphicObject* object_create_line(Vec2 p1, Vec2 p2, GraphicStyle style)
 {
     LineData* line = (LineData*)calloc(1, sizeof(*line));
@@ -420,7 +606,13 @@ GraphicObject* object_create_line(Vec2 p1, Vec2 p2, GraphicStyle style)
     return object_alloc(GRAPHIC_OBJECT_LINE, &g_line_vtable, line, style);
 }
 
-/** Create rectangle object from bounds. */
+/**
+ * @brief object_create_rect 函数。
+ *
+ * @param rect 参数 `rect`。
+ * @param style 参数 `style`。
+ * @return 函数返回值。
+ */
 GraphicObject* object_create_rect(RectF rect, GraphicStyle style)
 {
     RectData* data = (RectData*)calloc(1, sizeof(*data));
@@ -431,7 +623,13 @@ GraphicObject* object_create_rect(RectF rect, GraphicStyle style)
     return object_alloc(GRAPHIC_OBJECT_RECT, &g_rect_vtable, data, style);
 }
 
-/** Create ellipse object from bounds. */
+/**
+ * @brief object_create_ellipse 函数。
+ *
+ * @param bounds 参数 `bounds`。
+ * @param style 参数 `style`。
+ * @return 函数返回值。
+ */
 GraphicObject* object_create_ellipse(RectF bounds, GraphicStyle style)
 {
     EllipseData* data = (EllipseData*)calloc(1, sizeof(*data));
@@ -445,6 +643,13 @@ GraphicObject* object_create_ellipse(RectF bounds, GraphicStyle style)
 /**
  * @brief Deep clone object by concrete type.
  * @return New object with copied ID/style/revision, or `NULL` on failure.
+ */
+
+/**
+ * @brief object_clone 函数。
+ *
+ * @param object 参数 `object`。
+ * @return 函数返回值。
  */
 GraphicObject* object_clone(const GraphicObject* object)
 {
@@ -486,7 +691,12 @@ GraphicObject* object_clone(const GraphicObject* object)
     return clone;
 }
 
-/** Dispatch destruction through vtable. */
+/**
+ * @brief object_destroy 函数。
+ *
+ * @param object 参数 `object`。
+ * @return 无。
+ */
 void object_destroy(GraphicObject* object)
 {
     if (object && object->vtable && object->vtable->destroy) {
@@ -494,7 +704,13 @@ void object_destroy(GraphicObject* object)
     }
 }
 
-/** Translate object and bump revision on success. */
+/**
+ * @brief object_translate 函数。
+ *
+ * @param object 参数 `object`。
+ * @param delta 参数 `delta`。
+ * @return 无。
+ */
 void object_translate(GraphicObject* object, Vec2 delta)
 {
     if (!object || !object->vtable || !object->vtable->translate) {
@@ -504,7 +720,12 @@ void object_translate(GraphicObject* object, Vec2 delta)
     object_bump_revision(object);
 }
 
-/** Query object bounds via vtable, fallback to empty rect. */
+/**
+ * @brief object_get_bounds 函数。
+ *
+ * @param object 参数 `object`。
+ * @return 函数返回值。
+ */
 RectF object_get_bounds(const GraphicObject* object)
 {
     RectF empty = {0.0f, 0.0f, 0.0f, 0.0f};
@@ -514,7 +735,14 @@ RectF object_get_bounds(const GraphicObject* object)
     return object->vtable->get_bounds(object);
 }
 
-/** Hit-test object via vtable. */
+/**
+ * @brief object_hit_test 函数。
+ *
+ * @param object 参数 `object`。
+ * @param point 参数 `point`。
+ * @param tolerance 参数 `tolerance`。
+ * @return 函数返回值。
+ */
 int object_hit_test(const GraphicObject* object, Vec2 point, float tolerance)
 {
     if (!object || !object->vtable || !object->vtable->hit_test) {
@@ -523,7 +751,12 @@ int object_hit_test(const GraphicObject* object, Vec2 point, float tolerance)
     return object->vtable->hit_test(object, point, tolerance);
 }
 
-/** Query path sample count via vtable. */
+/**
+ * @brief object_get_path_point_count 函数。
+ *
+ * @param object 参数 `object`。
+ * @return 函数返回值。
+ */
 int object_get_path_point_count(const GraphicObject* object)
 {
     if (!object || !object->vtable || !object->vtable->get_path_point_count) {
@@ -532,7 +765,13 @@ int object_get_path_point_count(const GraphicObject* object)
     return object->vtable->get_path_point_count(object);
 }
 
-/** Write path points via vtable. */
+/**
+ * @brief object_write_path_points 函数。
+ *
+ * @param object 参数 `object`。
+ * @param out_points 参数 `out_points`。
+ * @return 无。
+ */
 void object_write_path_points(const GraphicObject* object, Vec2* out_points)
 {
     if (!object || !object->vtable || !object->vtable->write_path_points) {
@@ -541,7 +780,14 @@ void object_write_path_points(const GraphicObject* object, Vec2* out_points)
     object->vtable->write_path_points(object, out_points);
 }
 
-/** Query scalar property via vtable. */
+/**
+ * @brief object_get_scalar 函数。
+ *
+ * @param object 参数 `object`。
+ * @param key 参数 `key`。
+ * @param out_value 参数 `out_value`。
+ * @return 函数返回值。
+ */
 int object_get_scalar(const GraphicObject* object, const char* key, float* out_value)
 {
     if (!object || !object->vtable || !object->vtable->get_scalar) {
@@ -550,7 +796,14 @@ int object_get_scalar(const GraphicObject* object, const char* key, float* out_v
     return object->vtable->get_scalar(object, key, out_value);
 }
 
-/** Set scalar property via vtable and bump revision on success. */
+/**
+ * @brief object_set_scalar 函数。
+ *
+ * @param object 参数 `object`。
+ * @param key 参数 `key`。
+ * @param value 参数 `value`。
+ * @return 函数返回值。
+ */
 int object_set_scalar(GraphicObject* object, const char* key, float value)
 {
     if (!object || !object->vtable || !object->vtable->set_scalar) {
@@ -563,7 +816,13 @@ int object_set_scalar(GraphicObject* object, const char* key, float value)
     return 1;
 }
 
-/** Update stroke color and revision. */
+/**
+ * @brief object_set_stroke_color 函数。
+ *
+ * @param object 参数 `object`。
+ * @param color 参数 `color`。
+ * @return 无。
+ */
 void object_set_stroke_color(GraphicObject* object, Color color)
 {
     if (!object) {
@@ -573,7 +832,13 @@ void object_set_stroke_color(GraphicObject* object, Color color)
     object_bump_revision(object);
 }
 
-/** Update stroke width and revision. */
+/**
+ * @brief object_set_stroke_width 函数。
+ *
+ * @param object 参数 `object`。
+ * @param stroke_width 参数 `stroke_width`。
+ * @return 无。
+ */
 void object_set_stroke_width(GraphicObject* object, float stroke_width)
 {
     if (!object) {

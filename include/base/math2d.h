@@ -1,13 +1,9 @@
 /**
  * @file math2d.h
- * @brief Inline 2D math helpers shared by canvas/tools/render code.
+ * @brief 2D 数学内联工具函数。
  *
- * Role in project:
- * - Centralizes tiny vector/rectangle operations.
- * - Avoids repeated ad-hoc math across modules.
- *
- * Module relationships:
- * - Consumed by canvas transforms, tool delta handling, and rendering math.
+ * 本文件提供向量运算、标量夹取和矩形判定等常用基础能力。
+ * 所有函数均为 `static inline`，用于减少跨模块重复代码。
  */
 #ifndef GLDRAW_BASE_MATH2D_H
 #define GLDRAW_BASE_MATH2D_H
@@ -15,7 +11,12 @@
 #include <math.h>
 #include <base/types.h>
 
-/** Build a vector from two scalars. Complexity: `O(1)`. */
+/**
+ * @brief 构造二维向量。
+ * @param x X 分量。
+ * @param y Y 分量。
+ * @return 构造后的 `Vec2`。
+ */
 static inline Vec2 vec2_make(float x, float y)
 {
     Vec2 value;
@@ -24,46 +25,77 @@ static inline Vec2 vec2_make(float x, float y)
     return value;
 }
 
-/** Add two vectors component-wise. Complexity: `O(1)`. */
+/**
+ * @brief 逐分量相加两个向量。
+ * @param a 第一个向量。
+ * @param b 第二个向量。
+ * @return `a + b`。
+ */
 static inline Vec2 vec2_add(Vec2 a, Vec2 b)
 {
     return vec2_make(a.x + b.x, a.y + b.y);
 }
 
-/** Subtract two vectors component-wise. Complexity: `O(1)`. */
+/**
+ * @brief 逐分量相减两个向量。
+ * @param a 被减向量。
+ * @param b 减数向量。
+ * @return `a - b`。
+ */
 static inline Vec2 vec2_sub(Vec2 a, Vec2 b)
 {
     return vec2_make(a.x - b.x, a.y - b.y);
 }
 
-/** Multiply a vector by a scalar. Complexity: `O(1)`. */
+/**
+ * @brief 向量按标量缩放。
+ * @param value 输入向量。
+ * @param scalar 缩放系数。
+ * @return `value * scalar`。
+ */
 static inline Vec2 vec2_scale(Vec2 value, float scalar)
 {
     return vec2_make(value.x * scalar, value.y * scalar);
 }
 
-/** Dot product of two vectors. Complexity: `O(1)`. */
+/**
+ * @brief 计算两个向量的点积。
+ * @param a 第一个向量。
+ * @param b 第二个向量。
+ * @return 点积值 `a.x * b.x + a.y * b.y`。
+ */
 static inline float vec2_dot(Vec2 a, Vec2 b)
 {
     return a.x * b.x + a.y * b.y;
 }
 
-/** Squared length of a vector (avoids `sqrt`). Complexity: `O(1)`. */
+/**
+ * @brief 计算向量长度平方。
+ * @param value 输入向量。
+ * @return 长度平方值（避免 `sqrt` 开销）。
+ */
 static inline float vec2_length_sq(Vec2 value)
 {
     return vec2_dot(value, value);
 }
 
-/** Euclidean vector length. Complexity: `O(1)`. */
+/**
+ * @brief 计算向量欧氏长度。
+ * @param value 输入向量。
+ * @return 向量长度。
+ */
 static inline float vec2_length(Vec2 value)
 {
     return sqrtf(vec2_length_sq(value));
 }
 
 /**
- * Clamp a scalar into `[min_value, max_value]`.
- * Edge case: behavior assumes `min_value <= max_value`.
- * Complexity: `O(1)`.
+ * @brief 将标量约束到闭区间 `[min_value, max_value]`。
+ * @param value 输入值。
+ * @param min_value 下界。
+ * @param max_value 上界。
+ * @return 夹取后的值。
+ * @note 调用方应保证 `min_value <= max_value`。
  */
 static inline float clampf(float value, float min_value, float max_value)
 {
@@ -76,34 +108,51 @@ static inline float clampf(float value, float min_value, float max_value)
     return value;
 }
 
-/** Rectangle left edge (`x`). Complexity: `O(1)`. */
+/**
+ * @brief 获取矩形左边界。
+ * @param rect 输入矩形。
+ * @return 左边界 `x`。
+ */
 static inline float rectf_left(const RectF* rect)
 {
     return rect->x;
 }
 
-/** Rectangle right edge (`x + w`). Complexity: `O(1)`. */
+/**
+ * @brief 获取矩形右边界。
+ * @param rect 输入矩形。
+ * @return 右边界 `x + w`。
+ */
 static inline float rectf_right(const RectF* rect)
 {
     return rect->x + rect->w;
 }
 
-/** Rectangle bottom edge (`y`). Complexity: `O(1)`. */
+/**
+ * @brief 获取矩形下边界。
+ * @param rect 输入矩形。
+ * @return 下边界 `y`。
+ */
 static inline float rectf_bottom(const RectF* rect)
 {
     return rect->y;
 }
 
-/** Rectangle top edge (`y + h`). Complexity: `O(1)`. */
+/**
+ * @brief 获取矩形上边界。
+ * @param rect 输入矩形。
+ * @return 上边界 `y + h`。
+ */
 static inline float rectf_top(const RectF* rect)
 {
     return rect->y + rect->h;
 }
 
 /**
- * Inclusive point-in-rectangle test.
- * Risk: caller must pass a non-null `rect`.
- * Complexity: `O(1)`.
+ * @brief 判断点是否位于矩形内部（含边界）。
+ * @param rect 输入矩形。
+ * @param point 待检测点。
+ * @return 点在矩形内返回非零，否则返回 0。
  */
 static inline int rectf_contains_point(const RectF* rect, Vec2 point)
 {

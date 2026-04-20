@@ -71,6 +71,14 @@ static const UiQuickActionDef g_quick_actions[] = {
     { "Fit", MENU_ID_VIEW_ZOOM_FIT, 40.0f, "Zoom to fit (Ctrl+0)" },
 };
 
+/**
+ * @brief ui_build_menu_item_text 函数。
+ *
+ * @param out_text 参数 `out_text`。
+ * @param out_size 参数 `out_size`。
+ * @param item 参数 `item`。
+ * @return 无。
+ */
 static void ui_build_menu_item_text(char* out_text, size_t out_size, const MenuItemDef* item)
 {
     if (!out_text || out_size == 0 || !item || !item->label) {
@@ -295,6 +303,12 @@ static int ui_render_dropdown(struct nk_context* ctx, int parent_id)
     return clicked_id;
 }
 
+/**
+ * @brief ui_render_theme_dropdown 函数。
+ *
+ * @param menubar 参数 `menubar`。
+ * @return 函数返回值。
+ */
 static int ui_render_theme_dropdown(UiMenuBar* menubar)
 {
     struct nk_context* ctx = NULL;
@@ -333,6 +347,13 @@ static int ui_render_theme_dropdown(UiMenuBar* menubar)
     return -1;
 }
 
+/**
+ * @brief ui_render_top_menu 函数。
+ *
+ * @param menubar 参数 `menubar`。
+ * @param menu 参数 `menu`。
+ * @return 函数返回值。
+ */
 static int ui_render_top_menu(UiMenuBar* menubar, const UiTopMenuDef* menu)
 {
     struct nk_context* ctx = NULL;
@@ -362,6 +383,14 @@ static int ui_render_top_menu(UiMenuBar* menubar, const UiTopMenuDef* menu)
     return clicked_id;
 }
 
+/**
+ * @brief ui_dispatch_menu_action 函数。
+ *
+ * @param menubar 参数 `menubar`。
+ * @param workspace 参数 `workspace`。
+ * @param clicked_id 参数 `clicked_id`。
+ * @return 无。
+ */
 static void ui_dispatch_menu_action(UiMenuBar* menubar, Workspace* workspace, int clicked_id)
 {
     if (!menubar || !workspace || clicked_id == -1) {
@@ -376,6 +405,14 @@ static void ui_dispatch_menu_action(UiMenuBar* menubar, Workspace* workspace, in
     ui_menu_execute(workspace, (MenuId)clicked_id);
 }
 
+/**
+ * @brief ui_menubar_build 函数。
+ *
+ * @param menubar 参数 `menubar`。
+ * @param workspace 参数 `workspace`。
+ * @param window_width 参数 `window_width`。
+ * @return 无。
+ */
 void ui_menubar_build(UiMenuBar* menubar, Workspace* workspace, int window_width)
 {
     struct nk_context* ctx;

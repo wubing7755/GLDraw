@@ -99,13 +99,23 @@ void platform_window_shutdown(PlatformWindow* window)
     }
 }
 
-/** Poll pending OS events. */
+/**
+ * @brief platform_window_poll_events 函数。
+ *
+ * @param void 无参数。
+ * @return 无。
+ */
 void platform_window_poll_events(void)
 {
     glfwPollEvents();
 }
 
-/** Swap front/back buffers for valid window handle. */
+/**
+ * @brief platform_window_swap_buffers 函数。
+ *
+ * @param window 参数 `window`。
+ * @return 无。
+ */
 void platform_window_swap_buffers(PlatformWindow* window)
 {
     if (window && window->handle) {
@@ -113,7 +123,12 @@ void platform_window_swap_buffers(PlatformWindow* window)
     }
 }
 
-/** Return close-state (treat invalid window as closed). */
+/**
+ * @brief platform_window_should_close 函数。
+ *
+ * @param window 参数 `window`。
+ * @return 函数返回值。
+ */
 int platform_window_should_close(const PlatformWindow* window)
 {
     if (!window || !window->handle) {

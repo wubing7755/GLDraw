@@ -78,6 +78,13 @@ static MenuItemDef g_menu_items[] = {
  * @brief Get the number of menu item definitions.
  * @return Total count of entries in the menu definition table.
  */
+
+/**
+ * @brief ui_menu_def_count 函数。
+ *
+ * @param void 无参数。
+ * @return 函数返回值。
+ */
 int ui_menu_def_count(void)
 {
     return (int)(sizeof(g_menu_items) / sizeof(g_menu_items[0]));
@@ -86,6 +93,13 @@ int ui_menu_def_count(void)
 /**
  * @brief Get the menu item definition table.
  * @return Pointer to the static menu item array.
+ */
+
+/**
+ * @brief ui_menu_def_items 函数。
+ *
+ * @param void 无参数。
+ * @return 函数返回值。
  */
 const MenuItemDef* ui_menu_def_items(void)
 {

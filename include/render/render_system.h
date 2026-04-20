@@ -1,14 +1,6 @@
 /**
  * @file render_system.h
- * @brief OpenGL renderer interface for canvas/document drawing.
- *
- * Role in project:
- * - Owns shader program and GPU buffers.
- * - Draws grid, objects, selection emphasis, and tool overlays.
- *
- * Module relationships:
- * - Consumes `Document` geometry and `CanvasView` transforms.
- * - Called each frame by the application loop.
+ * @brief OpenGL 渲染系统接口。
  */
 #ifndef GLDRAW_RENDER_RENDER_SYSTEM_H
 #define GLDRAW_RENDER_RENDER_SYSTEM_H
@@ -19,13 +11,40 @@
 
 typedef struct RenderSystem RenderSystem;
 
-/** Create renderer resources for an existing window/context. Returns `NULL` on failure. */
+/**
+ * @brief 创建渲染系统并初始化 GPU 资源。
+ * @param window 已初始化的窗口与 OpenGL 上下文。
+ * @return 创建成功返回渲染系统指针，失败返回 `NULL`。
+ */
 RenderSystem* render_system_create(PlatformWindow* window);
-/** Release all GL/heap resources owned by renderer. */
+
+/**
+ * @brief 销毁渲染系统并释放 GPU/堆资源。
+ * @param renderer 渲染系统实例。
+ * @return 无。
+ */
 void render_system_destroy(RenderSystem* renderer);
-/** Update framebuffer-dependent renderer state after resize. */
+
+/**
+ * @brief 处理窗口尺寸变化。
+ * @param renderer 渲染系统实例。
+ * @param width 新宽度（像素）。
+ * @param height 新高度（像素）。
+ * @return 无。
+ */
 void render_system_resize(RenderSystem* renderer, int width, int height);
-/** Draw one frame of the canvas scene. Complexity is roughly `O(object_count + grid_lines)`. */
+
+/**
+ * @brief 绘制一帧画布内容。
+ *
+ * 主要流程：清屏 -> 绘制网格/坐标轴 -> 绘制文档对象 -> 绘制工具叠加预览。
+ *
+ * @param renderer 渲染系统实例。
+ * @param document 当前文档。
+ * @param canvas 当前画布视图。
+ * @param overlay_object 工具预览对象（可为 `NULL`）。
+ * @return 无。
+ */
 void render_system_draw(RenderSystem* renderer,
                         const Document* document,
                         const CanvasView* canvas,

@@ -1,14 +1,6 @@
 /**
  * @file ui_system.h
- * @brief Nuklear UI system lifecycle and layout query API.
- *
- * Role in project:
- * - Builds toolbar/menu/inspector/status UI each frame.
- * - Publishes UI layout bounds used by app input filtering and canvas viewport.
- *
- * Module relationships:
- * - Created/destroyed by application runtime.
- * - Reads/writes workspace state and consumes platform window context.
+ * @brief UI 系统生命周期与布局查询接口。
  */
 #ifndef GLDRAW_UI_UI_SYSTEM_H
 #define GLDRAW_UI_UI_SYSTEM_H
@@ -20,27 +12,84 @@ struct Workspace;
 
 typedef struct UiSystem UiSystem;
 
-/** Create UI system for an initialized window/context. Returns `NULL` on failure. */
+/**
+ * @brief 创建 UI 系统实例。
+ * @param window 已初始化的平台窗口。
+ * @return 创建成功返回 `UiSystem*`，失败返回 `NULL`。
+ */
 UiSystem* ui_system_create(PlatformWindow* window);
-/** Destroy UI resources and contexts. */
+
+/**
+ * @brief 销毁 UI 系统并释放资源。
+ * @param ui UI 系统实例。
+ * @return 无。
+ */
 void ui_system_destroy(UiSystem* ui);
-/** Begin a new UI frame (input capture/reset). */
+
+/**
+ * @brief 开始一帧 UI 构建。
+ * @param ui UI 系统实例。
+ * @return 无。
+ */
 void ui_system_begin_frame(UiSystem* ui);
-/** Build all UI panels and apply workspace mutations. */
+
+/**
+ * @brief 构建整帧 UI 并回写工作区状态。
+ * @param ui UI 系统实例。
+ * @param workspace 工作区。
+ * @return 无。
+ */
 void ui_system_build(UiSystem* ui, struct Workspace* workspace);
-/** Render prepared UI draw commands. */
+
+/**
+ * @brief 提交 UI 绘制命令。
+ * @param ui UI 系统实例。
+ * @return 无。
+ */
 void ui_system_render(UiSystem* ui);
-/** Return non-zero when any UI widget is actively interacting. */
+
+/**
+ * @brief 查询 UI 是否存在进行中的交互。
+ * @param ui UI 系统实例。
+ * @return 有交互返回非零，否则返回 0。
+ */
 int ui_system_has_active_interaction(const UiSystem* ui);
-/** Return non-zero when a screen point is over UI-occupied regions. */
+
+/**
+ * @brief 判断屏幕点是否被 UI 区域拦截。
+ * @param ui UI 系统实例。
+ * @param screen_pos 屏幕坐标点。
+ * @return 被 UI 区域拦截返回非零，否则返回 0。
+ */
 int ui_system_blocks_pointer(const UiSystem* ui, Vec2 screen_pos);
-/** Get clamped UI-published window bounds used for hit testing and viewport fallback. */
+
+/**
+ * @brief 获取窗口命中测试边界。
+ * @param ui UI 系统实例。
+ * @return 窗口边界矩形。
+ */
 RectF ui_system_window_bounds(const UiSystem* ui);
-/** Get computed content area available for canvas. */
+
+/**
+ * @brief 获取画布内容区边界。
+ * @param ui UI 系统实例。
+ * @return 内容区矩形。
+ */
 RectF ui_system_content_bounds(const UiSystem* ui);
-/** Return non-zero when screen point lies inside canvas content region. */
+
+/**
+ * @brief 判断点是否位于画布内容区。
+ * @param ui UI 系统实例。
+ * @param screen_pos 屏幕坐标点。
+ * @return 位于画布区域返回非零，否则返回 0。
+ */
 int ui_system_point_in_canvas(const UiSystem* ui, Vec2 screen_pos);
-/** Get canvas background color derived from active theme. */
+
+/**
+ * @brief 获取当前主题的画布背景色。
+ * @param ui UI 系统实例。
+ * @return 画布背景色。
+ */
 Color ui_system_canvas_background(const UiSystem* ui);
 
 #endif /* GLDRAW_UI_UI_SYSTEM_H */

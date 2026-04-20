@@ -22,6 +22,14 @@
 
 #include <GLFW/glfw3.h>
 
+/**
+ * @brief 创建新文档并重置相关状态。
+ *
+ * @param workspace [in,out] 工作区对象。
+ * @return 无。
+ *
+ * @note 会重建历史栈并重置画布缩放/中心，确保“新建文档”状态一致。
+ */
 static void app_workspace_new(Workspace* workspace)
 {
     if (!workspace) {
@@ -47,6 +55,18 @@ static void app_workspace_new(Workspace* workspace)
     LOG_INFO("%s", "Created new document");
 }
 
+/**
+ * @brief 将视图缩放到包围全部对象的最佳范围。
+ *
+ * 算法步骤：
+ * 1. 遍历对象，计算整体包围盒；
+ * 2. 对包围盒增加固定边距；
+ * 3. 基于视口宽高计算 `zoom_x/zoom_y`；
+ * 4. 取较小值作为新缩放并将中心置于包围盒中心。
+ *
+ * @param workspace [in,out] 工作区对象。
+ * @return 无。
+ */
 static void app_zoom_to_fit(Workspace* workspace)
 {
     if (!workspace || !workspace->canvas.document) {
@@ -111,6 +131,11 @@ static void app_zoom_to_fit(Workspace* workspace)
                                 new_zoom);
 }
 
+/**
+ * @brief 切换画布网格显示。
+ * @param workspace [in,out] 工作区对象。
+ * @return 无。
+ */
 static void app_toggle_grid(Workspace* workspace)
 {
     if (!workspace) {
@@ -119,24 +144,44 @@ static void app_toggle_grid(Workspace* workspace)
     workspace->canvas.show_grid = !workspace->canvas.show_grid;
 }
 
+/**
+ * @brief 触发检查器显示切换动作（当前为日志占位）。
+ * @param workspace [in,out] 工作区对象（当前未直接使用）。
+ * @return 无。
+ */
 static void app_toggle_inspector(Workspace* workspace)
 {
     (void)workspace;
     LOG_INFO("%s", "Inspector panel toggled");
 }
 
+/**
+ * @brief 触发快捷键帮助动作（当前为日志占位）。
+ * @param workspace [in,out] 工作区对象（当前未直接使用）。
+ * @return 无。
+ */
 static void app_show_shortcuts(Workspace* workspace)
 {
     (void)workspace;
     LOG_INFO("%s", "Keyboard shortcuts dialog requested");
 }
 
+/**
+ * @brief 触发关于对话框动作（当前为日志占位）。
+ * @param workspace [in,out] 工作区对象（当前未直接使用）。
+ * @return 无。
+ */
 static void app_show_about(Workspace* workspace)
 {
     (void)workspace;
     LOG_INFO("%s", "About dialog requested");
 }
 
+/**
+ * @brief 执行“另存为”命令。
+ * @param workspace [in,out] 工作区对象。
+ * @return 保存成功返回非零，否则返回 0。
+ */
 static int app_save_as(Workspace* workspace)
 {
     if (workspace->save_document) {
@@ -145,14 +190,24 @@ static int app_save_as(Workspace* workspace)
     return 0;
 }
 
+/**
+ * @brief 执行 PNG 导出命令（待实现）。
+ * @param workspace [in,out] 工作区对象（当前未直接使用）。
+ * @return 当前固定返回 0。
+ */
 static int app_export_png(Workspace* workspace)
 {
     (void)workspace;
-    // TODO: Implement PNG export via framebuffer capture
+    /* TODO: Implement PNG export via framebuffer capture. */
     LOG_INFO("%s", "Export PNG requested");
     return 0;
 }
 
+/**
+ * @brief 判断菜单动作当前是否可用。
+ * @param id [in] 菜单动作 ID。
+ * @return 可用返回非零，不可用返回 0。
+ */
 int ui_menu_is_action_available(MenuId id)
 {
     switch (id) {
@@ -167,6 +222,18 @@ int ui_menu_is_action_available(MenuId id)
     }
 }
 
+/**
+ * @brief 执行菜单动作分发。
+ *
+ * 算法步骤：
+ * 1. 依据 `id` 进入对应分支；
+ * 2. 调用文档/画布/历史相关操作；
+ * 3. 对撤销重做等会改变修订号的动作同步 dirty 标记。
+ *
+ * @param workspace [in,out] 工作区对象。
+ * @param id [in] 菜单动作 ID。
+ * @return 无。
+ */
 void ui_menu_execute(Workspace* workspace, MenuId id)
 {
     if (!workspace) {
@@ -227,7 +294,7 @@ void ui_menu_execute(Workspace* workspace, MenuId id)
     case MENU_ID_EDIT_CUT:
     case MENU_ID_EDIT_COPY:
     case MENU_ID_EDIT_PASTE:
-        // TODO: cut/copy/paste/delete operations not yet implemented
+        /* TODO: cut/copy/paste/delete operations not yet implemented. */
         LOG_INFO("Menu action %d not yet implemented", id);
         break;
 

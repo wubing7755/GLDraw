@@ -79,6 +79,14 @@ typedef enum UiThemeReloadReason {
     UI_THEME_RELOAD_REASON_MANUAL
 } UiThemeReloadReason;
 
+/**
+ * @brief ui_clampf 函数。
+ *
+ * @param value 参数 `value`。
+ * @param min_value 参数 `min_value`。
+ * @param max_value 参数 `max_value`。
+ * @return 函数返回值。
+ */
 static float ui_clampf(float value, float min_value, float max_value)
 {
     if (value < min_value) {
@@ -90,6 +98,12 @@ static float ui_clampf(float value, float min_value, float max_value)
     return value;
 }
 
+/**
+ * @brief ui_theme_reload_reason_label 函数。
+ *
+ * @param reason 参数 `reason`。
+ * @return 函数返回值。
+ */
 static const char* ui_theme_reload_reason_label(UiThemeReloadReason reason)
 {
     switch (reason) {
@@ -103,6 +117,12 @@ static const char* ui_theme_reload_reason_label(UiThemeReloadReason reason)
     }
 }
 
+/**
+ * @brief ui_system_sync_menubar_themes 函数。
+ *
+ * @param ui 参数 `ui`。
+ * @return 无。
+ */
 static void ui_system_sync_menubar_themes(UiSystem* ui)
 {
     int theme_count = 0;
@@ -138,6 +158,14 @@ static void ui_system_sync_menubar_themes(UiSystem* ui)
     ui_menubar_set_active_theme_index(ui->menu_bar, active_theme_index);
 }
 
+/**
+ * @brief ui_system_set_theme 函数。
+ *
+ * @param ui 参数 `ui`。
+ * @param theme_id 参数 `theme_id`。
+ * @param persist_selection 参数 `persist_selection`。
+ * @return 函数返回值。
+ */
 static int ui_system_set_theme(UiSystem* ui, const char* theme_id, int persist_selection)
 {
     int theme_index = -1;
@@ -176,6 +204,15 @@ static int ui_system_set_theme(UiSystem* ui, const char* theme_id, int persist_s
     return 1;
 }
 
+/**
+ * @brief ui_system_reload_themes 函数。
+ *
+ * @param ui 参数 `ui`。
+ * @param workspace 参数 `workspace`。
+ * @param notify_status 参数 `notify_status`。
+ * @param reason 参数 `reason`。
+ * @return 无。
+ */
 static void ui_system_reload_themes(UiSystem* ui,
                                     Workspace* workspace,
                                     int notify_status,
@@ -227,6 +264,12 @@ static void ui_system_reload_themes(UiSystem* ui,
     }
 }
 
+/**
+ * @brief ui_system_load_theme_from_settings 函数。
+ *
+ * @param ui 参数 `ui`。
+ * @return 无。
+ */
 static void ui_system_load_theme_from_settings(UiSystem* ui)
 {
     char loaded_theme_id[UI_THEME_ID_CAPACITY];
@@ -246,6 +289,14 @@ static void ui_system_load_theme_from_settings(UiSystem* ui)
     ui_system_set_theme(ui, ui_theme_default_id(), 0);
 }
 
+/**
+ * @brief ui_system_poll_theme_hot_reload 函数。
+ *
+ * @param ui 参数 `ui`。
+ * @param workspace 参数 `workspace`。
+ * @param now_seconds 参数 `now_seconds`。
+ * @return 无。
+ */
 static void ui_system_poll_theme_hot_reload(UiSystem* ui, Workspace* workspace, double now_seconds)
 {
     unsigned long long signature = 0ull;
@@ -267,12 +318,25 @@ static void ui_system_poll_theme_hot_reload(UiSystem* ui, Workspace* workspace, 
     ui_system_reload_themes(ui, workspace, 1, UI_THEME_RELOAD_REASON_AUTO);
 }
 
+/**
+ * @brief ui_smoothstep 函数。
+ *
+ * @param t 参数 `t`。
+ * @return 函数返回值。
+ */
 static float ui_smoothstep(float t)
 {
     float clamped = ui_clampf(t, 0.0f, 1.0f);
     return clamped * clamped * (3.0f - 2.0f * clamped);
 }
 
+/**
+ * @brief ui_rectf_equals 函数。
+ *
+ * @param a 参数 `a`。
+ * @param b 参数 `b`。
+ * @return 函数返回值。
+ */
 static int ui_rectf_equals(RectF a, RectF b)
 {
     const float eps = 1e-3f;
@@ -282,6 +346,13 @@ static int ui_rectf_equals(RectF a, RectF b)
            fabsf(a.h - b.h) <= eps;
 }
 
+/**
+ * @brief ui_clamp_rect_to_window 函数。
+ *
+ * @param rect 参数 `rect`。
+ * @param window_bounds 参数 `window_bounds`。
+ * @return 函数返回值。
+ */
 static RectF ui_clamp_rect_to_window(RectF rect, RectF window_bounds)
 {
     float max_x = window_bounds.x + window_bounds.w;
@@ -323,6 +394,15 @@ static RectF ui_clamp_rect_to_window(RectF rect, RectF window_bounds)
     return rect;
 }
 
+/**
+ * @brief ui_publish_layout 函数。
+ *
+ * @param ui 参数 `ui`。
+ * @param workspace 参数 `workspace`。
+ * @param width 参数 `width`。
+ * @param height 参数 `height`。
+ * @return 无。
+ */
 static void ui_publish_layout(UiSystem* ui, Workspace* workspace, int width, int height)
 {
     WorkspaceLayout next_layout;
@@ -361,6 +441,12 @@ static void ui_publish_layout(UiSystem* ui, Workspace* workspace, int width, int
     ui->layout_snapshot = workspace->layout;
 }
 
+/**
+ * @brief ui_tool_context 函数。
+ *
+ * @param workspace 参数 `workspace`。
+ * @return 函数返回值。
+ */
 static ToolContext ui_tool_context(Workspace* workspace)
 {
     ToolContext context;
@@ -371,6 +457,17 @@ static ToolContext ui_tool_context(Workspace* workspace)
     return context;
 }
 
+/**
+ * @brief 提交一次对象标量属性修改并写入历史。
+ * @param workspace [in,out] 工作区对象。
+ * @param object [in,out] 目标对象。
+ * @param key [in] 标量属性键名。
+ * @param before_value [in] 修改前值。
+ * @param after_value [in] 修改后值。
+ * @return 无。
+ *
+ * @note 若历史写入失败，当前编辑值仍保留，以避免 UI 交互回退抖动。
+ */
 static void ui_commit_scalar_edit(Workspace* workspace,
                                   GraphicObject* object,
                                   const char* key,
@@ -404,6 +501,14 @@ static void ui_commit_scalar_edit(Workspace* workspace,
     workspace_sync_document_dirty(workspace);
 }
 
+/**
+ * @brief ui_apply_stroke_color 函数。
+ *
+ * @param workspace 参数 `workspace`。
+ * @param object 参数 `object`。
+ * @param color 参数 `color`。
+ * @return 无。
+ */
 static void ui_apply_stroke_color(Workspace* workspace, GraphicObject* object, Color color)
 {
     Color before;
@@ -427,6 +532,14 @@ static void ui_apply_stroke_color(Workspace* workspace, GraphicObject* object, C
     }
 }
 
+/**
+ * @brief ui_apply_stroke_width 函数。
+ *
+ * @param workspace 参数 `workspace`。
+ * @param object 参数 `object`。
+ * @param stroke_width 参数 `stroke_width`。
+ * @return 无。
+ */
 static void ui_apply_stroke_width(Workspace* workspace, GraphicObject* object, float stroke_width)
 {
     float before = 0.0f;
@@ -439,6 +552,21 @@ static void ui_apply_stroke_width(Workspace* workspace, GraphicObject* object, f
     ui_commit_scalar_edit(workspace, object, "stroke_width", before, stroke_width);
 }
 
+/**
+ * @brief ui_property_apply_float 函数。
+ *
+ * @param ctx 参数 `ctx`。
+ * @param workspace 参数 `workspace`。
+ * @param object 参数 `object`。
+ * @param label 参数 `label`。
+ * @param key 参数 `key`。
+ * @param min_value 参数 `min_value`。
+ * @param value 参数 `value`。
+ * @param max_value 参数 `max_value`。
+ * @param step 参数 `step`。
+ * @param inc_per_pixel 参数 `inc_per_pixel`。
+ * @return 无。
+ */
 static void ui_property_apply_float(struct nk_context* ctx,
                                     Workspace* workspace,
                                     GraphicObject* object,
@@ -458,6 +586,15 @@ static void ui_property_apply_float(struct nk_context* ctx,
     }
 }
 
+/**
+ * @brief ui_tool_button 函数。
+ *
+ * @param ui 参数 `ui`。
+ * @param label 参数 `label`。
+ * @param active 参数 `active`。
+ * @param tooltip 参数 `tooltip`。
+ * @return 函数返回值。
+ */
 static int ui_tool_button(UiSystem* ui, const char* label, int active, const char* tooltip)
 {
     struct nk_context* ctx = ui->ctx;
@@ -498,6 +635,14 @@ static int ui_tool_button(UiSystem* ui, const char* label, int active, const cha
     return pressed;
 }
 
+/**
+ * @brief ui_tool_rail 函数。
+ *
+ * @param ui 参数 `ui`。
+ * @param workspace 参数 `workspace`。
+ * @param bounds 参数 `bounds`。
+ * @return 无。
+ */
 static void ui_tool_rail(UiSystem* ui, Workspace* workspace, RectF bounds)
 {
     struct nk_context* ctx = ui->ctx;
@@ -538,6 +683,12 @@ static void ui_tool_rail(UiSystem* ui, Workspace* workspace, RectF bounds)
     nk_end(ctx);
 }
 
+/**
+ * @brief ui_inspector_empty_hint 函数。
+ *
+ * @param ctx 参数 `ctx`。
+ * @return 无。
+ */
 static void ui_inspector_empty_hint(struct nk_context* ctx)
 {
     nk_label(ctx, "No selection", NK_TEXT_LEFT);
@@ -547,6 +698,14 @@ static void ui_inspector_empty_hint(struct nk_context* ctx)
     nk_label(ctx, "Delete removes selection", NK_TEXT_LEFT);
 }
 
+/**
+ * @brief ui_inspector_overview 函数。
+ *
+ * @param ctx 参数 `ctx`。
+ * @param document 参数 `document`。
+ * @param object 参数 `object`。
+ * @return 无。
+ */
 static void ui_inspector_overview(struct nk_context* ctx, const Document* document, const GraphicObject* object)
 {
     if (!ctx || !document || !object) {
@@ -558,6 +717,14 @@ static void ui_inspector_overview(struct nk_context* ctx, const Document* docume
     nk_labelf(ctx, NK_TEXT_LEFT, "Selected: %d", document->selection.count);
 }
 
+/**
+ * @brief ui_inspector_style 函数。
+ *
+ * @param ctx 参数 `ctx`。
+ * @param workspace 参数 `workspace`。
+ * @param object 参数 `object`。
+ * @return 无。
+ */
 static void ui_inspector_style(struct nk_context* ctx, Workspace* workspace, GraphicObject* object)
 {
     Color stroke;
@@ -585,6 +752,14 @@ static void ui_inspector_style(struct nk_context* ctx, Workspace* workspace, Gra
     if (nk_slider_float(ctx, 1.0f, &stroke_width, 12.0f, 0.1f)) ui_apply_stroke_width(workspace, object, stroke_width);
 }
 
+/**
+ * @brief ui_inspector_geometry 函数。
+ *
+ * @param ctx 参数 `ctx`。
+ * @param workspace 参数 `workspace`。
+ * @param object 参数 `object`。
+ * @return 无。
+ */
 static void ui_inspector_geometry(struct nk_context* ctx, Workspace* workspace, GraphicObject* object)
 {
     if (!ctx || !workspace || !object) {
@@ -620,6 +795,13 @@ static void ui_inspector_geometry(struct nk_context* ctx, Workspace* workspace, 
     }
 }
 
+/**
+ * @brief 构建并绘制右侧 Inspector 选择面板。
+ * @param ui [in,out] UI 系统。
+ * @param workspace [in,out] 工作区对象。
+ * @param bounds [in] 面板布局矩形。
+ * @return 无。
+ */
 static void ui_selection_panel(UiSystem* ui, Workspace* workspace, RectF bounds)
 {
     struct nk_context* ctx = ui->ctx;
@@ -646,6 +828,15 @@ static void ui_selection_panel(UiSystem* ui, Workspace* workspace, RectF bounds)
     nk_end(ctx);
 }
 
+/**
+ * @brief ui_status_bar 函数。
+ *
+ * @param ui 参数 `ui`。
+ * @param workspace 参数 `workspace`。
+ * @param window_width 参数 `window_width`。
+ * @param window_height 参数 `window_height`。
+ * @return 无。
+ */
 static void ui_status_bar(UiSystem* ui, Workspace* workspace, int window_width, int window_height)
 {
     struct nk_context* ctx = ui->ctx;
@@ -686,6 +877,12 @@ static void ui_status_bar(UiSystem* ui, Workspace* workspace, int window_width, 
     nk_end(ctx);
 }
 
+/**
+ * @brief ui_system_create 函数。
+ *
+ * @param window 参数 `window`。
+ * @return 函数返回值。
+ */
 UiSystem* ui_system_create(PlatformWindow* window)
 {
     UiSystem* ui = (UiSystem*)calloc(1, sizeof(*ui));
@@ -727,6 +924,12 @@ UiSystem* ui_system_create(PlatformWindow* window)
     return ui;
 }
 
+/**
+ * @brief ui_system_destroy 函数。
+ *
+ * @param ui 参数 `ui`。
+ * @return 无。
+ */
 void ui_system_destroy(UiSystem* ui)
 {
     if (!ui) {
@@ -740,6 +943,12 @@ void ui_system_destroy(UiSystem* ui)
     free(ui);
 }
 
+/**
+ * @brief ui_system_begin_frame 函数。
+ *
+ * @param ui 参数 `ui`。
+ * @return 无。
+ */
 void ui_system_begin_frame(UiSystem* ui)
 {
     if (ui) {
@@ -747,6 +956,19 @@ void ui_system_begin_frame(UiSystem* ui)
     }
 }
 
+/**
+ * @brief 构建一帧完整 UI（菜单、工具栏、检查器、状态栏）。
+ * @param ui [in,out] UI 系统。
+ * @param workspace [in,out] 工作区对象。
+ * @return 无。
+ *
+ * 算法步骤：
+ * 1. 读取窗口尺寸并刷新主题热重载状态；
+ * 2. 构建菜单栏并处理主题切换请求；
+ * 3. 计算 appbar/rail/panel/content 布局；
+ * 4. 按动画状态绘制 inspector；
+ * 5. 绘制状态栏并发布布局快照给工作区。
+ */
 void ui_system_build(UiSystem* ui, Workspace* workspace)
 {
     int width = 0;
@@ -896,6 +1118,12 @@ void ui_system_build(UiSystem* ui, Workspace* workspace)
     ui_publish_layout(ui, workspace, width, height);
 }
 
+/**
+ * @brief ui_system_render 函数。
+ *
+ * @param ui 参数 `ui`。
+ * @return 无。
+ */
 void ui_system_render(UiSystem* ui)
 {
     if (!ui) {
@@ -904,6 +1132,12 @@ void ui_system_render(UiSystem* ui)
     nk_glfw3_render(&ui->glfw, NK_ANTI_ALIASING_ON, UI_MAX_VERTEX_BUFFER, UI_MAX_ELEMENT_BUFFER);
 }
 
+/**
+ * @brief ui_system_has_active_interaction 函数。
+ *
+ * @param ui 参数 `ui`。
+ * @return 函数返回值。
+ */
 int ui_system_has_active_interaction(const UiSystem* ui)
 {
     if (!ui || !ui->ctx) {
@@ -913,6 +1147,13 @@ int ui_system_has_active_interaction(const UiSystem* ui)
     return nk_item_is_any_active(ui->ctx);
 }
 
+/**
+ * @brief ui_system_blocks_pointer 函数。
+ *
+ * @param ui 参数 `ui`。
+ * @param screen_pos 参数 `screen_pos`。
+ * @return 函数返回值。
+ */
 int ui_system_blocks_pointer(const UiSystem* ui, Vec2 screen_pos)
 {
     if (!ui || !ui->ctx) {
@@ -929,6 +1170,12 @@ int ui_system_blocks_pointer(const UiSystem* ui, Vec2 screen_pos)
            rectf_contains_point(&ui->layout_snapshot.status_bounds, screen_pos);
 }
 
+/**
+ * @brief ui_system_window_bounds 函数。
+ *
+ * @param ui 参数 `ui`。
+ * @return 函数返回值。
+ */
 RectF ui_system_window_bounds(const UiSystem* ui)
 {
     RectF bounds = {0.0f, 0.0f, 1.0f, 1.0f};
@@ -947,6 +1194,12 @@ RectF ui_system_window_bounds(const UiSystem* ui)
     return bounds;
 }
 
+/**
+ * @brief ui_system_content_bounds 函数。
+ *
+ * @param ui 参数 `ui`。
+ * @return 函数返回值。
+ */
 RectF ui_system_content_bounds(const UiSystem* ui)
 {
     RectF bounds = {0.0f, 0.0f, 0.0f, 0.0f};
@@ -958,6 +1211,13 @@ RectF ui_system_content_bounds(const UiSystem* ui)
     return ui->layout_snapshot.canvas_content_bounds;
 }
 
+/**
+ * @brief ui_system_point_in_canvas 函数。
+ *
+ * @param ui 参数 `ui`。
+ * @param screen_pos 参数 `screen_pos`。
+ * @return 函数返回值。
+ */
 int ui_system_point_in_canvas(const UiSystem* ui, Vec2 screen_pos)
 {
     RectF canvas_bounds = ui_system_content_bounds(ui);
@@ -970,6 +1230,12 @@ int ui_system_point_in_canvas(const UiSystem* ui, Vec2 screen_pos)
     return rectf_contains_point(&canvas_bounds, screen_pos);
 }
 
+/**
+ * @brief ui_system_canvas_background 函数。
+ *
+ * @param ui 参数 `ui`。
+ * @return 函数返回值。
+ */
 Color ui_system_canvas_background(const UiSystem* ui)
 {
     Color background = {0.11f, 0.12f, 0.14f, 1.0f};

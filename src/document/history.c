@@ -58,7 +58,12 @@ static HistoryInternals* g_history_internals_head = NULL;
 static void history_entry_free(DocumentHistoryEntry* entry);
 static void history_entry_reset(DocumentHistoryEntry* entry);
 
-/** Find internal sidecar metadata for one history instance. */
+/**
+ * @brief history_find_internals 函数。
+ *
+ * @param history 参数 `history`。
+ * @return 函数返回值。
+ */
 static HistoryInternals* history_find_internals(const DocumentHistory* history)
 {
     HistoryInternals* cursor = g_history_internals_head;
@@ -71,7 +76,12 @@ static HistoryInternals* history_find_internals(const DocumentHistory* history)
     return NULL;
 }
 
-/** Free sidecar metadata arrays for one history instance. */
+/**
+ * @brief history_free_internals 函数。
+ *
+ * @param internals 参数 `internals`。
+ * @return 无。
+ */
 static void history_free_internals(HistoryInternals* internals)
 {
     if (!internals) {
@@ -92,7 +102,12 @@ static void history_free_internals(HistoryInternals* internals)
     internals->redo_transform_edits = NULL;
 }
 
-/** Remove and destroy sidecar metadata for history. */
+/**
+ * @brief history_unregister_internals 函数。
+ *
+ * @param history 参数 `history`。
+ * @return 无。
+ */
 static void history_unregister_internals(DocumentHistory* history)
 {
     HistoryInternals* prev = NULL;
@@ -114,7 +129,12 @@ static void history_unregister_internals(DocumentHistory* history)
     }
 }
 
-/** Allocate and register sidecar metadata arrays for history. */
+/**
+ * @brief history_register_internals 函数。
+ *
+ * @param history 参数 `history`。
+ * @return 函数返回值。
+ */
 static int history_register_internals(DocumentHistory* history)
 {
     HistoryInternals* internals = NULL;
@@ -153,13 +173,24 @@ static int history_register_internals(DocumentHistory* history)
     return 1;
 }
 
-/** Get sidecar metadata for history. */
+/**
+ * @brief history_get_internals 函数。
+ *
+ * @param history 参数 `history`。
+ * @return 函数返回值。
+ */
 static HistoryInternals* history_get_internals(const DocumentHistory* history)
 {
     return history_find_internals(history);
 }
 
-/** Move snapshot ownership from `src` to `dst`. Complexity: `O(1)`. */
+/**
+ * @brief snapshot_move 函数。
+ *
+ * @param dst 参数 `dst`。
+ * @param src 参数 `src`。
+ * @return 无。
+ */
 static void snapshot_move(DocumentSnapshot* dst, DocumentSnapshot* src)
 {
     document_snapshot_free(dst);
@@ -172,7 +203,13 @@ static void snapshot_move(DocumentSnapshot* dst, DocumentSnapshot* src)
     src->selection.count = 0;
 }
 
-/** Find target object for scalar edit by stable ID. */
+/**
+ * @brief history_find_scalar_object 函数。
+ *
+ * @param document 参数 `document`。
+ * @param id 参数 `id`。
+ * @return 函数返回值。
+ */
 static GraphicObject* history_find_scalar_object(Document* document, ObjectId id)
 {
     if (!document || id == 0) {
@@ -181,7 +218,13 @@ static GraphicObject* history_find_scalar_object(Document* document, ObjectId id
     return document_find_object(document, id);
 }
 
-/** Apply scalar-edit undo by writing previous value to the same object/key. */
+/**
+ * @brief history_apply_scalar_edit_undo 函数。
+ *
+ * @param document 参数 `document`。
+ * @param edit 参数 `edit`。
+ * @return 函数返回值。
+ */
 static int history_apply_scalar_edit_undo(Document* document, const HistoryScalarEdit* edit)
 {
     GraphicObject* object = history_find_scalar_object(document, edit ? edit->object_id : 0);
@@ -196,7 +239,13 @@ static int history_apply_scalar_edit_undo(Document* document, const HistoryScala
     return 1;
 }
 
-/** Apply scalar-edit redo by writing new value to the same object/key. */
+/**
+ * @brief history_apply_scalar_edit_redo 函数。
+ *
+ * @param document 参数 `document`。
+ * @param edit 参数 `edit`。
+ * @return 函数返回值。
+ */
 static int history_apply_scalar_edit_redo(Document* document, const HistoryScalarEdit* edit)
 {
     GraphicObject* object = history_find_scalar_object(document, edit ? edit->object_id : 0);
@@ -211,7 +260,15 @@ static int history_apply_scalar_edit_redo(Document* document, const HistoryScala
     return 1;
 }
 
-/** Apply one transform edit by translating all recorded objects with `delta`. */
+/**
+ * @brief history_apply_transform 函数。
+ *
+ * @param document 参数 `document`。
+ * @param edit 参数 `edit`。
+ * @param delta 参数 `delta`。
+ * @param target_revision 参数 `target_revision`。
+ * @return 函数返回值。
+ */
 static int history_apply_transform(Document* document,
                                    const HistoryTransformEdit* edit,
                                    Vec2 delta,
@@ -235,7 +292,13 @@ static int history_apply_transform(Document* document,
     return 1;
 }
 
-/** Apply transform edit undo (reverse delta). */
+/**
+ * @brief history_apply_transform_edit_undo 函数。
+ *
+ * @param document 参数 `document`。
+ * @param edit 参数 `edit`。
+ * @return 函数返回值。
+ */
 static int history_apply_transform_edit_undo(Document* document, const HistoryTransformEdit* edit)
 {
     Vec2 undo_delta = {0.0f, 0.0f};
@@ -249,7 +312,13 @@ static int history_apply_transform_edit_undo(Document* document, const HistoryTr
     return history_apply_transform(document, edit, undo_delta, edit->revision_before);
 }
 
-/** Apply transform edit redo (forward delta). */
+/**
+ * @brief history_apply_transform_edit_redo 函数。
+ *
+ * @param document 参数 `document`。
+ * @param edit 参数 `edit`。
+ * @return 函数返回值。
+ */
 static int history_apply_transform_edit_redo(Document* document, const HistoryTransformEdit* edit)
 {
     if (!edit) {
@@ -258,7 +327,25 @@ static int history_apply_transform_edit_redo(Document* document, const HistoryTr
     return history_apply_transform(document, edit, edit->delta, edit->revision_after);
 }
 
-/** Push one scalar edit entry to undo stack and clear redo chain. */
+/**
+ * @brief 记录一次标量属性编辑并压入撤销栈。
+ *
+ * 算法步骤：
+ * 1. 构造 `HistoryScalarEdit` 载荷；
+ * 2. 清空 redo 栈（新分支写入）；
+ * 3. 必要时淘汰 undo 栈最旧项；
+ * 4. 将新条目写入 undo 栈尾。
+ *
+ * @param history [in,out] 历史对象。
+ * @param document [in] 当前文档（用于参数合法性校验）。
+ * @param object_id [in] 对象 ID。
+ * @param key [in] 属性键名。
+ * @param before_value [in] 修改前值。
+ * @param after_value [in] 修改后值。
+ * @param revision_before [in] 修改前修订号。
+ * @param revision_after [in] 修改后修订号。
+ * @return 成功返回 `1`，失败返回 `0`。
+ */
 static int history_push_scalar_edit(DocumentHistory* history,
                                     const Document* document,
                                     ObjectId object_id,
@@ -316,7 +403,18 @@ static int history_push_scalar_edit(DocumentHistory* history,
     return 1;
 }
 
-/** Push one transform edit entry to undo stack and clear redo chain. */
+/**
+ * @brief 记录一次平移编辑并压入撤销栈。
+ *
+ * @param history [in,out] 历史对象。
+ * @param document [in] 当前文档。
+ * @param object_ids [in] 参与平移的对象 ID 数组。
+ * @param object_count [in] 对象数量。
+ * @param delta [in] 平移向量。
+ * @param revision_before [in] 修改前修订号。
+ * @param revision_after [in] 修改后修订号。
+ * @return 成功返回 `1`，失败返回 `0`。
+ */
 static int history_push_transform_edit(DocumentHistory* history,
                                        const Document* document,
                                        const ObjectId* object_ids,
@@ -375,14 +473,24 @@ static int history_push_transform_edit(DocumentHistory* history,
     return 1;
 }
 
-/** Free both snapshots in a history entry. Complexity: `O(n_before + n_after)`. */
+/**
+ * @brief history_entry_free 函数。
+ *
+ * @param entry 参数 `entry`。
+ * @return 无。
+ */
 static void history_entry_free(DocumentHistoryEntry* entry)
 {
     document_snapshot_free(&entry->before);
     document_snapshot_free(&entry->after);
 }
 
-/** Reset history entry to empty snapshots. Complexity: `O(1)`. */
+/**
+ * @brief history_entry_reset 函数。
+ *
+ * @param entry 参数 `entry`。
+ * @return 无。
+ */
 static void history_entry_reset(DocumentHistoryEntry* entry)
 {
     if (!entry) {
@@ -393,7 +501,12 @@ static void history_entry_reset(DocumentHistoryEntry* entry)
     document_snapshot_init(&entry->after);
 }
 
-/** Allocate and initialize history entry array. Complexity: `O(capacity)`. */
+/**
+ * @brief history_alloc_entries 函数。
+ *
+ * @param capacity 参数 `capacity`。
+ * @return 函数返回值。
+ */
 static DocumentHistoryEntry* history_alloc_entries(int capacity)
 {
     DocumentHistoryEntry* entries = NULL;
@@ -417,6 +530,8 @@ static DocumentHistoryEntry* history_alloc_entries(int capacity)
 
 /**
  * @brief Replace document contents with deep-cloned snapshot objects.
+ * @param document [in,out] 目标文档。
+ * @param snapshot [in] 快照数据。
  * @return `1` on success, `0` on validation/allocation/clone failure.
  *
  * Risk note:
@@ -469,7 +584,12 @@ static int document_restore_snapshot(Document* document, const DocumentSnapshot*
     return 1;
 }
 
-/** Initialize snapshot to zeroed state. Complexity: `O(1)`. */
+/**
+ * @brief document_snapshot_init 函数。
+ *
+ * @param snapshot 参数 `snapshot`。
+ * @return 无。
+ */
 void document_snapshot_init(DocumentSnapshot* snapshot)
 {
     if (snapshot) {
@@ -477,7 +597,12 @@ void document_snapshot_init(DocumentSnapshot* snapshot)
     }
 }
 
-/** Free heap memory owned by snapshot. Complexity: `O(n)`. */
+/**
+ * @brief document_snapshot_free 函数。
+ *
+ * @param snapshot 参数 `snapshot`。
+ * @return 无。
+ */
 void document_snapshot_free(DocumentSnapshot* snapshot)
 {
     int i = 0;
@@ -498,7 +623,14 @@ void document_snapshot_free(DocumentSnapshot* snapshot)
     snapshot->next_id = 0;
 }
 
-/** Capture deep copy of document into snapshot. Complexity: `O(n)`. */
+/**
+ * @brief 深拷贝文档到快照。
+ * @param snapshot [in,out] 目标快照（原内容会先释放）。
+ * @param document [in] 源文档。
+ * @return 成功返回 `1`，失败返回 `0`。
+ *
+ * @note 拷贝过程按对象逐个 clone，任一失败会回滚已分配内容。
+ */
 int document_snapshot_capture(DocumentSnapshot* snapshot, const Document* document)
 {
     int i = 0;
@@ -534,7 +666,12 @@ int document_snapshot_capture(DocumentSnapshot* snapshot, const Document* docume
     return 1;
 }
 
-/** Initialize history stacks and capacity. Complexity: `O(capacity)`. */
+/**
+ * @brief document_history_init 函数。
+ *
+ * @param history 参数 `history`。
+ * @return 函数返回值。
+ */
 int document_history_init(DocumentHistory* history)
 {
     if (!history) {
@@ -560,7 +697,12 @@ int document_history_init(DocumentHistory* history)
     return 1;
 }
 
-/** Free all history entries and internal arrays. Complexity: `O(total_snapshots)`. */
+/**
+ * @brief document_history_shutdown 函数。
+ *
+ * @param history 参数 `history`。
+ * @return 无。
+ */
 void document_history_shutdown(DocumentHistory* history)
 {
     int i = 0;
@@ -587,6 +729,9 @@ void document_history_shutdown(DocumentHistory* history)
 
 /**
  * @brief Push edit transaction (`before` + captured `after`) to undo stack.
+ * @param history [in,out] 历史对象。
+ * @param before [in,out] 编辑前快照（会被消费/转移所有权）。
+ * @param after_document [in] 编辑后文档。
  * @return `1` on success, `0` on failure.
  *
  * Why clear redo:
@@ -652,6 +797,14 @@ int document_history_push(DocumentHistory* history, DocumentSnapshot* before, co
 
 /**
  * @brief Push lightweight scalar edit transaction without capturing full document snapshots.
+ * @param history [in,out] 历史对象。
+ * @param document [in] 当前文档。
+ * @param object_id [in] 对象 ID。
+ * @param key [in] 属性键名。
+ * @param before_value [in] 修改前值。
+ * @param after_value [in] 修改后值。
+ * @param revision_before [in] 修改前修订号。
+ * @param revision_after [in] 修改后修订号。
  * @return `1` on success, `0` on validation/allocation failure.
  */
 int document_history_push_scalar_edit(DocumentHistory* history,
@@ -681,6 +834,13 @@ int document_history_push_scalar_edit(DocumentHistory* history,
 
 /**
  * @brief Push lightweight translate transaction for a fixed object-id set.
+ * @param history [in,out] 历史对象。
+ * @param document [in] 当前文档。
+ * @param object_ids [in] 对象 ID 列表。
+ * @param object_count [in] 对象数量。
+ * @param delta [in] 位移向量。
+ * @param revision_before [in] 修改前修订号。
+ * @param revision_after [in] 修改后修订号。
  * @return `1` on success, `0` on validation/allocation failure.
  */
 int document_history_push_translate_edit(DocumentHistory* history,
@@ -708,7 +868,19 @@ int document_history_push_translate_edit(DocumentHistory* history,
                                        revision_after);
 }
 
-/** Undo latest transaction and move entry to redo stack. Complexity: `O(n + capacity)` worst-case. */
+/**
+ * @brief 执行一次撤销并将条目移入重做栈。
+ *
+ * 算法步骤：
+ * 1. 弹出 undo 栈顶；
+ * 2. 按条目类型应用逆操作（快照恢复/标量回退/平移反向）；
+ * 3. 条目转存到 redo 栈；
+ * 4. 清理原 undo 槽位的辅助元数据。
+ *
+ * @param history [in,out] 历史对象。
+ * @param document [in,out] 目标文档。
+ * @return 成功返回 `1`，失败返回 `0`。
+ */
 int document_history_undo(DocumentHistory* history, Document* document)
 {
     DocumentHistoryEntry entry;
@@ -764,7 +936,12 @@ int document_history_undo(DocumentHistory* history, Document* document)
     return 1;
 }
 
-/** Redo latest undone transaction and move entry back to undo stack. Complexity: `O(n + capacity)` worst-case. */
+/**
+ * @brief 执行一次重做并将条目移回撤销栈。
+ * @param history [in,out] 历史对象。
+ * @param document [in,out] 目标文档。
+ * @return 成功返回 `1`，失败返回 `0`。
+ */
 int document_history_redo(DocumentHistory* history, Document* document)
 {
     DocumentHistoryEntry entry;
@@ -820,13 +997,23 @@ int document_history_redo(DocumentHistory* history, Document* document)
     return 1;
 }
 
-/** Check if undo stack has entries. Complexity: `O(1)`. */
+/**
+ * @brief document_history_can_undo 函数。
+ *
+ * @param history 参数 `history`。
+ * @return 函数返回值。
+ */
 int document_history_can_undo(const DocumentHistory* history)
 {
     return history && history->undo_count > 0;
 }
 
-/** Check if redo stack has entries. Complexity: `O(1)`. */
+/**
+ * @brief document_history_can_redo 函数。
+ *
+ * @param history 参数 `history`。
+ * @return 函数返回值。
+ */
 int document_history_can_redo(const DocumentHistory* history)
 {
     return history && history->redo_count > 0;
