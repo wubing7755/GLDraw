@@ -1,27 +1,40 @@
 /**
  * @file types.h
- * @brief Small shared value types used by all core modules.
+ * @brief Project-shared basic value type definitions.
  *
- * Role in project:
- * - Provides stable primitive structs for geometry and color.
- * - Reduces cross-module coupling on third-party math/color APIs.
- *
- * Module relationships:
- * - Included by document, canvas, tools, render, and UI headers.
+ * This file declares lightweight POD types only, with no behavior logic.
+ * Shared by document/canvas/tools/render/ui and other modules.
  */
 #ifndef GLDRAW_BASE_TYPES_H
 #define GLDRAW_BASE_TYPES_H
 
-/** Stable object identity in a document. */
+/**
+ * @typedef ObjectId
+ * @brief Stable object identifier type within a document.
+ */
 typedef unsigned int ObjectId;
 
-/** 2D vector in world/screen space. */
+/**
+ * @struct Vec2
+ * @brief 2D vector (usable for world or screen coordinates).
+ *
+ * @member x X component.
+ * @member y Y component.
+ */
 typedef struct {
     float x;
     float y;
 } Vec2;
 
-/** RGBA color in normalized float range `[0, 1]`. */
+/**
+ * @struct Color
+ * @brief RGBA color (component range is typically `[0, 1]`).
+ *
+ * @member r Red component.
+ * @member g Green component.
+ * @member b Blue component.
+ * @member a Alpha component.
+ */
 typedef struct {
     float r;
     float g;
@@ -29,7 +42,15 @@ typedef struct {
     float a;
 } Color;
 
-/** Floating-point rectangle (`x`, `y`, `width`, `height`). */
+/**
+ * @struct RectF
+ * @brief Floating-point rectangle (x/y/w/h).
+ *
+ * @member x X coordinate of the bottom-left corner (or top-left, depending on caller's coordinate system).
+ * @member y Y coordinate of the bottom-left corner (or top-left, depending on caller's coordinate system).
+ * @member w Width.
+ * @member h Height.
+ */
 typedef struct {
     float x;
     float y;

@@ -1,17 +1,6 @@
 /**
  * @file history.h
- * @brief Snapshot-based undo/redo interfaces.
- *
- * Role in project:
- * - Captures deep copies of `Document` state before/after edits.
- * - Maintains bounded undo/redo stacks for reversible operations.
- *
- * Module relationships:
- * - Built on top of `document.h` and `object` cloning.
- * - Called by tools/UI whenever a user-visible edit is committed.
- *
- * Concurrency note:
- * - History stacks are mutable and unsynchronized; use from one thread only.
+ * @brief Document undo/redo (snapshot + lightweight edit) interface.
  */
 #ifndef GLDRAW_DOCUMENT_HISTORY_H
 #define GLDRAW_DOCUMENT_HISTORY_H
@@ -20,7 +9,17 @@
 
 #define DOCUMENT_HISTORY_MAX_ENTRIES 128
 
-/** Deep-copied document state stored in history stacks. */
+/**
+ * @struct DocumentSnapshot
+ * @brief Deep-copy snapshot of the document.
+ *
+ * @member objects Deep-copied object array.
+ * @member capacity Allocation capacity of `objects`.
+ * @member count Object count.
+ * @member revision Document revision at snapshot time.
+ * @member next_id Next allocatable ID at snapshot time.
+ * @member selection Selection set at snapshot time.
+ */
 typedef struct {
     GraphicObject** objects;
     int capacity;
@@ -30,50 +29,160 @@ typedef struct {
     SelectionSet selection;
 } DocumentSnapshot;
 
-/** One undo/redo transaction pair (`before` -> `after`). */
+/**
+ * @struct DocumentHistoryEntry
+ * @brief A history entry based on complete snapshots (before -> after).
+ *
+ * @member before Snapshot before the edit.
+ * @member after Snapshot after the edit.
+ */
 typedef struct {
-    DocumentSnapshot before; /**< Document state before the edit */
-    DocumentSnapshot after;  /**< Document state after the edit */
+    DocumentSnapshot before;
+    DocumentSnapshot after;
 } DocumentHistoryEntry;
 
 /**
- * @brief Undo/redo history with bounded stacks.
+ * @struct DocumentHistory
+ * @brief Undo/redo history stack.
  *
- * Concurrency note:
- * - Stacks are mutable and unsynchronized; use from one thread only.
+ * @member undo_stack Undo stack.
+ * @member redo_stack Redo stack.
+ * @member capacity Maximum entry count per stack.
+ * @member undo_count Current undo stack entry count.
+ * @member redo_count Current redo stack entry count.
  */
 typedef struct DocumentHistory {
-    DocumentHistoryEntry* undo_stack; /**< Uncommitted edits stack */
-    DocumentHistoryEntry* redo_stack; /**< Reverted edits stack */
-    int capacity;                      /**< Max entries per stack */
-    int undo_count;                    /**< Number of entries in undo stack */
-    int redo_count;                    /**< Number of entries in redo stack */
+    DocumentHistoryEntry* undo_stack;
+    DocumentHistoryEntry* redo_stack;
+    int capacity;
+    int undo_count;
+    int redo_count;
 } DocumentHistory;
 
-/** Initialize snapshot to empty state. Complexity: `O(1)`. */
+/**
+ * @brief Initialize the document snapshot to an empty state.
+ * @param snapshot Snapshot to initialize.
+ * @return No return value.
+ */
 void document_snapshot_init(DocumentSnapshot* snapshot);
-/** Free all objects owned by snapshot. Complexity: `O(n)`. */
+
+/**
+ * @brief Release object copies and internal buffers owned by the snapshot.
+ * @param snapshot Target snapshot.
+ * @return No return value.
+ */
 void document_snapshot_free(DocumentSnapshot* snapshot);
-/** Deep-copy document into snapshot. Returns 0 on allocation/clone failure. Complexity: `O(n)`. */
+
+/**
+ * @brief Capture a deep copy of the document into a snapshot.
+ * @param snapshot Target snapshot (output).
+ * @param document Source document.
+ * @return Non-zero on success; zero on out-of-memory or clone failure.
+ */
 int document_snapshot_capture(DocumentSnapshot* snapshot, const Document* document);
 
-/** Allocate undo/redo stacks. Returns 0 on allocation failure. Complexity: `O(capacity)`. */
+/**
+ * @brief Initialize the undo/redo history stack.
+ * @param history Target history object.
+ * @return Non-zero on success; zero on memory allocation failure.
+ */
 int document_history_init(DocumentHistory* history);
-/** Release all stack entries and internal arrays. Complexity: `O(total_snapshots)`. */
+
+/**
+ * @brief Release all entries in the history stack.
+ * @param history Target history object.
+ * @return No return value.
+ */
 void document_history_shutdown(DocumentHistory* history);
-/** Push one transaction and clear redo stack. Complexity: `O(n + capacity)` worst-case. */
+
+/**
+ * @brief Push a complete snapshot edit record.
+ *
+ * Algorithm:
+ * 1. Copy `before` snapshot as the undo starting point;
+ * 2. Capture a snapshot from `after_document` as the undo ending point;
+ * 3. Push onto the undo stack (evicting the oldest entry if necessary);
+ * 4. Clear the redo stack to ensure linear history branching.
+ *
+ * @param history History object.
+ * @param before Snapshot before the edit (contents are taken over by the history after the call).
+ * @param after_document Document after the edit.
+ * @return Non-zero on success, zero on failure.
+ */
 int document_history_push(DocumentHistory* history, DocumentSnapshot* before, const Document* after_document);
-/** Push lightweight scalar edit transaction without full document snapshots. Returns 1 on success, 0 on failure. */
+
+/**
+ * @brief Push a scalar property edit history record.
+ *
+ * This interface records single-field changes on objects to avoid the cost of full snapshots.
+ *
+ * @param history History object.
+ * @param document Current document.
+ * @param object_id Target object ID.
+ * @param key Scalar field name.
+ * @param before_value Value before the modification.
+ * @param after_value Value after the modification.
+ * @param revision_before Document revision before modification.
+ * @param revision_after Document revision after modification.
+ * @return Non-zero on success, zero on failure.
+ */
 int document_history_push_scalar_edit(DocumentHistory* history, const Document* document, ObjectId object_id, const char* key, float before_value, float after_value, unsigned int revision_before, unsigned int revision_after);
-/** Push lightweight translate transaction for a fixed object-id set. Returns 1 on success, 0 on failure. */
+
+/**
+ * @brief Push a batch translate edit history record.
+ *
+ * This interface records a set of object IDs and a translation vector;
+ * undo/redo applies the translation in the opposite direction.
+ *
+ * @param history History object.
+ * @param document Current document.
+ * @param object_ids Object ID array.
+ * @param object_count Object count.
+ * @param delta Translation delta (in world coordinates).
+ * @param revision_before Revision before modification.
+ * @param revision_after Revision after modification.
+ * @return Non-zero on success, zero on failure.
+ */
 int document_history_push_translate_edit(DocumentHistory* history, const Document* document, const ObjectId* object_ids, int object_count, Vec2 delta, unsigned int revision_before, unsigned int revision_after);
-/** Apply latest undo entry. Returns 0 when stack empty/failure. Complexity: `O(n + capacity)` worst-case. */
+
+/**
+ * @brief Perform an undo.
+ *
+ * Algorithm:
+ * 1. Pop the top record from the undo stack;
+ * 2. Apply the record to the document (full snapshot or lightweight edit);
+ * 3. Move the record to the top of the redo stack;
+ * 4. Return the result of the application.
+ *
+ * @param history History object.
+ * @param document Target document.
+ * @return Non-zero if there is something to undo and the application succeeded, zero otherwise.
+ */
 int document_history_undo(DocumentHistory* history, Document* document);
-/** Apply latest redo entry. Returns 0 when stack empty/failure. Complexity: `O(n + capacity)` worst-case. */
+
+/**
+ * @brief Perform a redo.
+ *
+ * The algorithm is symmetric to undo: pop from the redo stack, apply, push back onto the undo stack.
+ *
+ * @param history History object.
+ * @param document Target document.
+ * @return Non-zero if there is something to redo and the application succeeded, zero otherwise.
+ */
 int document_history_redo(DocumentHistory* history, Document* document);
-/** Check undo availability. Complexity: `O(1)`. */
+
+/**
+ * @brief Check whether undo is available.
+ * @param history History object.
+ * @return Non-zero if undo is available, zero otherwise.
+ */
 int document_history_can_undo(const DocumentHistory* history);
-/** Check redo availability. Complexity: `O(1)`. */
+
+/**
+ * @brief Check whether redo is available.
+ * @param history History object.
+ * @return Non-zero if redo is available, zero otherwise.
+ */
 int document_history_can_redo(const DocumentHistory* history);
 
 #endif /* GLDRAW_DOCUMENT_HISTORY_H */

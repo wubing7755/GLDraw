@@ -79,6 +79,13 @@ typedef enum UiThemeReloadReason {
     UI_THEME_RELOAD_REASON_MANUAL
 } UiThemeReloadReason;
 
+/**
+ * @brief Clamps a float value.
+ * @param value Value to clamp.
+ * @param min_value Minimum value.
+ * @param max_value Maximum value.
+ * @return Clamped value.
+ */
 static float ui_clampf(float value, float min_value, float max_value)
 {
     if (value < min_value) {
@@ -90,6 +97,11 @@ static float ui_clampf(float value, float min_value, float max_value)
     return value;
 }
 
+/**
+ * @brief Gets label for theme reload reason.
+ * @param reason Reload reason enum.
+ * @return Reason label string.
+ */
 static const char* ui_theme_reload_reason_label(UiThemeReloadReason reason)
 {
     switch (reason) {
@@ -103,6 +115,11 @@ static const char* ui_theme_reload_reason_label(UiThemeReloadReason reason)
     }
 }
 
+/**
+ * @brief Syncs theme registry with menu bar.
+ * @param ui UI system instance.
+ * @return None.
+ */
 static void ui_system_sync_menubar_themes(UiSystem* ui)
 {
     int theme_count = 0;
@@ -138,6 +155,13 @@ static void ui_system_sync_menubar_themes(UiSystem* ui)
     ui_menubar_set_active_theme_index(ui->menu_bar, active_theme_index);
 }
 
+/**
+ * @brief Sets the active theme.
+ * @param ui UI system instance.
+ * @param theme_id Theme ID to activate.
+ * @param persist_selection Whether to persist selection.
+ * @return 1 on success, 0 on failure.
+ */
 static int ui_system_set_theme(UiSystem* ui, const char* theme_id, int persist_selection)
 {
     int theme_index = -1;
@@ -176,6 +200,14 @@ static int ui_system_set_theme(UiSystem* ui, const char* theme_id, int persist_s
     return 1;
 }
 
+/**
+ * @brief Reloads external themes.
+ * @param ui UI system instance.
+ * @param workspace Workspace instance.
+ * @param notify_status Whether to notify status bar.
+ * @param reason Reload reason.
+ * @return None.
+ */
 static void ui_system_reload_themes(UiSystem* ui,
                                     Workspace* workspace,
                                     int notify_status,
@@ -227,6 +259,11 @@ static void ui_system_reload_themes(UiSystem* ui,
     }
 }
 
+/**
+ * @brief Loads theme selection from settings.
+ * @param ui UI system instance.
+ * @return None.
+ */
 static void ui_system_load_theme_from_settings(UiSystem* ui)
 {
     char loaded_theme_id[UI_THEME_ID_CAPACITY];
@@ -246,6 +283,13 @@ static void ui_system_load_theme_from_settings(UiSystem* ui)
     ui_system_set_theme(ui, ui_theme_default_id(), 0);
 }
 
+/**
+ * @brief Polls for theme hot reload.
+ * @param ui UI system instance.
+ * @param workspace Workspace instance.
+ * @param now_seconds Current time in seconds.
+ * @return None.
+ */
 static void ui_system_poll_theme_hot_reload(UiSystem* ui, Workspace* workspace, double now_seconds)
 {
     unsigned long long signature = 0ull;
@@ -267,12 +311,23 @@ static void ui_system_poll_theme_hot_reload(UiSystem* ui, Workspace* workspace, 
     ui_system_reload_themes(ui, workspace, 1, UI_THEME_RELOAD_REASON_AUTO);
 }
 
+/**
+ * @brief Smoothstep interpolation.
+ * @param t Interpolation parameter.
+ * @return Smoothed value.
+ */
 static float ui_smoothstep(float t)
 {
     float clamped = ui_clampf(t, 0.0f, 1.0f);
     return clamped * clamped * (3.0f - 2.0f * clamped);
 }
 
+/**
+ * @brief Checks if two rectangles are equal.
+ * @param a First rectangle.
+ * @param b Second rectangle.
+ * @return 1 if equal, 0 otherwise.
+ */
 static int ui_rectf_equals(RectF a, RectF b)
 {
     const float eps = 1e-3f;
@@ -282,6 +337,12 @@ static int ui_rectf_equals(RectF a, RectF b)
            fabsf(a.h - b.h) <= eps;
 }
 
+/**
+ * @brief Clamps rectangle to window bounds.
+ * @param rect Rectangle to clamp.
+ * @param window_bounds Window bounds.
+ * @return Clamped rectangle.
+ */
 static RectF ui_clamp_rect_to_window(RectF rect, RectF window_bounds)
 {
     float max_x = window_bounds.x + window_bounds.w;
@@ -323,6 +384,14 @@ static RectF ui_clamp_rect_to_window(RectF rect, RectF window_bounds)
     return rect;
 }
 
+/**
+ * @brief Publishes layout to workspace.
+ * @param ui UI system instance.
+ * @param workspace Workspace instance.
+ * @param width Window width.
+ * @param height Window height.
+ * @return None.
+ */
 static void ui_publish_layout(UiSystem* ui, Workspace* workspace, int width, int height)
 {
     WorkspaceLayout next_layout;
@@ -361,6 +430,11 @@ static void ui_publish_layout(UiSystem* ui, Workspace* workspace, int width, int
     ui->layout_snapshot = workspace->layout;
 }
 
+/**
+ * @brief Creates a tool context from workspace.
+ * @param workspace Workspace instance.
+ * @return Tool context.
+ */
 static ToolContext ui_tool_context(Workspace* workspace)
 {
     ToolContext context;
@@ -371,6 +445,17 @@ static ToolContext ui_tool_context(Workspace* workspace)
     return context;
 }
 
+/**
+ * @brief Commits an object scalar property edit to history.
+ * @param workspace [in,out] Workspace instance.
+ * @param object [in,out] Target object.
+ * @param key [in] Scalar property key.
+ * @param before_value [in] Value before change.
+ * @param after_value [in] Value after change.
+ * @return None.
+ *
+ * @note If history write fails, current edit value is kept to avoid UI interaction rollback jitter.
+ */
 static void ui_commit_scalar_edit(Workspace* workspace,
                                   GraphicObject* object,
                                   const char* key,
@@ -404,6 +489,13 @@ static void ui_commit_scalar_edit(Workspace* workspace,
     workspace_sync_document_dirty(workspace);
 }
 
+/**
+ * @brief Applies stroke color to object.
+ * @param workspace Workspace instance.
+ * @param object Object to modify.
+ * @param color Stroke color to apply.
+ * @return None.
+ */
 static void ui_apply_stroke_color(Workspace* workspace, GraphicObject* object, Color color)
 {
     Color before;
@@ -427,6 +519,13 @@ static void ui_apply_stroke_color(Workspace* workspace, GraphicObject* object, C
     }
 }
 
+/**
+ * @brief Applies stroke width to object.
+ * @param workspace Workspace instance.
+ * @param object Object to modify.
+ * @param stroke_width Stroke width to apply.
+ * @return None.
+ */
 static void ui_apply_stroke_width(Workspace* workspace, GraphicObject* object, float stroke_width)
 {
     float before = 0.0f;
@@ -439,6 +538,20 @@ static void ui_apply_stroke_width(Workspace* workspace, GraphicObject* object, f
     ui_commit_scalar_edit(workspace, object, "stroke_width", before, stroke_width);
 }
 
+/**
+ * @brief Applies a float property change.
+ * @param ctx Nuklear context.
+ * @param workspace Workspace instance.
+ * @param object Object to modify.
+ * @param label Property label.
+ * @param key Property key.
+ * @param min_value Minimum value.
+ * @param value Current value pointer.
+ * @param max_value Maximum value.
+ * @param step Step value.
+ * @param inc_per_pixel Increment per pixel.
+ * @return None.
+ */
 static void ui_property_apply_float(struct nk_context* ctx,
                                     Workspace* workspace,
                                     GraphicObject* object,
@@ -458,6 +571,14 @@ static void ui_property_apply_float(struct nk_context* ctx,
     }
 }
 
+/**
+ * @brief Renders a tool button.
+ * @param ui UI system instance.
+ * @param label Button label.
+ * @param active Whether button is active.
+ * @param tooltip Tooltip text.
+ * @return 1 if pressed, 0 otherwise.
+ */
 static int ui_tool_button(UiSystem* ui, const char* label, int active, const char* tooltip)
 {
     struct nk_context* ctx = ui->ctx;
@@ -498,6 +619,13 @@ static int ui_tool_button(UiSystem* ui, const char* label, int active, const cha
     return pressed;
 }
 
+/**
+ * @brief Renders the tool rail panel.
+ * @param ui UI system instance.
+ * @param workspace Workspace instance.
+ * @param bounds Panel bounds.
+ * @return None.
+ */
 static void ui_tool_rail(UiSystem* ui, Workspace* workspace, RectF bounds)
 {
     struct nk_context* ctx = ui->ctx;
@@ -538,6 +666,11 @@ static void ui_tool_rail(UiSystem* ui, Workspace* workspace, RectF bounds)
     nk_end(ctx);
 }
 
+/**
+ * @brief Shows empty inspector hint text.
+ * @param ctx Nuklear context.
+ * @return None.
+ */
 static void ui_inspector_empty_hint(struct nk_context* ctx)
 {
     nk_label(ctx, "No selection", NK_TEXT_LEFT);
@@ -547,6 +680,13 @@ static void ui_inspector_empty_hint(struct nk_context* ctx)
     nk_label(ctx, "Delete removes selection", NK_TEXT_LEFT);
 }
 
+/**
+ * @brief Renders inspector overview section.
+ * @param ctx Nuklear context.
+ * @param document Document instance.
+ * @param object Selected object.
+ * @return None.
+ */
 static void ui_inspector_overview(struct nk_context* ctx, const Document* document, const GraphicObject* object)
 {
     if (!ctx || !document || !object) {
@@ -558,6 +698,13 @@ static void ui_inspector_overview(struct nk_context* ctx, const Document* docume
     nk_labelf(ctx, NK_TEXT_LEFT, "Selected: %d", document->selection.count);
 }
 
+/**
+ * @brief Renders inspector style section.
+ * @param ctx Nuklear context.
+ * @param workspace Workspace instance.
+ * @param object Selected object.
+ * @return None.
+ */
 static void ui_inspector_style(struct nk_context* ctx, Workspace* workspace, GraphicObject* object)
 {
     Color stroke;
@@ -585,6 +732,13 @@ static void ui_inspector_style(struct nk_context* ctx, Workspace* workspace, Gra
     if (nk_slider_float(ctx, 1.0f, &stroke_width, 12.0f, 0.1f)) ui_apply_stroke_width(workspace, object, stroke_width);
 }
 
+/**
+ * @brief Renders inspector geometry section.
+ * @param ctx Nuklear context.
+ * @param workspace Workspace instance.
+ * @param object Selected object.
+ * @return None.
+ */
 static void ui_inspector_geometry(struct nk_context* ctx, Workspace* workspace, GraphicObject* object)
 {
     if (!ctx || !workspace || !object) {
@@ -620,6 +774,13 @@ static void ui_inspector_geometry(struct nk_context* ctx, Workspace* workspace, 
     }
 }
 
+/**
+ * @brief Builds and renders the right-side Inspector selection panel.
+ * @param ui [in,out] UI system.
+ * @param workspace [in,out] Workspace instance.
+ * @param bounds [in] Panel layout rectangle.
+ * @return None.
+ */
 static void ui_selection_panel(UiSystem* ui, Workspace* workspace, RectF bounds)
 {
     struct nk_context* ctx = ui->ctx;
@@ -646,6 +807,14 @@ static void ui_selection_panel(UiSystem* ui, Workspace* workspace, RectF bounds)
     nk_end(ctx);
 }
 
+/**
+ * @brief Renders the status bar.
+ * @param ui UI system instance.
+ * @param workspace Workspace instance.
+ * @param window_width Window width.
+ * @param window_height Window height.
+ * @return None.
+ */
 static void ui_status_bar(UiSystem* ui, Workspace* workspace, int window_width, int window_height)
 {
     struct nk_context* ctx = ui->ctx;
@@ -686,6 +855,11 @@ static void ui_status_bar(UiSystem* ui, Workspace* workspace, int window_width, 
     nk_end(ctx);
 }
 
+/**
+ * @brief Creates a UI system instance.
+ * @param window Platform window.
+ * @return UI system instance or NULL.
+ */
 UiSystem* ui_system_create(PlatformWindow* window)
 {
     UiSystem* ui = (UiSystem*)calloc(1, sizeof(*ui));
@@ -727,6 +901,11 @@ UiSystem* ui_system_create(PlatformWindow* window)
     return ui;
 }
 
+/**
+ * @brief Destroys a UI system instance.
+ * @param ui UI system instance.
+ * @return None.
+ */
 void ui_system_destroy(UiSystem* ui)
 {
     if (!ui) {
@@ -740,6 +919,11 @@ void ui_system_destroy(UiSystem* ui)
     free(ui);
 }
 
+/**
+ * @brief Begins a UI frame.
+ * @param ui UI system instance.
+ * @return None.
+ */
 void ui_system_begin_frame(UiSystem* ui)
 {
     if (ui) {
@@ -747,6 +931,19 @@ void ui_system_begin_frame(UiSystem* ui)
     }
 }
 
+/**
+ * @brief Builds a complete UI frame (menu, toolbar, inspector, status bar).
+ * @param ui [in,out] UI system.
+ * @param workspace [in,out] Workspace instance.
+ * @return None.
+ *
+ * Algorithm steps:
+ * 1. Reads window size and refreshes theme hot-reload state.
+ * 2. Builds menu bar and handles theme switch requests.
+ * 3. Computes appbar/rail/panel/content layout.
+ * 4. Draws inspector based on animation state.
+ * 5. Draws status bar and publishes layout snapshot to workspace.
+ */
 void ui_system_build(UiSystem* ui, Workspace* workspace)
 {
     int width = 0;
@@ -896,6 +1093,11 @@ void ui_system_build(UiSystem* ui, Workspace* workspace)
     ui_publish_layout(ui, workspace, width, height);
 }
 
+/**
+ * @brief Renders the UI.
+ * @param ui UI system instance.
+ * @return None.
+ */
 void ui_system_render(UiSystem* ui)
 {
     if (!ui) {
@@ -904,6 +1106,11 @@ void ui_system_render(UiSystem* ui)
     nk_glfw3_render(&ui->glfw, NK_ANTI_ALIASING_ON, UI_MAX_VERTEX_BUFFER, UI_MAX_ELEMENT_BUFFER);
 }
 
+/**
+ * @brief Checks if UI has an active interaction.
+ * @param ui UI system instance.
+ * @return 1 if active interaction, 0 otherwise.
+ */
 int ui_system_has_active_interaction(const UiSystem* ui)
 {
     if (!ui || !ui->ctx) {
@@ -913,6 +1120,12 @@ int ui_system_has_active_interaction(const UiSystem* ui)
     return nk_item_is_any_active(ui->ctx);
 }
 
+/**
+ * @brief Checks if UI blocks pointer at position.
+ * @param ui UI system instance.
+ * @param screen_pos Screen position.
+ * @return 1 if pointer is blocked, 0 otherwise.
+ */
 int ui_system_blocks_pointer(const UiSystem* ui, Vec2 screen_pos)
 {
     if (!ui || !ui->ctx) {
@@ -929,6 +1142,11 @@ int ui_system_blocks_pointer(const UiSystem* ui, Vec2 screen_pos)
            rectf_contains_point(&ui->layout_snapshot.status_bounds, screen_pos);
 }
 
+/**
+ * @brief Gets the window bounds.
+ * @param ui UI system instance.
+ * @return Window bounds rectangle.
+ */
 RectF ui_system_window_bounds(const UiSystem* ui)
 {
     RectF bounds = {0.0f, 0.0f, 1.0f, 1.0f};
@@ -947,6 +1165,11 @@ RectF ui_system_window_bounds(const UiSystem* ui)
     return bounds;
 }
 
+/**
+ * @brief Gets the content bounds.
+ * @param ui UI system instance.
+ * @return Content bounds rectangle.
+ */
 RectF ui_system_content_bounds(const UiSystem* ui)
 {
     RectF bounds = {0.0f, 0.0f, 0.0f, 0.0f};
@@ -958,6 +1181,12 @@ RectF ui_system_content_bounds(const UiSystem* ui)
     return ui->layout_snapshot.canvas_content_bounds;
 }
 
+/**
+ * @brief Checks if point is in canvas area.
+ * @param ui UI system instance.
+ * @param screen_pos Screen position.
+ * @return 1 if in canvas, 0 otherwise.
+ */
 int ui_system_point_in_canvas(const UiSystem* ui, Vec2 screen_pos)
 {
     RectF canvas_bounds = ui_system_content_bounds(ui);
@@ -970,6 +1199,11 @@ int ui_system_point_in_canvas(const UiSystem* ui, Vec2 screen_pos)
     return rectf_contains_point(&canvas_bounds, screen_pos);
 }
 
+/**
+ * @brief Gets the canvas background color.
+ * @param ui UI system instance.
+ * @return Background color.
+ */
 Color ui_system_canvas_background(const UiSystem* ui)
 {
     Color background = {0.11f, 0.12f, 0.14f, 1.0f};

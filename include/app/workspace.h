@@ -1,14 +1,6 @@
 /**
  * @file workspace.h
- * @brief Shared editor state hub used across runtime systems.
- *
- * Role in project:
- * - Aggregates document, history, canvas, tools, and UI layout state.
- * - Provides function hooks for save/load commands.
- *
- * Module relationships:
- * - Owned by `application.c`.
- * - Referenced by tools and UI for coordinated document operations.
+ * @brief Editor runtime shared workspace definition.
  */
 #ifndef GLDRAW_APP_WORKSPACE_H
 #define GLDRAW_APP_WORKSPACE_H
@@ -19,10 +11,28 @@
 #include <tools/tool_controller.h>
 
 struct Workspace;
-/** Callback signature for workspace-level commands (save/load). */
+
+/**
+ * @typedef WorkspaceCommandFn
+ * @brief Workspace command callback signature (e.g., save/load).
+ * @param workspace Target workspace.
+ * @param user_data Caller-supplied context passed through.
+ * @return Non-zero on success, zero on failure.
+ */
 typedef int (*WorkspaceCommandFn)(struct Workspace* workspace, void* user_data);
 
-/** UI-computed layout snapshot shared with input/canvas subsystems. */
+/**
+ * @struct WorkspaceLayout
+ * @brief Layout snapshot computed by the UI.
+ *
+ * @member window_bounds Window boundary.
+ * @member canvas_content_bounds Available canvas content area.
+ * @member appbar_bounds Top toolbar area.
+ * @member rail_bounds Left tool rail area.
+ * @member panel_bounds Right panel area.
+ * @member status_bounds Bottom status bar area.
+ * @member layout_revision Layout version number (used for cross-system sync).
+ */
 typedef struct WorkspaceLayout {
     RectF window_bounds;
     RectF canvas_content_bounds;
@@ -34,39 +44,41 @@ typedef struct WorkspaceLayout {
 } WorkspaceLayout;
 
 /**
- * @brief Central runtime state passed between systems.
+ * @struct Workspace
+ * @brief Runtime core state container.
  *
- * Memory ownership notes:
- * - `document`, `history`, `canvas`, and `tools` are embedded values (no extra indirection).
- * - `save_document`/`load_document` are callbacks owned by the application layer.
- *
- * Concurrency note:
- * - This struct is not thread-safe; all access must be serialized by the caller.
+ * @member document Current document object and selection state.
+ * @member history Undo/redo history.
+ * @member canvas Canvas view state.
+ * @member tools Tool controller.
+ * @member layout UI layout information.
+ * @member current_document_path Current document path (empty string means unnamed).
+ * @member status_message Status bar message.
+ * @member saved_revision Document revision corresponding to the last save.
+ * @member document_dirty Whether the document is dirty (non-zero means unsaved changes).
+ * @member save_document Save callback.
+ * @member load_document Load callback.
+ * @member command_user_data Callback context.
  */
 typedef struct Workspace {
-    Document document;              /**< In-memory document with objects and selection */
-    DocumentHistory history;        /**< Undo/redo stacks */
-    CanvasView canvas;              /**< Viewport, zoom, pan, and coordinate transforms */
-    ToolController tools;           /**< Active tool and its runtime state */
-    WorkspaceLayout layout;        /**< UI-computed layout rectangles (set by UI system) */
-    char current_document_path[260]; /**< Active file path (empty for new documents) */
-    char status_message[256];       /**< Current status bar message */
-    unsigned int saved_revision;     /**< Document revision last marked as saved */
-    int document_dirty;             /**< Non-zero when current revision differs from saved_revision */
-    WorkspaceCommandFn save_document; /**< Workspace-level save callback */
-    WorkspaceCommandFn load_document; /**< Workspace-level load callback */
-    void* command_user_data;        /**< Caller-supplied context for command callbacks */
+    Document document;
+    DocumentHistory history;
+    CanvasView canvas;
+    ToolController tools;
+    WorkspaceLayout layout;
+    char current_document_path[260];
+    char status_message[256];
+    unsigned int saved_revision;
+    int document_dirty;
+    WorkspaceCommandFn save_document;
+    WorkspaceCommandFn load_document;
+    void* command_user_data;
 } Workspace;
 
 /**
- * @brief Mark the current document revision as persisted.
- * @param workspace [in,out] Target workspace; ignored when `NULL`.
- * @return None.
- *
- * Edge cases:
- * - Safe no-op for `NULL`.
- *
- * Time complexity: `O(1)`.
+ * @brief Mark the current document revision as saved.
+ * @param workspace Target workspace; no-op if `NULL`.
+ * @return No return value.
  */
 static inline void workspace_mark_saved(Workspace* workspace)
 {
@@ -79,14 +91,9 @@ static inline void workspace_mark_saved(Workspace* workspace)
 }
 
 /**
- * @brief Recompute dirty flag from saved revision and current revision.
- * @param workspace [in,out] Target workspace; ignored when `NULL`.
- * @return None.
- *
- * Edge cases:
- * - Safe no-op for `NULL`.
- *
- * Time complexity: `O(1)`.
+ * @brief Sync the dirty flag based on `saved_revision` and the current revision.
+ * @param workspace Target workspace; no-op if `NULL`.
+ * @return No return value.
  */
 static inline void workspace_sync_document_dirty(Workspace* workspace)
 {

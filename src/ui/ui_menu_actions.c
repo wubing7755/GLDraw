@@ -22,6 +22,14 @@
 
 #include <GLFW/glfw3.h>
 
+/**
+ * @brief Creates a new document and resets related state.
+ *
+ * @param workspace [in,out] Workspace instance.
+ * @return None.
+ *
+ * @note Rebuilds history stack and resets canvas zoom/center to ensure consistent “new document” state.
+ */
 static void app_workspace_new(Workspace* workspace)
 {
     if (!workspace) {
@@ -47,6 +55,18 @@ static void app_workspace_new(Workspace* workspace)
     LOG_INFO("%s", "Created new document");
 }
 
+/**
+ * @brief Zooms view to optimal range enclosing all objects.
+ *
+ * Algorithm steps:
+ * 1. Iterates objects to compute overall bounding box.
+ * 2. Adds fixed padding to bounding box.
+ * 3. Computes zoom_x/zoom_y based on viewport dimensions.
+ * 4. Takes smaller value as new zoom and centers on bounding box center.
+ *
+ * @param workspace [in,out] Workspace instance.
+ * @return None.
+ */
 static void app_zoom_to_fit(Workspace* workspace)
 {
     if (!workspace || !workspace->canvas.document) {
@@ -111,6 +131,11 @@ static void app_zoom_to_fit(Workspace* workspace)
                                 new_zoom);
 }
 
+/**
+ * @brief Toggles canvas grid display.
+ * @param workspace [in,out] Workspace instance.
+ * @return None.
+ */
 static void app_toggle_grid(Workspace* workspace)
 {
     if (!workspace) {
@@ -119,24 +144,44 @@ static void app_toggle_grid(Workspace* workspace)
     workspace->canvas.show_grid = !workspace->canvas.show_grid;
 }
 
+/**
+ * @brief Triggers inspector visibility toggle (currently logs placeholder).
+ * @param workspace [in,out] Workspace instance (currently unused).
+ * @return None.
+ */
 static void app_toggle_inspector(Workspace* workspace)
 {
     (void)workspace;
     LOG_INFO("%s", "Inspector panel toggled");
 }
 
+/**
+ * @brief Triggers keyboard shortcuts help (currently logs placeholder).
+ * @param workspace [in,out] Workspace instance (currently unused).
+ * @return None.
+ */
 static void app_show_shortcuts(Workspace* workspace)
 {
     (void)workspace;
     LOG_INFO("%s", "Keyboard shortcuts dialog requested");
 }
 
+/**
+ * @brief Triggers about dialog (currently logs placeholder).
+ * @param workspace [in,out] Workspace instance (currently unused).
+ * @return None.
+ */
 static void app_show_about(Workspace* workspace)
 {
     (void)workspace;
     LOG_INFO("%s", "About dialog requested");
 }
 
+/**
+ * @brief Executes “Save As” command.
+ * @param workspace [in,out] Workspace instance.
+ * @return Non-zero on success, 0 on failure.
+ */
 static int app_save_as(Workspace* workspace)
 {
     if (workspace->save_document) {
@@ -145,14 +190,24 @@ static int app_save_as(Workspace* workspace)
     return 0;
 }
 
+/**
+ * @brief Executes PNG export command (not yet implemented).
+ * @param workspace [in,out] Workspace instance (currently unused).
+ * @return Currently always returns 0.
+ */
 static int app_export_png(Workspace* workspace)
 {
     (void)workspace;
-    // TODO: Implement PNG export via framebuffer capture
+    /* TODO: Implement PNG export via framebuffer capture. */
     LOG_INFO("%s", "Export PNG requested");
     return 0;
 }
 
+/**
+ * @brief Checks if menu action is currently available.
+ * @param id [in] Menu action ID.
+ * @return Non-zero if available, 0 if unavailable.
+ */
 int ui_menu_is_action_available(MenuId id)
 {
     switch (id) {
@@ -167,6 +222,18 @@ int ui_menu_is_action_available(MenuId id)
     }
 }
 
+/**
+ * @brief Executes menu action dispatch.
+ *
+ * Algorithm steps:
+ * 1. Enters corresponding branch based on id.
+ * 2. Calls document/canvas/history related operations.
+ * 3. Syncs dirty flag for actions that change revision number (like undo/redo).
+ *
+ * @param workspace [in,out] Workspace instance.
+ * @param id [in] Menu action ID.
+ * @return None.
+ */
 void ui_menu_execute(Workspace* workspace, MenuId id)
 {
     if (!workspace) {
@@ -227,7 +294,7 @@ void ui_menu_execute(Workspace* workspace, MenuId id)
     case MENU_ID_EDIT_CUT:
     case MENU_ID_EDIT_COPY:
     case MENU_ID_EDIT_PASTE:
-        // TODO: cut/copy/paste/delete operations not yet implemented
+        /* TODO: cut/copy/paste/delete operations not yet implemented. */
         LOG_INFO("Menu action %d not yet implemented", id);
         break;
 

@@ -71,6 +71,13 @@ static const UiQuickActionDef g_quick_actions[] = {
     { "Fit", MENU_ID_VIEW_ZOOM_FIT, 40.0f, "Zoom to fit (Ctrl+0)" },
 };
 
+/**
+ * @brief Builds menu item text with shortcut.
+ * @param out_text Output text buffer.
+ * @param out_size Buffer size.
+ * @param item Menu item definition.
+ * @return None.
+ */
 static void ui_build_menu_item_text(char* out_text, size_t out_size, const MenuItemDef* item)
 {
     if (!out_text || out_size == 0 || !item || !item->label) {
@@ -295,6 +302,11 @@ static int ui_render_dropdown(struct nk_context* ctx, int parent_id)
     return clicked_id;
 }
 
+/**
+ * @brief Renders the theme dropdown menu.
+ * @param menubar Menu bar instance.
+ * @return Selected theme index or -1.
+ */
 static int ui_render_theme_dropdown(UiMenuBar* menubar)
 {
     struct nk_context* ctx = NULL;
@@ -333,6 +345,12 @@ static int ui_render_theme_dropdown(UiMenuBar* menubar)
     return -1;
 }
 
+/**
+ * @brief Renders a top-level menu.
+ * @param menubar Menu bar instance.
+ * @param menu Top menu definition.
+ * @return Clicked menu item ID or -1.
+ */
 static int ui_render_top_menu(UiMenuBar* menubar, const UiTopMenuDef* menu)
 {
     struct nk_context* ctx = NULL;
@@ -362,6 +380,13 @@ static int ui_render_top_menu(UiMenuBar* menubar, const UiTopMenuDef* menu)
     return clicked_id;
 }
 
+/**
+ * @brief Dispatches a menu action.
+ * @param menubar Menu bar instance.
+ * @param workspace Workspace instance.
+ * @param clicked_id Clicked menu item ID.
+ * @return None.
+ */
 static void ui_dispatch_menu_action(UiMenuBar* menubar, Workspace* workspace, int clicked_id)
 {
     if (!menubar || !workspace || clicked_id == -1) {
@@ -376,6 +401,13 @@ static void ui_dispatch_menu_action(UiMenuBar* menubar, Workspace* workspace, in
     ui_menu_execute(workspace, (MenuId)clicked_id);
 }
 
+/**
+ * @brief Builds the menu bar UI.
+ * @param menubar Menu bar instance.
+ * @param workspace Workspace instance.
+ * @param window_width Window width.
+ * @return None.
+ */
 void ui_menubar_build(UiMenuBar* menubar, Workspace* workspace, int window_width)
 {
     struct nk_context* ctx;

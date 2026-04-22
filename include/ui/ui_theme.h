@@ -1,14 +1,6 @@
 /**
  * @file ui_theme.h
- * @brief Theme token definitions and load/apply interfaces.
- *
- * Role in project:
- * - Defines color/spacing/radius animation tokens used by UI rendering.
- * - Supports built-in themes and external theme file hot-reload.
- *
- * Module relationships:
- * - Consumed by `ui_system` and `ui_menubar`.
- * - Applies style values into Nuklear context.
+ * @brief UI theme tokens and load/apply interface.
  */
 #ifndef GLDRAW_UI_UI_THEME_H
 #define GLDRAW_UI_UI_THEME_H
@@ -22,6 +14,37 @@ struct nk_color { nk_byte r, g, b, a; };
 struct nk_context;
 #endif
 
+/**
+ * @struct UiThemeTokens
+ * @brief Complete set of UI theme tokens.
+ *
+ * @member primary Primary color.
+ * @member primary_hover Primary color hover state.
+ * @member primary_active Primary color active state.
+ * @member background Global background color.
+ * @member panel Panel background color.
+ * @member panel_hover Panel hover color.
+ * @member canvas_background Canvas background color.
+ * @member text Primary text color.
+ * @member text_secondary Secondary text color.
+ * @member text_disabled Disabled text color.
+ * @member border Border color.
+ * @member border_hover Border hover color.
+ * @member success Success state color.
+ * @member warning Warning state color.
+ * @member error Error state color.
+ * @member row_height Row height.
+ * @member panel_width Panel width.
+ * @member menu_height Menu bar height.
+ * @member status_height Status bar height.
+ * @member tool_rail_width Tool rail width.
+ * @member padding Inner padding.
+ * @member margin Outer margin.
+ * @member gap Spacing gap.
+ * @member border_radius Corner radius.
+ * @member enable_transitions Whether to enable transitions.
+ * @member transition_duration Transition animation duration.
+ */
 typedef struct UiThemeTokens {
     /* Primary */
     struct nk_color primary;
@@ -68,34 +91,100 @@ typedef struct UiThemeTokens {
     float transition_duration;
 } UiThemeTokens;
 
+/**
+ * @struct UiThemeDescriptor
+ * @brief Theme metadata.
+ *
+ * @member id Unique theme ID.
+ * @member label Theme display name.
+ */
 typedef struct UiThemeDescriptor {
     const char* id;
     const char* label;
 } UiThemeDescriptor;
 
-/** Return default built-in theme tokens. */
+/**
+ * @brief Get the default built-in theme tokens.
+ * @return Default theme tokens.
+ */
 UiThemeTokens ui_theme_default_tokens(void);
-/** Resolve theme tokens by ID, falling back to default when missing. */
+
+/**
+ * @brief Get theme tokens for a given theme ID.
+ * @param theme_id Theme ID.
+ * @return Matching theme tokens; returns default theme if not found.
+ */
 UiThemeTokens ui_theme_tokens_for_id(const char* theme_id);
-/** Return total theme count (built-in + loaded custom). */
+
+/**
+ * @brief Get the total number of available themes (built-in + external).
+ * @return Total theme count.
+ */
 int ui_theme_count(void);
-/** Return descriptor at index, or `NULL` when out of range. */
+
+/**
+ * @brief Get a theme descriptor by index.
+ * @param index Theme index.
+ * @return Descriptor pointer if index is valid, `NULL` otherwise.
+ */
 const UiThemeDescriptor* ui_theme_descriptor_at(int index);
-/** Find index by theme ID, or `-1` when missing. */
+
+/**
+ * @brief Look up the index for a given theme ID.
+ * @param theme_id Theme ID.
+ * @return Index if found, `-1` if not found.
+ */
 int ui_theme_index_of_id(const char* theme_id);
-/** Return default theme ID string. */
+
+/**
+ * @brief Get the default theme ID.
+ * @return Default theme ID string.
+ */
 const char* ui_theme_default_id(void);
-/** Reload external themes from directory; returns custom theme count. */
+
+/**
+ * @brief Reload external themes from a given directory.
+ * @param directory_path Theme directory path.
+ * @return Number of external themes successfully loaded.
+ */
 int ui_theme_reload_external(const char* directory_path);
-/** Compute signature hash of external theme directory contents. */
+
+/**
+ * @brief Compute the external theme directory signature.
+ * @param directory_path Theme directory path.
+ * @return Directory signature value (used for change detection).
+ */
 unsigned long long ui_theme_external_signature(const char* directory_path);
-/** Return last external reload error summary, or empty string when clean. */
+
+/**
+ * @brief Get the error message from the last theme reload.
+ * @return Error string; returns an empty string if no error occurred.
+ */
 const char* ui_theme_last_reload_error(void);
-/** Load selected theme ID from settings file. Returns 1 on success. */
+
+/**
+ * @brief Load the current theme ID from a settings file.
+ * @param path Settings file path.
+ * @param out_theme_id Theme ID output buffer.
+ * @param out_theme_id_size Output buffer size.
+ * @return Non-zero on success, zero on failure.
+ */
 int ui_theme_load_selected_id(const char* path, char* out_theme_id, size_t out_theme_id_size);
-/** Save selected theme ID to settings file. Returns 1 on success. */
+
+/**
+ * @brief Save the current theme ID to a settings file.
+ * @param path Settings file path.
+ * @param theme_id Theme ID.
+ * @return Non-zero on success, zero on failure.
+ */
 int ui_theme_save_selected_id(const char* path, const char* theme_id);
-/** Apply tokens to Nuklear style tables. */
+
+/**
+ * @brief Apply theme tokens to the Nuklear stylesheet.
+ * @param ctx Nuklear context.
+ * @param tokens Theme tokens.
+ * @return No return value.
+ */
 void ui_theme_apply(struct nk_context* ctx, const UiThemeTokens* tokens);
 
 #endif /* GLDRAW_UI_UI_THEME_H */

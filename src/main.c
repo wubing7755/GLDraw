@@ -17,6 +17,12 @@
  * Edge cases:
  * - Failures are handled inside `app_run()`.
  */
+
+/**
+ * @brief Program entry point.
+ * @param void No parameters.
+ * @return Application exit code.
+ */
 int main(void)
 {
     return app_run();

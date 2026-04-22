@@ -16,7 +16,11 @@
 
 #include <stddef.h>
 
-/** Return current canonical viewport state with safe defaults for invalid input. */
+/**
+ * @brief Gets the current viewport state from canvas.
+ * @param canvas Canvas view instance.
+ * @return Current viewport state.
+ */
 static CanvasViewportState canvas_view_state(const CanvasView* canvas)
 {
     CanvasViewportState state;
@@ -38,7 +42,12 @@ static CanvasViewportState canvas_view_state(const CanvasView* canvas)
     return state;
 }
 
-/** Transform world point to screen coordinates. Complexity: `O(1)`. */
+/**
+ * @brief Converts world coordinates to screen coordinates.
+ * @param state Viewport state.
+ * @param world World coordinate point.
+ * @return Screen coordinate point.
+ */
 static Vec2 canvas_viewport_world_to_screen(const CanvasViewportState* state, Vec2 world)
 {
     Vec2 screen = {0.0f, 0.0f};
@@ -52,7 +61,12 @@ static Vec2 canvas_viewport_world_to_screen(const CanvasViewportState* state, Ve
     return screen;
 }
 
-/** Transform screen point to world coordinates. Complexity: `O(1)`. */
+/**
+ * @brief Converts screen coordinates to world coordinates.
+ * @param state Viewport state.
+ * @param screen Screen coordinate point.
+ * @return World coordinate point.
+ */
 static Vec2 canvas_viewport_screen_to_world(const CanvasViewportState* state, Vec2 screen)
 {
     Vec2 world = {0.0f, 0.0f};
@@ -66,7 +80,12 @@ static Vec2 canvas_viewport_screen_to_world(const CanvasViewportState* state, Ve
     return world;
 }
 
-/** Pan center by screen delta while preserving zoom mapping. Complexity: `O(1)`. */
+/**
+ * @brief Pans the viewport by a screen-space delta.
+ * @param state Viewport state.
+ * @param delta_screen Screen space delta.
+ * @return None.
+ */
 static void canvas_viewport_pan_screen_delta(CanvasViewportState* state, Vec2 delta_screen)
 {
     if (!state || state->zoom <= 0.0f) {
@@ -105,7 +124,11 @@ static void canvas_viewport_zoom_at_screen_point(CanvasViewportState* state, flo
     state->center = vec2_add(state->center, vec2_sub(before, after));
 }
 
-/** Compute visible world-space rectangle from viewport and zoom. Complexity: `O(1)`. */
+/**
+ * @brief Computes the visible world rectangle.
+ * @param state Viewport state.
+ * @return Visible world rectangle.
+ */
 static RectF canvas_viewport_visible_world_rect(const CanvasViewportState* state)
 {
     RectF rect = {0.0f, 0.0f, 0.0f, 0.0f};
@@ -121,7 +144,13 @@ static RectF canvas_viewport_visible_world_rect(const CanvasViewportState* state
     return rect;
 }
 
-/** Initialize canvas defaults and bind document. Complexity: `O(1)`. */
+/**
+ * @brief Initializes a canvas view.
+ * @param canvas Canvas view to initialize.
+ * @param document Document to reference.
+ * @param viewport Initial viewport rectangle.
+ * @return None.
+ */
 void canvas_view_init(CanvasView* canvas, Document* document, RectF viewport)
 {
     if (!canvas) {
@@ -139,7 +168,12 @@ void canvas_view_init(CanvasView* canvas, Document* document, RectF viewport)
     canvas->background.a = 1.0f;
 }
 
-/** Rebind document pointer. Complexity: `O(1)`. */
+/**
+ * @brief Sets the document reference.
+ * @param canvas Canvas view instance.
+ * @param document Document to reference.
+ * @return None.
+ */
 void canvas_view_set_document(CanvasView* canvas, Document* document)
 {
     if (canvas) {
@@ -147,7 +181,12 @@ void canvas_view_set_document(CanvasView* canvas, Document* document)
     }
 }
 
-/** Set viewport rectangle. Complexity: `O(1)`. */
+/**
+ * @brief Sets the viewport rectangle.
+ * @param canvas Canvas view instance.
+ * @param viewport New viewport rectangle.
+ * @return None.
+ */
 void canvas_view_set_viewport(CanvasView* canvas, RectF viewport)
 {
     if (!canvas) {
@@ -157,7 +196,12 @@ void canvas_view_set_viewport(CanvasView* canvas, RectF viewport)
     canvas->viewport_state.viewport = viewport;
 }
 
-/** Set world center. Complexity: `O(1)`. */
+/**
+ * @brief Sets the viewport center point.
+ * @param canvas Canvas view instance.
+ * @param center New center point.
+ * @return None.
+ */
 void canvas_view_set_center(CanvasView* canvas, Vec2 center)
 {
     if (!canvas) {
@@ -167,7 +211,12 @@ void canvas_view_set_center(CanvasView* canvas, Vec2 center)
     canvas->viewport_state.center = center;
 }
 
-/** Set zoom with clamp. Complexity: `O(1)`. */
+/**
+ * @brief Sets the zoom level.
+ * @param canvas Canvas view instance.
+ * @param zoom New zoom level.
+ * @return None.
+ */
 void canvas_view_set_zoom(CanvasView* canvas, float zoom)
 {
     if (!canvas) {
@@ -177,7 +226,13 @@ void canvas_view_set_zoom(CanvasView* canvas, float zoom)
     canvas->viewport_state.zoom = clampf(zoom, 0.1f, 12.0f);
 }
 
-/** Set center and zoom together. Complexity: `O(1)`. */
+/**
+ * @brief Sets center and zoom atomically.
+ * @param canvas Canvas view instance.
+ * @param center New center point.
+ * @param zoom New zoom level.
+ * @return None.
+ */
 void canvas_view_set_center_zoom(CanvasView* canvas, Vec2 center, float zoom)
 {
     if (!canvas) {
@@ -188,39 +243,66 @@ void canvas_view_set_center_zoom(CanvasView* canvas, Vec2 center, float zoom)
     canvas->viewport_state.zoom = clampf(zoom, 0.1f, 12.0f);
 }
 
-/** Return viewport rectangle. Complexity: `O(1)`. */
+/**
+ * @brief Gets the viewport rectangle.
+ * @param canvas Canvas view instance.
+ * @return Viewport rectangle.
+ */
 RectF canvas_view_viewport(const CanvasView* canvas)
 {
     return canvas_view_state(canvas).viewport;
 }
 
-/** Return world center. Complexity: `O(1)`. */
+/**
+ * @brief Gets the viewport center point.
+ * @param canvas Canvas view instance.
+ * @return Center point.
+ */
 Vec2 canvas_view_center(const CanvasView* canvas)
 {
     return canvas_view_state(canvas).center;
 }
 
-/** Return zoom factor. Complexity: `O(1)`. */
+/**
+ * @brief Gets the current zoom level.
+ * @param canvas Canvas view instance.
+ * @return Zoom level.
+ */
 float canvas_view_zoom(const CanvasView* canvas)
 {
     return canvas_view_state(canvas).zoom;
 }
 
-/** Public world->screen conversion wrapper. Complexity: `O(1)`. */
+/**
+ * @brief Converts world coordinates to screen coordinates.
+ * @param canvas Canvas view instance.
+ * @param world World coordinate point.
+ * @return Screen coordinate point.
+ */
 Vec2 canvas_view_world_to_screen(const CanvasView* canvas, Vec2 world)
 {
     CanvasViewportState state = canvas_view_state(canvas);
     return canvas_viewport_world_to_screen(&state, world);
 }
 
-/** Public screen->world conversion wrapper. Complexity: `O(1)`. */
+/**
+ * @brief Converts screen coordinates to world coordinates.
+ * @param canvas Canvas view instance.
+ * @param screen Screen coordinate point.
+ * @return World coordinate point.
+ */
 Vec2 canvas_view_screen_to_world(const CanvasView* canvas, Vec2 screen)
 {
     CanvasViewportState state = canvas_view_state(canvas);
     return canvas_viewport_screen_to_world(&state, screen);
 }
 
-/** Pan camera from screen delta. Complexity: `O(1)`. */
+/**
+ * @brief Pans the viewport by a screen-space delta.
+ * @param canvas Canvas view instance.
+ * @param delta_screen Screen space delta.
+ * @return None.
+ */
 void canvas_view_pan_screen_delta(CanvasView* canvas, Vec2 delta_screen)
 {
     CanvasViewportState state;
@@ -234,7 +316,13 @@ void canvas_view_pan_screen_delta(CanvasView* canvas, Vec2 delta_screen)
     canvas->viewport_state = state;
 }
 
-/** Zoom camera around cursor/specified anchor. Complexity: `O(1)`. */
+/**
+ * @brief Zooms around a screen-space anchor point.
+ * @param canvas Canvas view instance.
+ * @param factor Zoom factor.
+ * @param screen_anchor Anchor point in screen coordinates.
+ * @return None.
+ */
 void canvas_view_zoom_at_screen_point(CanvasView* canvas, float factor, Vec2 screen_anchor)
 {
     CanvasViewportState state;
@@ -248,7 +336,12 @@ void canvas_view_zoom_at_screen_point(CanvasView* canvas, float factor, Vec2 scr
     canvas->viewport_state = state;
 }
 
-/** Convert pixel tolerance to world units based on zoom. Complexity: `O(1)`. */
+/**
+ * @brief Converts pixel tolerance to world-space tolerance.
+ * @param canvas Canvas view instance.
+ * @param pixels Pixel tolerance.
+ * @return World-space tolerance.
+ */
 float canvas_view_world_tolerance_for_pixels(const CanvasView* canvas, float pixels)
 {
     float zoom = canvas_view_zoom(canvas);
@@ -260,7 +353,11 @@ float canvas_view_world_tolerance_for_pixels(const CanvasView* canvas, float pix
     return pixels / zoom;
 }
 
-/** Get visible world rectangle. Complexity: `O(1)`. */
+/**
+ * @brief Gets the visible world rectangle.
+ * @param canvas Canvas view instance.
+ * @return Visible world rectangle.
+ */
 RectF canvas_view_visible_world_rect(const CanvasView* canvas)
 {
     CanvasViewportState state = canvas_view_state(canvas);
@@ -275,6 +372,14 @@ RectF canvas_view_visible_world_rect(const CanvasView* canvas)
  * - Newer objects are drawn later and visually on top, so picking scans from end.
  *
  * Time complexity: `O(n)` where `n` is document object count.
+ */
+
+/**
+ * @brief Picks the top-most object under a screen point.
+ * @param canvas Canvas view instance.
+ * @param screen_point Point in screen coordinates.
+ * @param tolerance_pixels Pick tolerance in pixels.
+ * @return Pointer to hit object or NULL.
  */
 GraphicObject* canvas_view_pick_object(const CanvasView* canvas, Vec2 screen_point, float tolerance_pixels)
 {

@@ -99,13 +99,20 @@ void platform_window_shutdown(PlatformWindow* window)
     }
 }
 
-/** Poll pending OS events. */
+/**
+ * @brief Poll window events.
+ * @return No return value.
+ */
 void platform_window_poll_events(void)
 {
     glfwPollEvents();
 }
 
-/** Swap front/back buffers for valid window handle. */
+/**
+ * @brief Swap the window front and back buffers.
+ * @param window Target window.
+ * @return No return value.
+ */
 void platform_window_swap_buffers(PlatformWindow* window)
 {
     if (window && window->handle) {
@@ -113,7 +120,11 @@ void platform_window_swap_buffers(PlatformWindow* window)
     }
 }
 
-/** Return close-state (treat invalid window as closed). */
+/**
+ * @brief Query whether the window should close.
+ * @param window Target window.
+ * @return Non-zero if the window should close, zero otherwise.
+ */
 int platform_window_should_close(const PlatformWindow* window)
 {
     if (!window || !window->handle) {

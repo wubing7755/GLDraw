@@ -47,14 +47,22 @@ typedef struct {
     Vec2 current;
 } ShapeToolState;
 
-/** Free and re-init snapshot for reuse. */
+/**
+ * @brief Resets a snapshot.
+ * @param snapshot Snapshot to reset.
+ * @return None.
+ */
 static void snapshot_reset(DocumentSnapshot* snapshot)
 {
     document_snapshot_free(snapshot);
     document_snapshot_init(snapshot);
 }
 
-/** Destroy active overlay object preview if present. */
+/**
+ * @brief Destroys a tool's overlay object.
+ * @param tool Tool instance.
+ * @return None.
+ */
 static void destroy_overlay(Tool* tool)
 {
     if (tool && tool->overlay_object) {
@@ -63,7 +71,12 @@ static void destroy_overlay(Tool* tool)
     }
 }
 
-/** Build axis-aligned rect from two arbitrary points. */
+/**
+ * @brief Creates a rectangle from two points.
+ * @param a First point.
+ * @param b Second point.
+ * @return Rectangle bounds.
+ */
 static RectF rect_from_points(Vec2 a, Vec2 b)
 {
     RectF rect;
@@ -74,7 +87,14 @@ static RectF rect_from_points(Vec2 a, Vec2 b)
     return rect;
 }
 
-/** Create shape object for current shape tool kind. */
+/**
+ * @brief Builds a shape object from tool kind.
+ * @param kind Shape tool kind.
+ * @param anchor Anchor point.
+ * @param current Current point.
+ * @param style Graphic style.
+ * @return New shape object or NULL.
+ */
 static GraphicObject* build_shape_object(ToolKind kind, Vec2 anchor, Vec2 current, GraphicStyle style)
 {
     if (kind == TOOL_KIND_LINE) {
@@ -89,7 +109,12 @@ static GraphicObject* build_shape_object(ToolKind kind, Vec2 anchor, Vec2 curren
     return NULL;
 }
 
-/** Compare document selection against snapshot selection (order-sensitive). */
+/**
+ * @brief Checks if selection matches a snapshot.
+ * @param document Document instance.
+ * @param snapshot Snapshot to compare.
+ * @return 1 if matches, 0 otherwise.
+ */
 static int selection_matches_snapshot(const Document* document, const DocumentSnapshot* snapshot)
 {
     int i = 0;
@@ -112,7 +137,11 @@ static int selection_matches_snapshot(const Document* document, const DocumentSn
 }
 
 /**
- * @brief Push document edit to history and sync dirty flag.
+ * @brief Pushes document edit to history and syncs dirty flag.
+ * @param context [in,out] Tool context.
+ * @param before_snapshot [in,out] Before snapshot (consumed and reset by this function).
+ * @return None.
+ *
  * @remark Safely resets snapshot even when context/history is invalid.
  */
 static void tool_commit_document_change(ToolContext* context, DocumentSnapshot* before_snapshot)
@@ -132,14 +161,23 @@ static void tool_commit_document_change(ToolContext* context, DocumentSnapshot* 
     workspace_sync_document_dirty(context->workspace);
 }
 
-/** Select tool UI label. */
+/**
+ * @brief Gets the select tool label.
+ * @param tool Tool instance.
+ * @return Tool label string.
+ */
 static const char* select_tool_label(const Tool* tool)
 {
     (void)tool;
     return "Select";
 }
 
-/** Deactivate select tool and clear transient state. */
+/**
+ * @brief Deactivates the select tool.
+ * @param tool Tool instance.
+ * @param context Tool context.
+ * @return None.
+ */
 static void select_tool_deactivate(Tool* tool, ToolContext* context)
 {
     SelectToolState* state = (SelectToolState*)tool->state;
@@ -152,7 +190,11 @@ static void select_tool_deactivate(Tool* tool, ToolContext* context)
 }
 
 /**
- * @brief Handle select tool pointer press.
+ * @brief Handles select tool pointer press.
+ * @param tool [in,out] Select tool instance.
+ * @param context [in,out] Tool context.
+ * @param event [in] Pointer event.
+ * @return None.
  *
  * Why snapshot first:
  * - Captures "before" state before selection/drag mutations so history entry
@@ -236,7 +278,13 @@ static void select_tool_pointer_down(Tool* tool, ToolContext* context, const Too
     state->drag_revision_before = context->document->revision;
 }
 
-/** Move all selected objects by world delta while dragging. */
+/**
+ * @brief Moves selected objects by world coordinate delta during drag.
+ * @param tool [in,out] Select tool instance.
+ * @param context [in,out] Tool context.
+ * @param event [in] Pointer event.
+ * @return None.
+ */
 static void select_tool_pointer_move(Tool* tool, ToolContext* context, const ToolEvent* event)
 {
     SelectToolState* state = (SelectToolState*)tool->state;
@@ -265,7 +313,15 @@ static void select_tool_pointer_move(Tool* tool, ToolContext* context, const Too
     document_touch(context->document);
 }
 
-/** Finalize select drag/selection change and commit history when needed. */
+/**
+ * @brief Ends selection drag and writes translate history if needed.
+ * @param tool [in,out] Select tool instance.
+ * @param context [in,out] Tool context.
+ * @param event [in] Pointer event.
+ * @return None.
+ *
+ * @note Only writes translate history entry when displacement actually occurred and object set is non-empty.
+ */
 static void select_tool_pointer_up(Tool* tool, ToolContext* context, const ToolEvent* event)
 {
     SelectToolState* state = (SelectToolState*)tool->state;
@@ -294,7 +350,14 @@ static void select_tool_pointer_up(Tool* tool, ToolContext* context, const ToolE
     state->drag_revision_before = 0u;
 }
 
-/** Handle select tool keyboard input (Escape clears selection). */
+/**
+ * @brief Handles key down for select tool.
+ * @param tool Tool instance.
+ * @param context Tool context.
+ * @param key Key code.
+ * @param mods Modifier flags.
+ * @return None.
+ */
 static void select_tool_key_down(Tool* tool, ToolContext* context, int key, int mods)
 {
     (void)tool;
@@ -324,14 +387,23 @@ static const ToolVTable g_select_tool_vtable = {
     select_tool_key_down
 };
 
-/** Pan tool label. */
+/**
+ * @brief Gets the pan tool label.
+ * @param tool Tool instance.
+ * @return Tool label string.
+ */
 static const char* pan_tool_label(const Tool* tool)
 {
     (void)tool;
     return "Hand";
 }
 
-/** Stop panning when tool deactivates. */
+/**
+ * @brief Deactivates the pan tool.
+ * @param tool Tool instance.
+ * @param context Tool context.
+ * @return None.
+ */
 static void pan_tool_deactivate(Tool* tool, ToolContext* context)
 {
     PanToolState* state = (PanToolState*)tool->state;
@@ -339,7 +411,13 @@ static void pan_tool_deactivate(Tool* tool, ToolContext* context)
     state->panning = 0;
 }
 
-/** Start panning on left press. */
+/**
+ * @brief Handles pointer down for pan tool.
+ * @param tool Tool instance.
+ * @param context Tool context.
+ * @param event Pointer event.
+ * @return None.
+ */
 static void pan_tool_pointer_down(Tool* tool, ToolContext* context, const ToolEvent* event)
 {
     PanToolState* state = (PanToolState*)tool->state;
@@ -351,7 +429,13 @@ static void pan_tool_pointer_down(Tool* tool, ToolContext* context, const ToolEv
     state->panning = 1;
 }
 
-/** Apply screen delta pan while active. */
+/**
+ * @brief Handles pointer move for pan tool.
+ * @param tool Tool instance.
+ * @param context Tool context.
+ * @param event Pointer event.
+ * @return None.
+ */
 static void pan_tool_pointer_move(Tool* tool, ToolContext* context, const ToolEvent* event)
 {
     PanToolState* state = (PanToolState*)tool->state;
@@ -362,7 +446,13 @@ static void pan_tool_pointer_move(Tool* tool, ToolContext* context, const ToolEv
     canvas_view_pan_screen_delta(context->canvas, event->delta_screen);
 }
 
-/** End panning on release. */
+/**
+ * @brief Handles pointer up for pan tool.
+ * @param tool Tool instance.
+ * @param context Tool context.
+ * @param event Pointer event.
+ * @return None.
+ */
 static void pan_tool_pointer_up(Tool* tool, ToolContext* context, const ToolEvent* event)
 {
     PanToolState* state = (PanToolState*)tool->state;
@@ -373,7 +463,14 @@ static void pan_tool_pointer_up(Tool* tool, ToolContext* context, const ToolEven
     }
 }
 
-/** Handle pan tool keyboard input (Escape cancels panning). */
+/**
+ * @brief Handles key down for pan tool.
+ * @param tool Tool instance.
+ * @param context Tool context.
+ * @param key Key code.
+ * @param mods Modifier flags.
+ * @return None.
+ */
 static void pan_tool_key_down(Tool* tool, ToolContext* context, int key, int mods)
 {
     PanToolState* state = (PanToolState*)tool->state;
@@ -394,7 +491,11 @@ static const ToolVTable g_pan_tool_vtable = {
     pan_tool_key_down
 };
 
-/** Return label by shape kind. */
+/**
+ * @brief Gets the shape tool label.
+ * @param tool Tool instance.
+ * @return Tool label string.
+ */
 static const char* shape_tool_label(const Tool* tool)
 {
     switch (tool->kind) {
@@ -409,7 +510,12 @@ static const char* shape_tool_label(const Tool* tool)
     }
 }
 
-/** Cancel shape drawing and clear overlay when tool deactivates. */
+/**
+ * @brief Deactivates the shape tool.
+ * @param tool Tool instance.
+ * @param context Tool context.
+ * @return None.
+ */
 static void shape_tool_deactivate(Tool* tool, ToolContext* context)
 {
     ShapeToolState* state = (ShapeToolState*)tool->state;
@@ -418,7 +524,13 @@ static void shape_tool_deactivate(Tool* tool, ToolContext* context)
     destroy_overlay(tool);
 }
 
-/** Start shape draw interaction and create translucent overlay preview. */
+/**
+ * @brief Begins shape drawing interaction and creates semi-transparent preview.
+ * @param tool [in,out] Shape tool instance.
+ * @param context [in,out] Tool context (currently unused).
+ * @param event [in] Pointer event.
+ * @return None.
+ */
 static void shape_tool_pointer_down(Tool* tool, ToolContext* context, const ToolEvent* event)
 {
     ShapeToolState* state = (ShapeToolState*)tool->state;
@@ -438,7 +550,13 @@ static void shape_tool_pointer_down(Tool* tool, ToolContext* context, const Tool
     tool->overlay_object = build_shape_object(tool->kind, state->anchor, state->current, style);
 }
 
-/** Update shape overlay as pointer moves. */
+/**
+ * @brief Updates shape preview object on pointer move.
+ * @param tool [in,out] Shape tool instance.
+ * @param context [in,out] Tool context (currently unused).
+ * @param event [in] Pointer event.
+ * @return None.
+ */
 static void shape_tool_pointer_move(Tool* tool, ToolContext* context, const ToolEvent* event)
 {
     ShapeToolState* state = (ShapeToolState*)tool->state;
@@ -456,7 +574,18 @@ static void shape_tool_pointer_move(Tool* tool, ToolContext* context, const Tool
 }
 
 /**
- * @brief Finalize shape creation on pointer release.
+ * @brief Finalizes shape creation on pointer release.
+ * @param tool [in,out] Shape tool instance.
+ * @param context [in,out] Tool context.
+ * @param event [in] Pointer event.
+ * @return None.
+ *
+ * Algorithm steps:
+ * 1. Captures before edit snapshot.
+ * 2. Builds final object from anchor and current points.
+ * 3. Appends to document and updates selection.
+ * 4. Commits change to history stack.
+ *
  * Risk note:
  * - Captures history snapshot before append; allocation/add failures clean up
  *   object/snapshot to avoid leaks and partial commits.
@@ -495,7 +624,14 @@ static void shape_tool_pointer_up(Tool* tool, ToolContext* context, const ToolEv
     tool_commit_document_change(context, &before_snapshot);
 }
 
-/** Escape cancels in-progress shape drawing. */
+/**
+ * @brief Handles key down for shape tool.
+ * @param tool Tool instance.
+ * @param context Tool context.
+ * @param key Key code.
+ * @param mods Modifier flags.
+ * @return None.
+ */
 static void shape_tool_key_down(Tool* tool, ToolContext* context, int key, int mods)
 {
     (void)mods;
@@ -514,7 +650,14 @@ static const ToolVTable g_shape_tool_vtable = {
     shape_tool_key_down
 };
 
-/** Initialize one tool slot and allocate optional state block. */
+/**
+ * @brief Initializes a tool slot.
+ * @param tool Tool to initialize.
+ * @param kind Tool kind.
+ * @param vtable Tool vtable.
+ * @param state_size Size of tool state.
+ * @return None.
+ */
 static void tool_init_slot(Tool* tool, ToolKind kind, const ToolVTable* vtable, size_t state_size)
 {
     memset(tool, 0, sizeof(*tool));
@@ -525,7 +668,11 @@ static void tool_init_slot(Tool* tool, ToolKind kind, const ToolVTable* vtable, 
     }
 }
 
-/** Initialize all built-in tools and default active tool. */
+/**
+ * @brief Initializes the tool controller.
+ * @param controller Controller instance.
+ * @return None.
+ */
 void tool_controller_init(ToolController* controller)
 {
     if (!controller) {
@@ -541,7 +688,11 @@ void tool_controller_init(ToolController* controller)
     controller->active_kind = TOOL_KIND_SELECT;
 }
 
-/** Shutdown all tool states and overlays. */
+/**
+ * @brief Shuts down the tool controller.
+ * @param controller Controller instance.
+ * @return None.
+ */
 void tool_controller_shutdown(ToolController* controller)
 {
     int i = 0;
@@ -557,7 +708,11 @@ void tool_controller_shutdown(ToolController* controller)
     }
 }
 
-/** Return active tool pointer. */
+/**
+ * @brief Gets the active tool.
+ * @param controller Controller instance.
+ * @return Active tool pointer.
+ */
 Tool* tool_controller_get_active(ToolController* controller)
 {
     if (!controller) {
@@ -566,7 +721,11 @@ Tool* tool_controller_get_active(ToolController* controller)
     return &controller->tools[controller->active_kind];
 }
 
-/** Return active tool label. */
+/**
+ * @brief Gets the active tool label.
+ * @param controller Controller instance.
+ * @return Active tool label string.
+ */
 const char* tool_controller_active_label(const ToolController* controller)
 {
     const Tool* tool = NULL;
@@ -577,7 +736,11 @@ const char* tool_controller_active_label(const ToolController* controller)
     return tool->vtable->label(tool);
 }
 
-/** Return active tool overlay object if any. */
+/**
+ * @brief Gets the overlay object of the active tool.
+ * @param controller Controller instance.
+ * @return Overlay object or NULL.
+ */
 GraphicObject* tool_controller_overlay_object(const ToolController* controller)
 {
     if (!controller) {
@@ -586,7 +749,13 @@ GraphicObject* tool_controller_overlay_object(const ToolController* controller)
     return controller->tools[controller->active_kind].overlay_object;
 }
 
-/** Switch active tool with proper deactivate/activate callbacks. */
+/**
+ * @brief Sets the active tool.
+ * @param controller Controller instance.
+ * @param context Tool context.
+ * @param kind Tool kind to activate.
+ * @return None.
+ */
 void tool_controller_set_active(ToolController* controller, ToolContext* context, ToolKind kind)
 {
     Tool* current = NULL;
@@ -608,7 +777,13 @@ void tool_controller_set_active(ToolController* controller, ToolContext* context
     }
 }
 
-/** Dispatch pointer-down and capture pointer. */
+/**
+ * @brief Dispatches pointer press event and starts pointer capture.
+ * @param controller [in,out] Tool controller.
+ * @param context [in,out] Tool context.
+ * @param event [in] Pointer event.
+ * @return None.
+ */
 void tool_controller_pointer_down(ToolController* controller, ToolContext* context, const ToolEvent* event)
 {
     Tool* tool = tool_controller_get_active(controller);
@@ -621,7 +796,13 @@ void tool_controller_pointer_down(ToolController* controller, ToolContext* conte
     tool->vtable->pointer_down(tool, context, event);
 }
 
-/** Dispatch pointer-move to active tool. */
+/**
+ * @brief Dispatches move event to currently active tool.
+ * @param controller [in,out] Tool controller.
+ * @param context [in,out] Tool context.
+ * @param event [in] Pointer event.
+ * @return None.
+ */
 void tool_controller_pointer_move(ToolController* controller, ToolContext* context, const ToolEvent* event)
 {
     Tool* tool = tool_controller_get_active(controller);
@@ -633,7 +814,13 @@ void tool_controller_pointer_move(ToolController* controller, ToolContext* conte
     tool->vtable->pointer_move(tool, context, event);
 }
 
-/** Dispatch pointer-up and release pointer capture. */
+/**
+ * @brief Dispatches release event and ends pointer capture.
+ * @param controller [in,out] Tool controller.
+ * @param context [in,out] Tool context.
+ * @param event [in] Pointer event.
+ * @return None.
+ */
 void tool_controller_pointer_up(ToolController* controller, ToolContext* context, const ToolEvent* event)
 {
     Tool* tool = tool_controller_get_active(controller);
@@ -647,9 +834,12 @@ void tool_controller_pointer_up(ToolController* controller, ToolContext* context
 }
 
 /**
- * @brief Dispatch key-down to global shortcuts or active tool.
- * Why global-first:
- * - Undo/redo/delete/tool-switch shortcuts must be deterministic regardless of tool.
+ * @brief Handles key down for tool controller.
+ * @param controller Controller instance.
+ * @param context Tool context.
+ * @param key Key code.
+ * @param mods Modifier flags.
+ * @return None.
  */
 void tool_controller_key_down(ToolController* controller, ToolContext* context, int key, int mods)
 {
@@ -720,7 +910,14 @@ void tool_controller_key_down(ToolController* controller, ToolContext* context, 
     }
 }
 
-/** Apply wheel zoom around current cursor screen point. */
+/**
+ * @brief Handles scroll event for tool controller.
+ * @param controller Controller instance.
+ * @param context Tool context.
+ * @param screen_pos Screen position.
+ * @param yoffset Vertical scroll offset.
+ * @return None.
+ */
 void tool_controller_scroll(ToolController* controller, ToolContext* context, Vec2 screen_pos, float yoffset)
 {
     float factor = 1.0f;

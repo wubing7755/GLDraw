@@ -14,7 +14,11 @@
 
 #include <string.h>
 
-/** Initialize document fields to empty defaults. Complexity: `O(1)`. */
+/**
+ * @brief Initializes a document.
+ * @param document Document to initialize.
+ * @return None.
+ */
 void document_init(Document* document)
 {
     if (!document) {
@@ -26,7 +30,11 @@ void document_init(Document* document)
     document->revision = 1;
 }
 
-/** Destroy all objects and clear selection while preserving struct storage. Complexity: `O(n)`. */
+/**
+ * @brief Shuts down a document and frees resources.
+ * @param document Document to shut down.
+ * @return None.
+ */
 void document_shutdown(Document* document)
 {
     int i = 0;
@@ -45,7 +53,11 @@ void document_shutdown(Document* document)
     document->revision++;
 }
 
-/** Reset document to pristine empty state. Complexity: `O(n)`. */
+/**
+ * @brief Resets a document to initial empty state.
+ * @param document Document to reset.
+ * @return None.
+ */
 void document_reset(Document* document)
 {
     int i = 0;
@@ -65,7 +77,12 @@ void document_reset(Document* document)
     document->revision = 1;
 }
 
-/** Append object with auto-assigned ID. Complexity: `O(1)`. */
+/**
+ * @brief Adds an object to the document.
+ * @param document Document instance.
+ * @param object Object to add.
+ * @return 1 on success, 0 on failure.
+ */
 int document_add_object(Document* document, GraphicObject* object)
 {
     if (!document || !object || document->count >= DOCUMENT_MAX_OBJECTS) {
@@ -78,7 +95,13 @@ int document_add_object(Document* document, GraphicObject* object)
     return 1;
 }
 
-/** Append object with explicit ID and duplicate check. Complexity: `O(n)`. */
+/**
+ * @brief Appends an object with a specific ID.
+ * @param document Document instance.
+ * @param object Object to append.
+ * @param id Desired object ID.
+ * @return 1 on success, 0 on failure.
+ */
 int document_append_object_with_id(Document* document, GraphicObject* object, ObjectId id)
 {
     if (!document || !object || id == 0 || document->count >= DOCUMENT_MAX_OBJECTS) {
@@ -98,7 +121,12 @@ int document_append_object_with_id(Document* document, GraphicObject* object, Ob
     return 1;
 }
 
-/** Find object by ID by linear scan. Complexity: `O(n)`. */
+/**
+ * @brief Finds an object by ID.
+ * @param document Document instance.
+ * @param id Object ID to find.
+ * @return Pointer to object or NULL.
+ */
 GraphicObject* document_find_object(const Document* document, ObjectId id)
 {
     int i = 0;
@@ -116,7 +144,12 @@ GraphicObject* document_find_object(const Document* document, ObjectId id)
     return NULL;
 }
 
-/** Access object by index. Complexity: `O(1)`. */
+/**
+ * @brief Gets an object at a specific index.
+ * @param document Document instance.
+ * @param index Object index.
+ * @return Pointer to object or NULL.
+ */
 GraphicObject* document_get_object_at(const Document* document, int index)
 {
     if (!document || index < 0 || index >= document->count) {
@@ -125,7 +158,12 @@ GraphicObject* document_get_object_at(const Document* document, int index)
     return document->objects[index];
 }
 
-/** Check whether ID is in selection set. Complexity: `O(s)`. */
+/**
+ * @brief Checks if an object is in the selection.
+ * @param document Document instance.
+ * @param id Object ID to check.
+ * @return 1 if selected, 0 otherwise.
+ */
 int document_selection_contains(const Document* document, ObjectId id)
 {
     int i = 0;
@@ -143,7 +181,11 @@ int document_selection_contains(const Document* document, ObjectId id)
     return 0;
 }
 
-/** Clear selection count only (IDs remain irrelevant beyond count). Complexity: `O(1)`. */
+/**
+ * @brief Clears the selection.
+ * @param document Document instance.
+ * @return None.
+ */
 void document_clear_selection(Document* document)
 {
     if (document) {
@@ -151,7 +193,12 @@ void document_clear_selection(Document* document)
     }
 }
 
-/** Add ID to selection if missing and capacity permits. Complexity: `O(s)`. */
+/**
+ * @brief Adds an object to the selection.
+ * @param document Document instance.
+ * @param id Object ID to add.
+ * @return 1 on success, 0 on failure.
+ */
 int document_selection_add(Document* document, ObjectId id)
 {
     if (!document || id == 0) {
@@ -170,7 +217,12 @@ int document_selection_add(Document* document, ObjectId id)
     return 1;
 }
 
-/** Remove one ID from selection and compact array. Complexity: `O(s)`. */
+/**
+ * @brief Removes an object from the selection.
+ * @param document Document instance.
+ * @param id Object ID to remove.
+ * @return None.
+ */
 void document_selection_remove(Document* document, ObjectId id)
 {
     int i = 0;
@@ -191,7 +243,12 @@ void document_selection_remove(Document* document, ObjectId id)
     }
 }
 
-/** Toggle selection membership for ID. Complexity: `O(s)`. */
+/**
+ * @brief Toggles an object in the selection.
+ * @param document Document instance.
+ * @param id Object ID to toggle.
+ * @return None.
+ */
 void document_selection_toggle(Document* document, ObjectId id)
 {
     if (!document) {
@@ -205,7 +262,11 @@ void document_selection_toggle(Document* document, ObjectId id)
     }
 }
 
-/** Resolve first selected object. Complexity: `O(n)` due to ID lookup. */
+/**
+ * @brief Gets the primary (first) selected object.
+ * @param document Document instance.
+ * @return Pointer to primary selected object or NULL.
+ */
 GraphicObject* document_primary_selection(const Document* document)
 {
     if (!document || document->selection.count <= 0) {
@@ -214,7 +275,12 @@ GraphicObject* document_primary_selection(const Document* document)
     return document_find_object(document, document->selection.ids[0]);
 }
 
-/** Remove object by ID, destroy it, and compact object array. Complexity: `O(n)`. */
+/**
+ * @brief Removes an object from the document.
+ * @param document Document instance.
+ * @param id Object ID to remove.
+ * @return 1 on success, 0 on failure.
+ */
 int document_remove_object(Document* document, ObjectId id)
 {
     int i = 0;
@@ -242,13 +308,9 @@ int document_remove_object(Document* document, ObjectId id)
 }
 
 /**
- * @brief Delete all currently selected objects.
- *
- * Why copy IDs first:
- * - Removing objects mutates selection/order, so direct iteration over
- *   `selection.ids` while deleting would skip or misread entries.
- *
- * Complexity: up to `O(s*n)`.
+ * @brief Deletes all selected objects.
+ * @param document Document instance.
+ * @return None.
  */
 void document_delete_selection(Document* document)
 {
@@ -272,7 +334,11 @@ void document_delete_selection(Document* document)
     document_clear_selection(document);
 }
 
-/** Increment document revision marker. Complexity: `O(1)`. */
+/**
+ * @brief Increments the document revision.
+ * @param document Document instance.
+ * @return None.
+ */
 void document_touch(Document* document)
 {
     if (document) {
@@ -280,7 +346,11 @@ void document_touch(Document* document)
     }
 }
 
-/** Return max object ID currently present. Complexity: `O(n)`. */
+/**
+ * @brief Gets the maximum object ID in the document.
+ * @param document Document instance.
+ * @return Maximum object ID.
+ */
 ObjectId document_max_id(const Document* document)
 {
     ObjectId max_id = 0;
