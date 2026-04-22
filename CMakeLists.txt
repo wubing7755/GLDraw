@@ -45,6 +45,7 @@ set(GLDRAW_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/app/application.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/app/command_registry.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/app/workspace_actions.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/app/workspace_dialogs.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/platform/window.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/document/object.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/document/document.c
