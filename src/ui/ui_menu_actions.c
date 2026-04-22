@@ -12,40 +12,13 @@
  */
 #include "ui_menu_actions.h"
 
+#include <app/workspace_actions.h>
 #include <app/workspace.h>
 #include <base/log.h>
 #include <base/math2d.h>
 #include <canvas/canvas_view.h>
 #include <document/document.h>
 #include <document/history.h>
-#include <platform/window.h>
-
-#include <GLFW/glfw3.h>
-
-static void app_workspace_new(Workspace* workspace)
-{
-    if (!workspace) {
-        return;
-    }
-
-    document_reset(&workspace->document);
-
-    document_history_shutdown(&workspace->history);
-    if (!document_history_init(&workspace->history)) {
-        LOG_ERROR("%s", "Failed to reinitialize history");
-        return;
-    }
-
-    /* Reset canvas zoom and center */
-    canvas_view_set_center_zoom(&workspace->canvas, vec2_make(0.0f, 0.0f), 1.0f);
-
-    workspace->current_document_path[0] = '\0';
-
-    workspace->saved_revision = workspace->document.revision;
-    workspace->document_dirty = 0;
-
-    LOG_INFO("%s", "Created new document");
-}
 
 static void app_zoom_to_fit(Workspace* workspace)
 {
@@ -176,13 +149,11 @@ void ui_menu_execute(Workspace* workspace, MenuId id)
     switch (id) {
     /* File menu */
     case MENU_ID_FILE_NEW:
-        app_workspace_new(workspace);
+        workspace_request_action(workspace, WORKSPACE_ACTION_NEW_DOCUMENT);
         break;
 
     case MENU_ID_FILE_OPEN:
-        if (workspace->load_document) {
-            workspace->load_document(workspace, workspace->command_user_data);
-        }
+        workspace_request_action(workspace, WORKSPACE_ACTION_OPEN_DOCUMENT);
         break;
 
     case MENU_ID_FILE_SAVE:
@@ -200,7 +171,7 @@ void ui_menu_execute(Workspace* workspace, MenuId id)
         break;
 
     case MENU_ID_FILE_EXIT:
-        glfwSetWindowShouldClose(glfwGetCurrentContext(), GLFW_TRUE);
+        workspace_request_action(workspace, WORKSPACE_ACTION_EXIT_APPLICATION);
         break;
 
     /* Edit menu */

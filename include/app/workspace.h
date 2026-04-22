@@ -22,6 +22,25 @@ struct Workspace;
 /** Callback signature for workspace-level commands (save/load). */
 typedef int (*WorkspaceCommandFn)(struct Workspace* workspace, void* user_data);
 
+/** Destructive editor actions that may need unsaved-change confirmation. */
+typedef enum WorkspaceActionType {
+    WORKSPACE_ACTION_NONE = 0,
+    WORKSPACE_ACTION_NEW_DOCUMENT,
+    WORKSPACE_ACTION_OPEN_DOCUMENT,
+    WORKSPACE_ACTION_EXIT_APPLICATION
+} WorkspaceActionType;
+
+/** Workspace-managed modal states. */
+typedef enum WorkspaceModalType {
+    WORKSPACE_MODAL_NONE = 0,
+    WORKSPACE_MODAL_CONFIRM_UNSAVED
+} WorkspaceModalType;
+
+/** Callback signature for application-owned workspace action execution. */
+typedef int (*WorkspaceActionExecutorFn)(struct Workspace* workspace,
+                                         WorkspaceActionType action,
+                                         void* user_data);
+
 /** UI-computed layout snapshot shared with input/canvas subsystems. */
 typedef struct WorkspaceLayout {
     RectF window_bounds;
@@ -53,8 +72,11 @@ typedef struct Workspace {
     char status_message[256];       /**< Current status bar message */
     unsigned int saved_revision;     /**< Document revision last marked as saved */
     int document_dirty;             /**< Non-zero when current revision differs from saved_revision */
+    WorkspaceModalType modal_type;  /**< Active modal dialog state */
+    WorkspaceActionType pending_action; /**< Deferred action awaiting modal resolution */
     WorkspaceCommandFn save_document; /**< Workspace-level save callback */
     WorkspaceCommandFn load_document; /**< Workspace-level load callback */
+    WorkspaceActionExecutorFn execute_action; /**< Application-owned action executor */
     void* command_user_data;        /**< Caller-supplied context for command callbacks */
 } Workspace;
 

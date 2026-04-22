@@ -13,6 +13,7 @@
 #include <ui/ui_system.h>
 #include <ui/ui_menubar.h>
 
+#include <app/workspace_actions.h>
 #include <app/workspace.h>
 #include <base/math2d.h>
 #include <canvas/canvas_view.h>
@@ -70,6 +71,7 @@ struct UiSystem {
     float inspector_anim_t;
     int inspector_target_visible;
     int inspector_anim_initialized;
+    int modal_active;
     double last_frame_seconds;
 };
 
@@ -686,6 +688,109 @@ static void ui_status_bar(UiSystem* ui, Workspace* workspace, int window_width, 
     nk_end(ctx);
 }
 
+/** Render a centered modal dialog for active workspace confirmation flows. */
+static void ui_modal_dialogs(UiSystem* ui, Workspace* workspace, int window_width, int window_height)
+{
+    struct nk_context* ctx = NULL;
+    struct nk_style_item blocker_background;
+    struct nk_rect modal_bounds;
+    float modal_width = 360.0f;
+    float modal_height = 170.0f;
+    const char* title = NULL;
+    const char* message = NULL;
+    const char* line_break = NULL;
+    char line_one[128];
+    char line_two[128];
+    size_t line_one_length = 0u;
+
+    if (!ui || !workspace || !workspace_modal_is_active(workspace)) {
+        return;
+    }
+
+    ctx = ui->ctx;
+    if (!ctx) {
+        return;
+    }
+
+    if ((float)window_width < modal_width + 24.0f) {
+        modal_width = (float)window_width - 24.0f;
+    }
+    if ((float)window_height < modal_height + 24.0f) {
+        modal_height = (float)window_height - 24.0f;
+    }
+    if (modal_width < 240.0f) {
+        modal_width = 240.0f;
+    }
+    if (modal_height < 140.0f) {
+        modal_height = 140.0f;
+    }
+
+    modal_bounds = nk_rect(((float)window_width - modal_width) * 0.5f,
+                           ((float)window_height - modal_height) * 0.5f,
+                           modal_width,
+                           modal_height);
+
+    title = workspace_modal_title(workspace);
+    message = workspace_modal_message(workspace);
+    line_one[0] = '\0';
+    line_two[0] = '\0';
+
+    if (message) {
+        line_break = strchr(message, '\n');
+        if (line_break) {
+            line_one_length = (size_t)(line_break - message);
+            if (line_one_length >= sizeof(line_one)) {
+                line_one_length = sizeof(line_one) - 1u;
+            }
+            memcpy(line_one, message, line_one_length);
+            line_one[line_one_length] = '\0';
+            snprintf(line_two, sizeof(line_two), "%s", line_break + 1);
+        } else {
+            snprintf(line_one, sizeof(line_one), "%s", message);
+        }
+    }
+
+    blocker_background = nk_style_item_color(nk_rgba(0, 0, 0, 96));
+    nk_style_push_style_item(ctx, &ctx->style.window.fixed_background, blocker_background);
+    if (nk_begin(ctx,
+                 "##modal_blocker##",
+                 nk_rect(0.0f, 0.0f, (float)window_width, (float)window_height),
+                 NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_BACKGROUND)) {
+        nk_layout_row_dynamic(ctx, 1.0f, 1);
+        nk_label(ctx, "", NK_TEXT_LEFT);
+    }
+    nk_end(ctx);
+    nk_style_pop_style_item(ctx);
+
+    if (nk_begin(ctx,
+                 title && title[0] != '\0' ? title : "Modal",
+                 modal_bounds,
+                 NK_WINDOW_BORDER | NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_TITLE)) {
+        nk_layout_row_dynamic(ctx, 22.0f, 1);
+        if (line_one[0] != '\0') {
+            nk_label(ctx, line_one, NK_TEXT_LEFT);
+        }
+        if (line_two[0] != '\0') {
+            nk_label(ctx, line_two, NK_TEXT_LEFT);
+        }
+
+        nk_layout_row_dynamic(ctx, 12.0f, 1);
+        nk_label(ctx, "", NK_TEXT_LEFT);
+
+        nk_layout_row_dynamic(ctx, 34.0f, 3);
+        if (nk_button_label(ctx, "Save")) {
+            workspace_confirm_pending_action_save(workspace);
+        }
+        if (nk_button_label(ctx, "Don't Save")) {
+            workspace_confirm_pending_action_discard(workspace);
+        }
+        if (nk_button_label(ctx, "Cancel")) {
+            workspace_confirm_pending_action_cancel(workspace);
+        }
+    }
+    nk_end(ctx);
+}
+
 UiSystem* ui_system_create(PlatformWindow* window)
 {
     UiSystem* ui = (UiSystem*)calloc(1, sizeof(*ui));
@@ -771,6 +876,8 @@ void ui_system_build(UiSystem* ui, Workspace* workspace)
         return;
     }
 
+    ui->modal_active = workspace_modal_is_active(workspace);
+
     if (ui->window_handle) {
         glfwGetWindowSize(ui->window_handle, &width, &height);
     }
@@ -793,7 +900,7 @@ void ui_system_build(UiSystem* ui, Workspace* workspace)
     dt_seconds = ui_clampf(dt_seconds, 0.0f, 0.10f);
     ui_system_poll_theme_hot_reload(ui, workspace, now_seconds);
 
-    if (ui->menu_bar) {
+    if (ui->menu_bar && !ui->modal_active) {
         int requested_theme_index = -1;
         int requested_theme_reload = 0;
         const UiThemeDescriptor* requested_theme = NULL;
@@ -834,7 +941,10 @@ void ui_system_build(UiSystem* ui, Workspace* workspace)
     rail_bounds.y = content_top;
     rail_bounds.w = ui->theme.tool_rail_width;
     rail_bounds.h = content_height;
-    ui_tool_rail(ui, workspace, rail_bounds);
+    ui->rail_bounds = rail_bounds;
+    if (!ui->modal_active) {
+        ui_tool_rail(ui, workspace, rail_bounds);
+    }
 
     inspector_requested = ui_menubar_inspector_visible(ui->menu_bar);
     needed_width = ui->theme.tool_rail_width + UI_MIN_CANVAS_WIDTH;
@@ -867,7 +977,10 @@ void ui_system_build(UiSystem* ui, Workspace* workspace)
         inspector_shown_x = (float)width - inspector_bounds.w;
         inspector_bounds.x = inspector_hidden_x + (inspector_shown_x - inspector_hidden_x) * inspector_eased_t;
         inspector_bounds.y = content_top;
-        ui_selection_panel(ui, workspace, inspector_bounds);
+        ui->panel_bounds = inspector_bounds;
+        if (!ui->modal_active) {
+            ui_selection_panel(ui, workspace, inspector_bounds);
+        }
     } else {
         ui->panel_bounds.x = 0.0f;
         ui->panel_bounds.y = 0.0f;
@@ -876,6 +989,7 @@ void ui_system_build(UiSystem* ui, Workspace* workspace)
     }
 
     ui_status_bar(ui, workspace, width, height);
+    ui_modal_dialogs(ui, workspace, width, height);
 
     ui->content_bounds.x = ui->rail_bounds.x + ui->rail_bounds.w;
     ui->content_bounds.y = ui->appbar_bounds.y + ui->appbar_bounds.h;
@@ -917,6 +1031,11 @@ int ui_system_blocks_pointer(const UiSystem* ui, Vec2 screen_pos)
 {
     if (!ui || !ui->ctx) {
         return 0;
+    }
+
+    if (ui->modal_active) {
+        (void)screen_pos;
+        return 1;
     }
 
     if (ui_system_has_active_interaction(ui)) {
