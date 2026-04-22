@@ -3,8 +3,12 @@
  * @brief Menu action dispatch implementation.
  *
  * Role in project:
- * - Bridges menu IDs into stable editor commands.
- * - Keeps menu handling thin by delegating business logic to the command registry.
+ * - Maps menu IDs to workspace/document/canvas operations.
+ * - Centralizes shortcut-equivalent command behavior.
+ *
+ * Module relationships:
+ * - Called by menu bar and application shortcut handling.
+ * - Uses command registry to dispatch workspace commands.
  */
 #include "ui_menu_actions.h"
 
@@ -12,6 +16,11 @@
 #include <app/workspace.h>
 #include <base/log.h>
 
+/**
+ * @brief Executes PNG export command (not yet implemented).
+ * @param workspace [in,out] Workspace instance (currently unused).
+ * @return Currently always returns 0.
+ */
 static int app_export_png(Workspace* workspace)
 {
     (void)workspace;
@@ -19,6 +28,11 @@ static int app_export_png(Workspace* workspace)
     return 0;
 }
 
+/**
+ * @brief Checks if menu action is currently available.
+ * @param id [in] Menu action ID.
+ * @return Non-zero if available, 0 if unavailable.
+ */
 int ui_menu_is_action_available(MenuId id)
 {
     switch (id) {
@@ -32,6 +46,12 @@ int ui_menu_is_action_available(MenuId id)
     }
 }
 
+/**
+ * @brief Executes menu action dispatch.
+ * @param workspace [in,out] Workspace instance.
+ * @param id [in] Menu action ID.
+ * @return None.
+ */
 void ui_menu_execute(Workspace* workspace, MenuId id)
 {
     const CommandDescriptor* descriptor = NULL;

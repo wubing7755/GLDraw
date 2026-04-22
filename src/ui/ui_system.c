@@ -10,9 +10,9 @@
  * - Uses workspace/document/tools for editable UI actions.
  * - Cooperates with application input loop and theme subsystem.
  */
+#include <ui/ui_system.h>
 #include <ui/ui_menubar.h>
 #include <ui/ui_dialog.h>
-#include <ui/ui_system.h>
 
 #include <app/workspace.h>
 #include <app/workspace_actions.h>
@@ -82,6 +82,13 @@ typedef enum UiThemeReloadReason {
   UI_THEME_RELOAD_REASON_MANUAL
 } UiThemeReloadReason;
 
+/**
+ * @brief Clamps a float value.
+ * @param value Value to clamp.
+ * @param min_value Minimum value.
+ * @param max_value Maximum value.
+ * @return Clamped value.
+ */
 static float ui_clampf(float value, float min_value, float max_value) {
   if (value < min_value) {
     return min_value;
@@ -92,6 +99,11 @@ static float ui_clampf(float value, float min_value, float max_value) {
   return value;
 }
 
+/**
+ * @brief Gets label for theme reload reason.
+ * @param reason Reload reason enum.
+ * @return Reason label string.
+ */
 static const char *ui_theme_reload_reason_label(UiThemeReloadReason reason) {
   switch (reason) {
   case UI_THEME_RELOAD_REASON_MANUAL:
@@ -104,6 +116,11 @@ static const char *ui_theme_reload_reason_label(UiThemeReloadReason reason) {
   }
 }
 
+/**
+ * @brief Syncs theme registry with menu bar.
+ * @param ui UI system instance.
+ * @return None.
+ */
 static void ui_system_sync_menubar_themes(UiSystem *ui) {
   int theme_count = 0;
   int active_theme_index = 0;
@@ -138,6 +155,13 @@ static void ui_system_sync_menubar_themes(UiSystem *ui) {
   ui_menubar_set_active_theme_index(ui->menu_bar, active_theme_index);
 }
 
+/**
+ * @brief Sets the active theme.
+ * @param ui UI system instance.
+ * @param theme_id Theme ID to activate.
+ * @param persist_selection Whether to persist selection.
+ * @return 1 on success, 0 on failure.
+ */
 static int ui_system_set_theme(UiSystem *ui, const char *theme_id,
                                int persist_selection) {
   int theme_index = -1;
@@ -174,6 +198,14 @@ static int ui_system_set_theme(UiSystem *ui, const char *theme_id,
   return 1;
 }
 
+/**
+ * @brief Reloads external themes.
+ * @param ui UI system instance.
+ * @param workspace Workspace instance.
+ * @param notify_status Whether to notify status bar.
+ * @param reason Reload reason.
+ * @return None.
+ */
 static void ui_system_reload_themes(UiSystem *ui, Workspace *workspace,
                                     int notify_status,
                                     UiThemeReloadReason reason) {
@@ -706,7 +738,14 @@ static void ui_status_bar(UiSystem *ui, Workspace *workspace, int window_width,
   nk_end(ctx);
 }
 
-/** Render active reusable workspace dialogs and route the result back into workspace state. */
+/**
+ * @brief Render active reusable workspace dialogs and route the result back into workspace state.
+ * @param ui UI system instance.
+ * @param workspace Workspace instance.
+ * @param window_width Window width in pixels.
+ * @param window_height Window height in pixels.
+ * @return None.
+ */
 static void ui_modal_dialogs(UiSystem *ui, Workspace *workspace,
                              int window_width, int window_height) {
   UiDialogResult result = UI_DIALOG_RESULT_NONE;
