@@ -43,6 +43,7 @@ find_package(OpenGL REQUIRED)
 set(GLDRAW_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/main.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/app/application.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/app/command_registry.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/app/workspace_actions.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/platform/window.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/document/object.c
@@ -50,6 +51,9 @@ set(GLDRAW_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/document/history.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/document/persistence.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/canvas/canvas_view.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/input/key_chord.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/input/keymap.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/input/input_router.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/tools/tool_controller.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/render/render_system.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ui_system.c

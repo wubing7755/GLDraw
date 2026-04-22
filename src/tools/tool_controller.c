@@ -646,72 +646,13 @@ void tool_controller_pointer_up(ToolController* controller, ToolContext* context
     controller->last_world = event->world_pos;
 }
 
-/**
- * @brief Dispatch key-down to global shortcuts or active tool.
- * Why global-first:
- * - Undo/redo/delete/tool-switch shortcuts must be deterministic regardless of tool.
- */
+/** Dispatch key-down to the active tool only. */
 void tool_controller_key_down(ToolController* controller, ToolContext* context, int key, int mods)
 {
     Tool* tool = NULL;
 
     if (!controller) {
         return;
-    }
-
-    if ((mods & GLFW_MOD_CONTROL) != 0 &&
-        (mods & GLFW_MOD_SHIFT) != 0 &&
-        key == GLFW_KEY_Z) {
-        if (document_history_redo(context->history, context->document)) {
-            workspace_sync_document_dirty(context->workspace);
-        }
-        return;
-    }
-
-    switch (key) {
-    case GLFW_KEY_Z:
-        if ((mods & GLFW_MOD_CONTROL) != 0) {
-            if (document_history_undo(context->history, context->document)) {
-                workspace_sync_document_dirty(context->workspace);
-            }
-            return;
-        }
-        break;
-    case GLFW_KEY_Y:
-        if ((mods & GLFW_MOD_CONTROL) != 0) {
-            if (document_history_redo(context->history, context->document)) {
-                workspace_sync_document_dirty(context->workspace);
-            }
-            return;
-        }
-        break;
-    case GLFW_KEY_V:
-        tool_controller_set_active(controller, context, TOOL_KIND_SELECT);
-        return;
-    case GLFW_KEY_H:
-        tool_controller_set_active(controller, context, TOOL_KIND_PAN);
-        return;
-    case GLFW_KEY_L:
-        tool_controller_set_active(controller, context, TOOL_KIND_LINE);
-        return;
-    case GLFW_KEY_R:
-        tool_controller_set_active(controller, context, TOOL_KIND_RECT);
-        return;
-    case GLFW_KEY_E:
-        tool_controller_set_active(controller, context, TOOL_KIND_ELLIPSE);
-        return;
-    case GLFW_KEY_DELETE:
-    case GLFW_KEY_BACKSPACE:
-        if (context->document->selection.count > 0) {
-            DocumentSnapshot before_snapshot;
-            document_snapshot_init(&before_snapshot);
-            document_snapshot_capture(&before_snapshot, context->document);
-            document_delete_selection(context->document);
-            tool_commit_document_change(context, &before_snapshot);
-        }
-        return;
-    default:
-        break;
     }
 
     tool = tool_controller_get_active(controller);

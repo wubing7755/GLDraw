@@ -13,10 +13,13 @@
  */
 #include <app/application.h>
 
+#include <app/command_registry.h>
+#include <app/workspace_actions.h>
 #include <app/workspace.h>
 #include <base/log.h>
 #include <base/math2d.h>
 #include <document/persistence.h>
+#include <input/input_router.h>
 #include <platform/window.h>
 #include <render/render_system.h>
 #include <ui/ui_menu_actions.h>
@@ -30,6 +33,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#define APP_KEYMAP_SETTINGS_PATH "gldraw.keymap.json"
+
 typedef struct {
   PlatformWindow window;
   Workspace workspace;
@@ -41,6 +46,9 @@ typedef struct {
 
 static int app_workspace_save(Workspace *workspace, void *user_data);
 static int app_workspace_load(Workspace *workspace, void *user_data);
+static int app_workspace_execute_action(Workspace *workspace,
+                                        WorkspaceActionType action,
+                                        void *user_data);
 
 /**
  * @brief Write formatted status text into workspace status buffer.
@@ -133,6 +141,28 @@ static void app_reset_tool_state(Application *app) {
   tool_controller_init(&app->workspace.tools);
 }
 
+static int app_new_document(Application *app) {
+  if (!app) {
+    return 0;
+  }
+
+  document_reset(&app->workspace.document);
+  document_history_shutdown(&app->workspace.history);
+  if (!document_history_init(&app->workspace.history)) {
+    LOG_ERROR("%s", "Failed to reinitialize history");
+    app_set_status(app, "History reset failed");
+    return 0;
+  }
+
+  app_reset_tool_state(app);
+  canvas_view_set_center_zoom(&app->workspace.canvas, vec2_make(0.0f, 0.0f),
+                              1.0f);
+  app->workspace.current_document_path[0] = '\0';
+  workspace_mark_saved(&app->workspace);
+  app_set_status(app, "New empty document");
+  return 1;
+}
+
 /**
  * @brief Save current document to JSON and refresh dirty tracking.
  * @param app [in,out] Application state.
@@ -202,6 +232,16 @@ static int app_load_document(Application *app) {
   return 1;
 }
 
+static int app_exit_application(Application *app) {
+  if (!app || !app->window.handle) {
+    return 0;
+  }
+
+  glfwSetWindowShouldClose(app->window.handle, GLFW_TRUE);
+  app_set_status(app, "Closing application");
+  return 1;
+}
+
 /** Workspace save callback adapter. Complexity: same as `app_save_document`. */
 static int app_workspace_save(Workspace *workspace, void *user_data) {
   (void)workspace;
@@ -212,6 +252,25 @@ static int app_workspace_save(Workspace *workspace, void *user_data) {
 static int app_workspace_load(Workspace *workspace, void *user_data) {
   (void)workspace;
   return app_load_document((Application *)user_data);
+}
+
+static int app_workspace_execute_action(Workspace *workspace,
+                                        WorkspaceActionType action,
+                                        void *user_data) {
+  Application *app = (Application *)user_data;
+  (void)workspace;
+
+  switch (action) {
+  case WORKSPACE_ACTION_NEW_DOCUMENT:
+    return app_new_document(app);
+  case WORKSPACE_ACTION_OPEN_DOCUMENT:
+    return app_load_document(app);
+  case WORKSPACE_ACTION_EXIT_APPLICATION:
+    return app_exit_application(app);
+  case WORKSPACE_ACTION_NONE:
+  default:
+    return 0;
+  }
 }
 
 /** Load startup document if present; otherwise keep empty document. Complexity:
@@ -440,63 +499,24 @@ static void key_callback(GLFWwindow *handle, int key, int scancode, int action,
                          int mods) {
   Application *app = (Application *)glfwGetWindowUserPointer(handle);
   ToolContext context;
+  InputRouterContext router_context;
+  KeyEvent event;
   (void)scancode;
 
-  if (!app || action != GLFW_PRESS) {
-    return;
-  }
-
-  if (key == GLFW_KEY_ESCAPE &&
-      app->workspace.tools.active_kind == TOOL_KIND_SELECT) {
-    glfwSetWindowShouldClose(handle, GLFW_TRUE);
-    return;
-  }
-
-  /* Menu shortcuts via centralized handler */
-  if ((mods & GLFW_MOD_CONTROL) != 0) {
-    switch (key) {
-    case GLFW_KEY_N:
-      ui_menu_execute(&app->workspace, MENU_ID_FILE_NEW);
-      return;
-    case GLFW_KEY_O:
-      app_load_document(app);
-      return;
-    case GLFW_KEY_S:
-      app_save_document(app);
-      return;
-    case GLFW_KEY_Z:
-      ui_menu_execute(&app->workspace, MENU_ID_EDIT_UNDO);
-      return;
-    case GLFW_KEY_Y:
-      ui_menu_execute(&app->workspace, MENU_ID_EDIT_REDO);
-      return;
-    case GLFW_KEY_A:
-      ui_menu_execute(&app->workspace, MENU_ID_EDIT_SELECT_ALL);
-      return;
-    case GLFW_KEY_0:
-      ui_menu_execute(&app->workspace, MENU_ID_VIEW_ZOOM_FIT);
-      return;
-    case GLFW_KEY_EQUAL:
-    case GLFW_KEY_KP_ADD:
-      ui_menu_execute(&app->workspace, MENU_ID_VIEW_ZOOM_IN);
-      return;
-    case GLFW_KEY_MINUS:
-    case GLFW_KEY_KP_SUBTRACT:
-      ui_menu_execute(&app->workspace, MENU_ID_VIEW_ZOOM_OUT);
-      return;
-    default:
-      break;
-    }
-  }
-
-  /* Help shortcut (question mark) */
-  if (key == GLFW_KEY_SLASH && (mods & GLFW_MOD_SHIFT) != 0) {
-    ui_menu_execute(&app->workspace, MENU_ID_HELP_SHORTCUTS);
+  if (!app) {
     return;
   }
 
   context = app_tool_context(app);
-  tool_controller_key_down(&app->workspace.tools, &context, key, mods);
+  router_context.workspace = &app->workspace;
+  router_context.tool_context = &context;
+  router_context.ui_has_keyboard_focus =
+      app->ui ? ui_system_has_active_interaction(app->ui) : 0;
+  event.key = key;
+  event.mods = mods;
+  event.action = action;
+  event.repeated = (action == GLFW_REPEAT);
+  input_router_handle_key(&router_context, &event);
 }
 
 /** GLFW scroll callback: zoom canvas at cursor unless blocked by UI. */
@@ -518,6 +538,17 @@ static void scroll_callback(GLFWwindow *handle, double xoffset,
   context = app_tool_context(app);
   tool_controller_scroll(&app->workspace.tools, &context, app->cursor_screen,
                          (float)yoffset);
+}
+
+static void window_close_callback(GLFWwindow *handle) {
+  Application *app = (Application *)glfwGetWindowUserPointer(handle);
+
+  if (!app) {
+    return;
+  }
+
+  glfwSetWindowShouldClose(handle, GLFW_FALSE);
+  workspace_request_action(&app->workspace, WORKSPACE_ACTION_EXIT_APPLICATION);
 }
 
 /**
@@ -543,9 +574,11 @@ static int app_init(Application *app) {
   }
   canvas_view_init(&app->workspace.canvas, &app->workspace.document, viewport);
   tool_controller_init(&app->workspace.tools);
+  keymap_init(&app->workspace.keymap, APP_KEYMAP_SETTINGS_PATH);
   app_set_document_path(app, app_default_document_path());
   app->workspace.save_document = app_workspace_save;
   app->workspace.load_document = app_workspace_load;
+  app->workspace.execute_action = app_workspace_execute_action;
   app->workspace.command_user_data = app;
   workspace_mark_saved(&app->workspace);
   app_set_status(app, "Initializing editor");
@@ -571,6 +604,7 @@ static int app_init(Application *app) {
   glfwSetMouseButtonCallback(app->window.handle, mouse_button_callback);
   glfwSetKeyCallback(app->window.handle, key_callback);
   glfwSetScrollCallback(app->window.handle, scroll_callback);
+  glfwSetWindowCloseCallback(app->window.handle, window_close_callback);
 
   render_system_resize(app->renderer, app->window.width, app->window.height);
   update_canvas_viewport(app);
@@ -598,6 +632,7 @@ static void app_shutdown(Application *app) {
   ui_system_destroy(app->ui);
   render_system_destroy(app->renderer);
   tool_controller_shutdown(&app->workspace.tools);
+  keymap_shutdown(&app->workspace.keymap);
   document_history_shutdown(&app->workspace.history);
   document_shutdown(&app->workspace.document);
   platform_window_shutdown(&app->window);

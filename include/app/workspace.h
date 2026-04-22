@@ -16,6 +16,7 @@
 #include <canvas/canvas_view.h>
 #include <document/document.h>
 #include <document/history.h>
+#include <input/keymap.h>
 #include <tools/tool_controller.h>
 
 struct Workspace;
@@ -67,6 +68,7 @@ typedef struct Workspace {
     DocumentHistory history;        /**< Undo/redo stacks */
     CanvasView canvas;              /**< Viewport, zoom, pan, and coordinate transforms */
     ToolController tools;           /**< Active tool and its runtime state */
+    EditorKeymap keymap;            /**< Effective keyboard mapping state */
     WorkspaceLayout layout;        /**< UI-computed layout rectangles (set by UI system) */
     char current_document_path[260]; /**< Active file path (empty for new documents) */
     char status_message[256];       /**< Current status bar message */
