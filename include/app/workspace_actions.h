@@ -17,10 +17,10 @@
 
 /** Return non-zero when a workspace modal is currently active. */
 int workspace_modal_is_active(const Workspace* workspace);
-/** Return dialog title for current modal, or empty string when none. */
-const char* workspace_modal_title(const Workspace* workspace);
-/** Return dialog body text for current modal, or empty string when none. */
-const char* workspace_modal_message(const Workspace* workspace);
+/** Return the active dialog kind, or `UI_DIALOG_NONE` when none. */
+UiDialogKind workspace_active_dialog_kind(const Workspace* workspace);
+/** Resolve the active dialog using a generic dialog result. */
+int workspace_resolve_active_dialog(Workspace* workspace, UiDialogResult result);
 
 /** Request a workspace action, deferring through unsaved confirmation when needed. */
 int workspace_request_action(Workspace* workspace, WorkspaceActionType action);

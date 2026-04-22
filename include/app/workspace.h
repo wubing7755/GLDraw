@@ -31,11 +31,51 @@ typedef enum WorkspaceActionType {
     WORKSPACE_ACTION_EXIT_APPLICATION
 } WorkspaceActionType;
 
-/** Workspace-managed modal states. */
-typedef enum WorkspaceModalType {
-    WORKSPACE_MODAL_NONE = 0,
-    WORKSPACE_MODAL_CONFIRM_UNSAVED
-} WorkspaceModalType;
+/** Top-level UI request kinds owned by the workspace. */
+typedef enum UiRequestType {
+    UI_REQUEST_NONE = 0,
+    UI_REQUEST_DIALOG
+} UiRequestType;
+
+/** Stable dialog kinds used to route dialog results back into business state. */
+typedef enum UiDialogKind {
+    UI_DIALOG_NONE = 0,
+    UI_DIALOG_CONFIRM_UNSAVED
+} UiDialogKind;
+
+/** Standard dialog button outcomes returned by reusable UI components. */
+typedef enum UiDialogResult {
+    UI_DIALOG_RESULT_NONE = 0,
+    UI_DIALOG_RESULT_PRIMARY,
+    UI_DIALOG_RESULT_SECONDARY,
+    UI_DIALOG_RESULT_CANCEL
+} UiDialogResult;
+
+/** Small reusable payload block reserved for future dialog-specific data. */
+typedef struct UiDialogPayload {
+    int int_values[4];
+    char text[128];
+} UiDialogPayload;
+
+/** Static button description used by generic dialog rendering. */
+typedef struct UiDialogButtonSpec {
+    char label[24];
+    UiDialogResult result;
+    int is_default;
+} UiDialogButtonSpec;
+
+/** Complete dialog state model owned by the workspace and rendered by UI components. */
+typedef struct UiDialogState {
+    UiDialogKind kind;
+    char title[64];
+    char message[256];
+    UiDialogPayload payload;
+    UiDialogButtonSpec buttons[3];
+    int button_count;
+    float width;
+    float height;
+    int modal;
+} UiDialogState;
 
 /** Callback signature for application-owned workspace action execution. */
 typedef int (*WorkspaceActionExecutorFn)(struct Workspace* workspace,
@@ -74,8 +114,8 @@ typedef struct Workspace {
     char status_message[256];       /**< Current status bar message */
     unsigned int saved_revision;     /**< Document revision last marked as saved */
     int document_dirty;             /**< Non-zero when current revision differs from saved_revision */
-    WorkspaceModalType modal_type;  /**< Active modal dialog state */
-    WorkspaceActionType pending_action; /**< Deferred action awaiting modal resolution */
+    UiRequestType active_request_type; /**< Active UI request type owned by the workspace */
+    UiDialogState active_dialog;    /**< Active reusable dialog state */
     WorkspaceCommandFn save_document; /**< Workspace-level save callback */
     WorkspaceCommandFn load_document; /**< Workspace-level load callback */
     WorkspaceActionExecutorFn execute_action; /**< Application-owned action executor */

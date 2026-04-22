@@ -11,6 +11,7 @@
  * - Cooperates with application input loop and theme subsystem.
  */
 #include <ui/ui_menubar.h>
+#include <ui/ui_dialog.h>
 #include <ui/ui_system.h>
 
 #include <app/workspace.h>
@@ -705,104 +706,20 @@ static void ui_status_bar(UiSystem *ui, Workspace *workspace, int window_width,
   nk_end(ctx);
 }
 
-/** Render a centered modal dialog for active workspace confirmation flows. */
+/** Render active reusable workspace dialogs and route the result back into workspace state. */
 static void ui_modal_dialogs(UiSystem *ui, Workspace *workspace,
                              int window_width, int window_height) {
-  struct nk_context *ctx = NULL;
-  struct nk_style_item blocker_background;
-  struct nk_rect modal_bounds;
-  float modal_width = 360.0f;
-  float modal_height = 170.0f;
-  const char *title = NULL;
-  const char *message = NULL;
-  const char *line_break = NULL;
-  char line_one[128];
-  char line_two[128];
-  size_t line_one_length = 0u;
+  UiDialogResult result = UI_DIALOG_RESULT_NONE;
 
-  if (!ui || !workspace || !workspace_modal_is_active(workspace)) {
+  if (!ui || !workspace || !workspace_modal_is_active(workspace) || !ui->ctx) {
     return;
   }
 
-  ctx = ui->ctx;
-  if (!ctx) {
-    return;
+  result =
+      ui_dialog_show(ui->ctx, &workspace->active_dialog, window_width, window_height);
+  if (result != UI_DIALOG_RESULT_NONE) {
+    workspace_resolve_active_dialog(workspace, result);
   }
-
-  if ((float)window_width < modal_width + 24.0f) {
-    modal_width = (float)window_width - 24.0f;
-  }
-  if ((float)window_height < modal_height + 24.0f) {
-    modal_height = (float)window_height - 24.0f;
-  }
-  if (modal_width < 240.0f) {
-    modal_width = 240.0f;
-  }
-  if (modal_height < 140.0f) {
-    modal_height = 140.0f;
-  }
-
-  modal_bounds = nk_rect(((float)window_width - modal_width) * 0.5f,
-                         ((float)window_height - modal_height) * 0.5f,
-                         modal_width, modal_height);
-
-  title = workspace_modal_title(workspace);
-  message = workspace_modal_message(workspace);
-  line_one[0] = '\0';
-  line_two[0] = '\0';
-
-  if (message) {
-    line_break = strchr(message, '\n');
-    if (line_break) {
-      line_one_length = (size_t)(line_break - message);
-      if (line_one_length >= sizeof(line_one)) {
-        line_one_length = sizeof(line_one) - 1u;
-      }
-      memcpy(line_one, message, line_one_length);
-      line_one[line_one_length] = '\0';
-      snprintf(line_two, sizeof(line_two), "%s", line_break + 1);
-    } else {
-      snprintf(line_one, sizeof(line_one), "%s", message);
-    }
-  }
-
-  blocker_background = nk_style_item_color(nk_rgba(0, 0, 0, 96));
-  nk_style_push_style_item(ctx, &ctx->style.window.fixed_background,
-                           blocker_background);
-  if (nk_begin(ctx, "##modal_blocker##",
-               nk_rect(0.0f, 0.0f, (float)window_width, (float)window_height),
-               NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_BACKGROUND)) {
-    nk_layout_row_dynamic(ctx, 1.0f, 1);
-    nk_label(ctx, "", NK_TEXT_LEFT);
-  }
-  nk_end(ctx);
-  nk_style_pop_style_item(ctx);
-
-  if (nk_begin(ctx, title && title[0] != '\0' ? title : "Modal", modal_bounds,
-               NK_WINDOW_BORDER | NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_TITLE)) {
-    nk_layout_row_dynamic(ctx, 22.0f, 1);
-    if (line_one[0] != '\0') {
-      nk_label(ctx, line_one, NK_TEXT_LEFT);
-    }
-    if (line_two[0] != '\0') {
-      nk_label(ctx, line_two, NK_TEXT_LEFT);
-    }
-
-    nk_layout_row_dynamic(ctx, 12.0f, 1);
-    nk_label(ctx, "", NK_TEXT_LEFT);
-
-    nk_layout_row_dynamic(ctx, 34.0f, 3);
-    if (nk_button_label(ctx, "Save")) {
-      workspace_confirm_pending_action_save(workspace);
-    }
-    if (nk_button_label(ctx, "Don't Save")) {
-      workspace_confirm_pending_action_discard(workspace);
-    }
-    if (nk_button_label(ctx, "Cancel")) {
-      workspace_confirm_pending_action_cancel(workspace);
-    }
-  }
-  nk_end(ctx);
 }
 
 UiSystem *ui_system_create(PlatformWindow *window) {

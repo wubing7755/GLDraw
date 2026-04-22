@@ -13,6 +13,7 @@
 #include <app/workspace_actions.h>
 
 #include <stdio.h>
+#include <string.h>
 
 /** Return non-zero when the requested action can discard the current document state. */
 static int workspace_action_requires_unsaved_confirmation(WorkspaceActionType action)
@@ -38,61 +39,92 @@ static int workspace_execute_action_now(Workspace* workspace, WorkspaceActionTyp
     return workspace->execute_action(workspace, action, workspace->command_user_data);
 }
 
-/** Clear any active modal/pending state. */
-static void workspace_clear_modal_state(Workspace* workspace)
+/** Populate one reusable dialog button descriptor. */
+static void workspace_set_dialog_button(UiDialogState* dialog,
+                                        int index,
+                                        const char* label,
+                                        UiDialogResult result,
+                                        int is_default)
 {
-    if (!workspace) {
+    if (!dialog || !label || index < 0 || index >= (int)(sizeof(dialog->buttons) / sizeof(dialog->buttons[0]))) {
         return;
     }
 
-    workspace->modal_type = WORKSPACE_MODAL_NONE;
-    workspace->pending_action = WORKSPACE_ACTION_NONE;
+    snprintf(dialog->buttons[index].label,
+             sizeof(dialog->buttons[index].label),
+             "%s",
+             label);
+    dialog->buttons[index].result = result;
+    dialog->buttons[index].is_default = is_default;
 }
 
-/** Open the shared unsaved-changes confirmation modal for one pending action. */
-static void workspace_open_unsaved_changes_modal(Workspace* workspace, WorkspaceActionType action)
+/** Clear any active UI request/dialog state. */
+static void workspace_clear_ui_request(Workspace* workspace)
 {
     if (!workspace) {
         return;
     }
 
-    workspace->modal_type = WORKSPACE_MODAL_CONFIRM_UNSAVED;
-    workspace->pending_action = action;
+    workspace->active_request_type = UI_REQUEST_NONE;
+    memset(&workspace->active_dialog, 0, sizeof(workspace->active_dialog));
+    workspace->active_dialog.kind = UI_DIALOG_NONE;
+}
+
+/** Open a reusable workspace dialog for unsaved-changes confirmation. */
+static void workspace_open_unsaved_changes_dialog(Workspace* workspace,
+                                                  WorkspaceActionType action)
+{
+    if (!workspace) {
+        return;
+    }
+
+    workspace->active_request_type = UI_REQUEST_DIALOG;
+    memset(&workspace->active_dialog, 0, sizeof(workspace->active_dialog));
+    workspace->active_dialog.kind = UI_DIALOG_CONFIRM_UNSAVED;
+    snprintf(workspace->active_dialog.title,
+             sizeof(workspace->active_dialog.title),
+             "%s",
+             "Unsaved Changes");
+    snprintf(workspace->active_dialog.message,
+             sizeof(workspace->active_dialog.message),
+             "%s",
+             "You have unsaved changes.\nDo you want to save before continuing?");
+    workspace->active_dialog.payload.int_values[0] = (int)action;
+    workspace_set_dialog_button(&workspace->active_dialog,
+                                0,
+                                "Save",
+                                UI_DIALOG_RESULT_PRIMARY,
+                                1);
+    workspace_set_dialog_button(&workspace->active_dialog,
+                                1,
+                                "Don't Save",
+                                UI_DIALOG_RESULT_SECONDARY,
+                                0);
+    workspace_set_dialog_button(&workspace->active_dialog,
+                                2,
+                                "Cancel",
+                                UI_DIALOG_RESULT_CANCEL,
+                                0);
+    workspace->active_dialog.button_count = 3;
+    workspace->active_dialog.width = 360.0f;
+    workspace->active_dialog.height = 170.0f;
+    workspace->active_dialog.modal = 1;
 }
 
 int workspace_modal_is_active(const Workspace* workspace)
 {
-    return workspace && workspace->modal_type != WORKSPACE_MODAL_NONE;
+    return workspace &&
+           workspace->active_request_type == UI_REQUEST_DIALOG &&
+           workspace->active_dialog.modal &&
+           workspace->active_dialog.kind != UI_DIALOG_NONE;
 }
 
-const char* workspace_modal_title(const Workspace* workspace)
+UiDialogKind workspace_active_dialog_kind(const Workspace* workspace)
 {
-    if (!workspace) {
-        return "";
+    if (!workspace || workspace->active_request_type != UI_REQUEST_DIALOG) {
+        return UI_DIALOG_NONE;
     }
-
-    switch (workspace->modal_type) {
-    case WORKSPACE_MODAL_CONFIRM_UNSAVED:
-        return "Unsaved Changes";
-    case WORKSPACE_MODAL_NONE:
-    default:
-        return "";
-    }
-}
-
-const char* workspace_modal_message(const Workspace* workspace)
-{
-    if (!workspace) {
-        return "";
-    }
-
-    switch (workspace->modal_type) {
-    case WORKSPACE_MODAL_CONFIRM_UNSAVED:
-        return "You have unsaved changes.\nDo you want to save before continuing?";
-    case WORKSPACE_MODAL_NONE:
-    default:
-        return "";
-    }
+    return workspace->active_dialog.kind;
 }
 
 int workspace_request_action(Workspace* workspace, WorkspaceActionType action)
@@ -107,7 +139,7 @@ int workspace_request_action(Workspace* workspace, WorkspaceActionType action)
 
     if (workspace_action_requires_unsaved_confirmation(action) &&
         workspace->document_dirty) {
-        workspace_open_unsaved_changes_modal(workspace, action);
+        workspace_open_unsaved_changes_dialog(workspace, action);
         return 1;
     }
 
@@ -119,8 +151,7 @@ int workspace_confirm_pending_action_save(Workspace* workspace)
     WorkspaceActionType action = WORKSPACE_ACTION_NONE;
 
     if (!workspace ||
-        workspace->modal_type != WORKSPACE_MODAL_CONFIRM_UNSAVED ||
-        workspace->pending_action == WORKSPACE_ACTION_NONE ||
+        workspace_active_dialog_kind(workspace) != UI_DIALOG_CONFIRM_UNSAVED ||
         !workspace->save_document) {
         return 0;
     }
@@ -129,8 +160,8 @@ int workspace_confirm_pending_action_save(Workspace* workspace)
         return 0;
     }
 
-    action = workspace->pending_action;
-    workspace_clear_modal_state(workspace);
+    action = (WorkspaceActionType)workspace->active_dialog.payload.int_values[0];
+    workspace_clear_ui_request(workspace);
     return workspace_execute_action_now(workspace, action);
 }
 
@@ -139,13 +170,12 @@ int workspace_confirm_pending_action_discard(Workspace* workspace)
     WorkspaceActionType action = WORKSPACE_ACTION_NONE;
 
     if (!workspace ||
-        workspace->modal_type != WORKSPACE_MODAL_CONFIRM_UNSAVED ||
-        workspace->pending_action == WORKSPACE_ACTION_NONE) {
+        workspace_active_dialog_kind(workspace) != UI_DIALOG_CONFIRM_UNSAVED) {
         return 0;
     }
 
-    action = workspace->pending_action;
-    workspace_clear_modal_state(workspace);
+    action = (WorkspaceActionType)workspace->active_dialog.payload.int_values[0];
+    workspace_clear_ui_request(workspace);
     return workspace_execute_action_now(workspace, action);
 }
 
@@ -155,8 +185,28 @@ void workspace_confirm_pending_action_cancel(Workspace* workspace)
         return;
     }
 
-    workspace_clear_modal_state(workspace);
+    workspace_clear_ui_request(workspace);
     snprintf(workspace->status_message,
              sizeof(workspace->status_message),
              "Action cancelled.");
+}
+
+int workspace_resolve_active_dialog(Workspace* workspace, UiDialogResult result)
+{
+    if (!workspace || workspace->active_request_type != UI_REQUEST_DIALOG) {
+        return 0;
+    }
+
+    switch (result) {
+    case UI_DIALOG_RESULT_PRIMARY:
+        return workspace_confirm_pending_action_save(workspace);
+    case UI_DIALOG_RESULT_SECONDARY:
+        return workspace_confirm_pending_action_discard(workspace);
+    case UI_DIALOG_RESULT_CANCEL:
+        workspace_confirm_pending_action_cancel(workspace);
+        return 1;
+    case UI_DIALOG_RESULT_NONE:
+    default:
+        return 0;
+    }
 }
