@@ -1,6 +1,6 @@
 /**
  * @file document.h
- * @brief 文档对象容器与选择集操作接口。
+ * @brief Document object container and selection set operation interface.
  */
 #ifndef GLDRAW_DOCUMENT_DOCUMENT_H
 #define GLDRAW_DOCUMENT_DOCUMENT_H
@@ -12,10 +12,10 @@
 
 /**
  * @struct SelectionSet
- * @brief 文档选择集（基于对象 ID）。
+ * @brief Document selection set (based on object IDs).
  *
- * @member ids 选中对象 ID 列表。
- * @member count 当前选中数量。
+ * @member ids Selected object ID list.
+ * @member count Current selection count.
  */
 typedef struct {
   ObjectId ids[DOCUMENT_MAX_SELECTION];
@@ -24,13 +24,13 @@ typedef struct {
 
 /**
  * @struct Document
- * @brief 文档主数据结构。
+ * @brief Document main data structure.
  *
- * @member objects 对象指针数组（由文档拥有生命周期）。
- * @member count 当前对象数量。
- * @member revision 文档修订号（编辑后递增）。
- * @member next_id 新对象自动分配 ID。
- * @member selection 当前选择集。
+ * @member objects Object pointer array (document owns the lifetime).
+ * @member count Current object count.
+ * @member revision Document revision number (incremented after edits).
+ * @member next_id Auto-assigned ID for new objects.
+ * @member selection Current selection set.
  */
 typedef struct Document {
   GraphicObject *objects[DOCUMENT_MAX_OBJECTS];
@@ -41,133 +41,133 @@ typedef struct Document {
 } Document;
 
 /**
- * @brief 初始化文档为全新空状态。
- * @param document 待初始化文档。
- * @return 无。
+ * @brief Initialize the document to a fresh empty state.
+ * @param document Document to initialize.
+ * @return No return value.
  */
 void document_init(Document *document);
 
 /**
- * @brief 释放文档拥有的全部对象并清空运行时状态。
- * @param document 目标文档。
- * @return 无。
+ * @brief Release all objects owned by the document and clear runtime state.
+ * @param document Target document.
+ * @return No return value.
  */
 void document_shutdown(Document *document);
 
 /**
- * @brief 重置文档为“新建文档”状态。
- * @param document 目标文档。
- * @return 无。
- * @note 与 `document_shutdown` 不同，本函数会将 `revision` 与 `next_id` 重置到初始值。
+ * @brief Reset the document to a "new document" state.
+ * @param document Target document.
+ * @return No return value.
+ * @note Unlike `document_shutdown`, this function resets `revision` and `next_id` to initial values.
  */
 void document_reset(Document *document);
 
 /**
- * @brief 向文档追加对象并自动分配 ID。
- * @param document 目标文档。
- * @param object 待插入对象。
- * @return 成功返回非零，容量不足或参数非法返回 0。
+ * @brief Append an object to the document and auto-assign an ID.
+ * @param document Target document.
+ * @param object Object to insert.
+ * @return Non-zero on success; zero on capacity error or invalid parameters.
  */
 int document_add_object(Document *document, GraphicObject *object);
 
 /**
- * @brief 以指定 ID 向文档追加对象。
- * @param document 目标文档。
- * @param object 待插入对象。
- * @param id 指定对象 ID。
- * @return 成功返回非零；ID 冲突、参数非法或容量不足返回 0。
+ * @brief Append an object to the document with a specified ID.
+ * @param document Target document.
+ * @param object Object to insert.
+ * @param id Specified object ID.
+ * @return Non-zero on success; zero on ID conflict, invalid parameters, or capacity error.
  */
 int document_append_object_with_id(Document *document, GraphicObject *object,
                                    ObjectId id);
 
 /**
- * @brief 按对象 ID 查找对象。
- * @param document 文档。
- * @param id 对象 ID。
- * @return 找到时返回对象指针，否则返回 `NULL`。
+ * @brief Find an object by its ID.
+ * @param document Document.
+ * @param id Object ID.
+ * @return Object pointer if found, `NULL` otherwise.
  */
 GraphicObject *document_find_object(const Document *document, ObjectId id);
 
 /**
- * @brief 按数组索引获取对象。
- * @param document 文档。
- * @param index 对象索引。
- * @return 索引有效时返回对象指针，否则返回 `NULL`。
+ * @brief Get an object by array index.
+ * @param document Document.
+ * @param index Object index.
+ * @return Object pointer if index is valid, `NULL` otherwise.
  */
 GraphicObject *document_get_object_at(const Document *document, int index);
 
 /**
- * @brief 按 ID 删除对象并压缩对象数组。
- * @param document 目标文档。
- * @param id 待删除对象 ID。
- * @return 删除成功返回非零，否则返回 0。
+ * @brief Remove an object by ID and compact the object array.
+ * @param document Target document.
+ * @param id Object ID to remove.
+ * @return Non-zero on successful deletion, zero otherwise.
  */
 int document_remove_object(Document *document, ObjectId id);
 
 /**
- * @brief 删除当前选择集中的全部对象。
- * @param document 目标文档。
- * @return 无。
+ * @brief Delete all objects in the current selection set.
+ * @param document Target document.
+ * @return No return value.
  */
 void document_delete_selection(Document *document);
 
 /**
- * @brief 标记一次非结构性修改（修订号递增）。
- * @param document 目标文档。
- * @return 无。
+ * @brief Mark a non-structural modification (increments revision).
+ * @param document Target document.
+ * @return No return value.
  */
 void document_touch(Document *document);
 
 /**
- * @brief 计算文档中当前最大对象 ID。
- * @param document 文档。
- * @return 最大 ID；文档为空或参数非法返回 `0`。
+ * @brief Compute the maximum object ID in the document.
+ * @param document Document.
+ * @return Maximum ID; returns `0` if the document is empty or parameters are invalid.
  */
 ObjectId document_max_id(const Document *document);
 
 /**
- * @brief 清空选择集。
- * @param document 目标文档。
- * @return 无。
+ * @brief Clear the selection set.
+ * @param document Target document.
+ * @return No return value.
  */
 void document_clear_selection(Document *document);
 
 /**
- * @brief 判断对象 ID 是否在选择集中。
- * @param document 文档。
- * @param id 对象 ID。
- * @return 在选择集中返回非零，否则返回 0。
+ * @brief Check whether an object ID is in the selection set.
+ * @param document Document.
+ * @param id Object ID.
+ * @return Non-zero if in the selection set, zero otherwise.
  */
 int document_selection_contains(const Document *document, ObjectId id);
 
 /**
- * @brief 向选择集添加对象 ID。
- * @param document 目标文档。
- * @param id 对象 ID。
- * @return 添加成功或已存在返回非零；参数非法或容量不足返回 0。
+ * @brief Add an object ID to the selection set.
+ * @param document Target document.
+ * @param id Object ID.
+ * @return Non-zero on success or if already present; zero on invalid parameters or capacity error.
  */
 int document_selection_add(Document *document, ObjectId id);
 
 /**
- * @brief 从选择集中移除对象 ID。
- * @param document 目标文档。
- * @param id 对象 ID。
- * @return 无。
+ * @brief Remove an object ID from the selection set.
+ * @param document Target document.
+ * @param id Object ID.
+ * @return No return value.
  */
 void document_selection_remove(Document *document, ObjectId id);
 
 /**
- * @brief 切换对象 ID 的选中状态。
- * @param document 目标文档。
- * @param id 对象 ID。
- * @return 无。
+ * @brief Toggle the selection state of an object ID.
+ * @param document Target document.
+ * @param id Object ID.
+ * @return No return value.
  */
 void document_selection_toggle(Document *document, ObjectId id);
 
 /**
- * @brief 获取“主选中对象”（选择集首元素对应对象）。
- * @param document 文档。
- * @return 主选中对象；无选择时返回 `NULL`。
+ * @brief Get the "primary selected object" (object corresponding to the first element of the selection set).
+ * @param document Document.
+ * @return Primary selected object; returns `NULL` if no selection.
  */
 GraphicObject *document_primary_selection(const Document *document);
 

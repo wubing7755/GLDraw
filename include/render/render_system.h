@@ -1,6 +1,6 @@
 /**
  * @file render_system.h
- * @brief OpenGL 渲染系统接口。
+ * @brief OpenGL rendering system interface.
  */
 #ifndef GLDRAW_RENDER_RENDER_SYSTEM_H
 #define GLDRAW_RENDER_RENDER_SYSTEM_H
@@ -12,38 +12,38 @@
 typedef struct RenderSystem RenderSystem;
 
 /**
- * @brief 创建渲染系统并初始化 GPU 资源。
- * @param window 已初始化的窗口与 OpenGL 上下文。
- * @return 创建成功返回渲染系统指针，失败返回 `NULL`。
+ * @brief Create the rendering system and initialize GPU resources.
+ * @param window Already-initialized platform window and OpenGL context.
+ * @return Renderer instance on success, or `NULL` on failure.
  */
 RenderSystem* render_system_create(PlatformWindow* window);
 
 /**
- * @brief 销毁渲染系统并释放 GPU/堆资源。
- * @param renderer 渲染系统实例。
- * @return 无。
+ * @brief Destroy the rendering system and release GPU/heap resources.
+ * @param renderer Renderer instance.
+ * @return No return value.
  */
 void render_system_destroy(RenderSystem* renderer);
 
 /**
- * @brief 处理窗口尺寸变化。
- * @param renderer 渲染系统实例。
- * @param width 新宽度（像素）。
- * @param height 新高度（像素）。
- * @return 无。
+ * @brief Handle window resize events.
+ * @param renderer Renderer instance.
+ * @param width New width in pixels.
+ * @param height New height in pixels.
+ * @return No return value.
  */
 void render_system_resize(RenderSystem* renderer, int width, int height);
 
 /**
- * @brief 绘制一帧画布内容。
+ * @brief Draw one frame of canvas content.
  *
- * 主要流程：清屏 -> 绘制网格/坐标轴 -> 绘制文档对象 -> 绘制工具叠加预览。
+ * Main flow: clear -> draw grid/axes -> draw document objects -> draw tool overlay preview.
  *
- * @param renderer 渲染系统实例。
- * @param document 当前文档。
- * @param canvas 当前画布视图。
- * @param overlay_object 工具预览对象（可为 `NULL`）。
- * @return 无。
+ * @param renderer Renderer instance.
+ * @param document Current document.
+ * @param canvas Current canvas view.
+ * @param overlay_object Tool overlay preview object (may be `NULL`).
+ * @return No return value.
  */
 void render_system_draw(RenderSystem* renderer,
                         const Document* document,

@@ -17,10 +17,9 @@
 #include <stddef.h>
 
 /**
- * @brief canvas_view_state 函数。
- *
- * @param canvas 参数 `canvas`。
- * @return 函数返回值。
+ * @brief Gets the current viewport state from canvas.
+ * @param canvas Canvas view instance.
+ * @return Current viewport state.
  */
 static CanvasViewportState canvas_view_state(const CanvasView* canvas)
 {
@@ -44,11 +43,10 @@ static CanvasViewportState canvas_view_state(const CanvasView* canvas)
 }
 
 /**
- * @brief canvas_viewport_world_to_screen 函数。
- *
- * @param state 参数 `state`。
- * @param world 参数 `world`。
- * @return 函数返回值。
+ * @brief Converts world coordinates to screen coordinates.
+ * @param state Viewport state.
+ * @param world World coordinate point.
+ * @return Screen coordinate point.
  */
 static Vec2 canvas_viewport_world_to_screen(const CanvasViewportState* state, Vec2 world)
 {
@@ -64,11 +62,10 @@ static Vec2 canvas_viewport_world_to_screen(const CanvasViewportState* state, Ve
 }
 
 /**
- * @brief canvas_viewport_screen_to_world 函数。
- *
- * @param state 参数 `state`。
- * @param screen 参数 `screen`。
- * @return 函数返回值。
+ * @brief Converts screen coordinates to world coordinates.
+ * @param state Viewport state.
+ * @param screen Screen coordinate point.
+ * @return World coordinate point.
  */
 static Vec2 canvas_viewport_screen_to_world(const CanvasViewportState* state, Vec2 screen)
 {
@@ -84,11 +81,10 @@ static Vec2 canvas_viewport_screen_to_world(const CanvasViewportState* state, Ve
 }
 
 /**
- * @brief canvas_viewport_pan_screen_delta 函数。
- *
- * @param state 参数 `state`。
- * @param delta_screen 参数 `delta_screen`。
- * @return 无。
+ * @brief Pans the viewport by a screen-space delta.
+ * @param state Viewport state.
+ * @param delta_screen Screen space delta.
+ * @return None.
  */
 static void canvas_viewport_pan_screen_delta(CanvasViewportState* state, Vec2 delta_screen)
 {
@@ -129,10 +125,9 @@ static void canvas_viewport_zoom_at_screen_point(CanvasViewportState* state, flo
 }
 
 /**
- * @brief canvas_viewport_visible_world_rect 函数。
- *
- * @param state 参数 `state`。
- * @return 函数返回值。
+ * @brief Computes the visible world rectangle.
+ * @param state Viewport state.
+ * @return Visible world rectangle.
  */
 static RectF canvas_viewport_visible_world_rect(const CanvasViewportState* state)
 {
@@ -150,12 +145,11 @@ static RectF canvas_viewport_visible_world_rect(const CanvasViewportState* state
 }
 
 /**
- * @brief canvas_view_init 函数。
- *
- * @param canvas 参数 `canvas`。
- * @param document 参数 `document`。
- * @param viewport 参数 `viewport`。
- * @return 无。
+ * @brief Initializes a canvas view.
+ * @param canvas Canvas view to initialize.
+ * @param document Document to reference.
+ * @param viewport Initial viewport rectangle.
+ * @return None.
  */
 void canvas_view_init(CanvasView* canvas, Document* document, RectF viewport)
 {
@@ -175,11 +169,10 @@ void canvas_view_init(CanvasView* canvas, Document* document, RectF viewport)
 }
 
 /**
- * @brief canvas_view_set_document 函数。
- *
- * @param canvas 参数 `canvas`。
- * @param document 参数 `document`。
- * @return 无。
+ * @brief Sets the document reference.
+ * @param canvas Canvas view instance.
+ * @param document Document to reference.
+ * @return None.
  */
 void canvas_view_set_document(CanvasView* canvas, Document* document)
 {
@@ -189,11 +182,10 @@ void canvas_view_set_document(CanvasView* canvas, Document* document)
 }
 
 /**
- * @brief canvas_view_set_viewport 函数。
- *
- * @param canvas 参数 `canvas`。
- * @param viewport 参数 `viewport`。
- * @return 无。
+ * @brief Sets the viewport rectangle.
+ * @param canvas Canvas view instance.
+ * @param viewport New viewport rectangle.
+ * @return None.
  */
 void canvas_view_set_viewport(CanvasView* canvas, RectF viewport)
 {
@@ -205,11 +197,10 @@ void canvas_view_set_viewport(CanvasView* canvas, RectF viewport)
 }
 
 /**
- * @brief canvas_view_set_center 函数。
- *
- * @param canvas 参数 `canvas`。
- * @param center 参数 `center`。
- * @return 无。
+ * @brief Sets the viewport center point.
+ * @param canvas Canvas view instance.
+ * @param center New center point.
+ * @return None.
  */
 void canvas_view_set_center(CanvasView* canvas, Vec2 center)
 {
@@ -221,11 +212,10 @@ void canvas_view_set_center(CanvasView* canvas, Vec2 center)
 }
 
 /**
- * @brief canvas_view_set_zoom 函数。
- *
- * @param canvas 参数 `canvas`。
- * @param zoom 参数 `zoom`。
- * @return 无。
+ * @brief Sets the zoom level.
+ * @param canvas Canvas view instance.
+ * @param zoom New zoom level.
+ * @return None.
  */
 void canvas_view_set_zoom(CanvasView* canvas, float zoom)
 {
@@ -237,12 +227,11 @@ void canvas_view_set_zoom(CanvasView* canvas, float zoom)
 }
 
 /**
- * @brief canvas_view_set_center_zoom 函数。
- *
- * @param canvas 参数 `canvas`。
- * @param center 参数 `center`。
- * @param zoom 参数 `zoom`。
- * @return 无。
+ * @brief Sets center and zoom atomically.
+ * @param canvas Canvas view instance.
+ * @param center New center point.
+ * @param zoom New zoom level.
+ * @return None.
  */
 void canvas_view_set_center_zoom(CanvasView* canvas, Vec2 center, float zoom)
 {
@@ -255,10 +244,9 @@ void canvas_view_set_center_zoom(CanvasView* canvas, Vec2 center, float zoom)
 }
 
 /**
- * @brief canvas_view_viewport 函数。
- *
- * @param canvas 参数 `canvas`。
- * @return 函数返回值。
+ * @brief Gets the viewport rectangle.
+ * @param canvas Canvas view instance.
+ * @return Viewport rectangle.
  */
 RectF canvas_view_viewport(const CanvasView* canvas)
 {
@@ -266,10 +254,9 @@ RectF canvas_view_viewport(const CanvasView* canvas)
 }
 
 /**
- * @brief canvas_view_center 函数。
- *
- * @param canvas 参数 `canvas`。
- * @return 函数返回值。
+ * @brief Gets the viewport center point.
+ * @param canvas Canvas view instance.
+ * @return Center point.
  */
 Vec2 canvas_view_center(const CanvasView* canvas)
 {
@@ -277,10 +264,9 @@ Vec2 canvas_view_center(const CanvasView* canvas)
 }
 
 /**
- * @brief canvas_view_zoom 函数。
- *
- * @param canvas 参数 `canvas`。
- * @return 函数返回值。
+ * @brief Gets the current zoom level.
+ * @param canvas Canvas view instance.
+ * @return Zoom level.
  */
 float canvas_view_zoom(const CanvasView* canvas)
 {
@@ -288,11 +274,10 @@ float canvas_view_zoom(const CanvasView* canvas)
 }
 
 /**
- * @brief canvas_view_world_to_screen 函数。
- *
- * @param canvas 参数 `canvas`。
- * @param world 参数 `world`。
- * @return 函数返回值。
+ * @brief Converts world coordinates to screen coordinates.
+ * @param canvas Canvas view instance.
+ * @param world World coordinate point.
+ * @return Screen coordinate point.
  */
 Vec2 canvas_view_world_to_screen(const CanvasView* canvas, Vec2 world)
 {
@@ -301,11 +286,10 @@ Vec2 canvas_view_world_to_screen(const CanvasView* canvas, Vec2 world)
 }
 
 /**
- * @brief canvas_view_screen_to_world 函数。
- *
- * @param canvas 参数 `canvas`。
- * @param screen 参数 `screen`。
- * @return 函数返回值。
+ * @brief Converts screen coordinates to world coordinates.
+ * @param canvas Canvas view instance.
+ * @param screen Screen coordinate point.
+ * @return World coordinate point.
  */
 Vec2 canvas_view_screen_to_world(const CanvasView* canvas, Vec2 screen)
 {
@@ -314,11 +298,10 @@ Vec2 canvas_view_screen_to_world(const CanvasView* canvas, Vec2 screen)
 }
 
 /**
- * @brief canvas_view_pan_screen_delta 函数。
- *
- * @param canvas 参数 `canvas`。
- * @param delta_screen 参数 `delta_screen`。
- * @return 无。
+ * @brief Pans the viewport by a screen-space delta.
+ * @param canvas Canvas view instance.
+ * @param delta_screen Screen space delta.
+ * @return None.
  */
 void canvas_view_pan_screen_delta(CanvasView* canvas, Vec2 delta_screen)
 {
@@ -334,12 +317,11 @@ void canvas_view_pan_screen_delta(CanvasView* canvas, Vec2 delta_screen)
 }
 
 /**
- * @brief canvas_view_zoom_at_screen_point 函数。
- *
- * @param canvas 参数 `canvas`。
- * @param factor 参数 `factor`。
- * @param screen_anchor 参数 `screen_anchor`。
- * @return 无。
+ * @brief Zooms around a screen-space anchor point.
+ * @param canvas Canvas view instance.
+ * @param factor Zoom factor.
+ * @param screen_anchor Anchor point in screen coordinates.
+ * @return None.
  */
 void canvas_view_zoom_at_screen_point(CanvasView* canvas, float factor, Vec2 screen_anchor)
 {
@@ -355,11 +337,10 @@ void canvas_view_zoom_at_screen_point(CanvasView* canvas, float factor, Vec2 scr
 }
 
 /**
- * @brief canvas_view_world_tolerance_for_pixels 函数。
- *
- * @param canvas 参数 `canvas`。
- * @param pixels 参数 `pixels`。
- * @return 函数返回值。
+ * @brief Converts pixel tolerance to world-space tolerance.
+ * @param canvas Canvas view instance.
+ * @param pixels Pixel tolerance.
+ * @return World-space tolerance.
  */
 float canvas_view_world_tolerance_for_pixels(const CanvasView* canvas, float pixels)
 {
@@ -373,10 +354,9 @@ float canvas_view_world_tolerance_for_pixels(const CanvasView* canvas, float pix
 }
 
 /**
- * @brief canvas_view_visible_world_rect 函数。
- *
- * @param canvas 参数 `canvas`。
- * @return 函数返回值。
+ * @brief Gets the visible world rectangle.
+ * @param canvas Canvas view instance.
+ * @return Visible world rectangle.
  */
 RectF canvas_view_visible_world_rect(const CanvasView* canvas)
 {
@@ -395,12 +375,11 @@ RectF canvas_view_visible_world_rect(const CanvasView* canvas)
  */
 
 /**
- * @brief canvas_view_pick_object 函数。
- *
- * @param canvas 参数 `canvas`。
- * @param screen_point 参数 `screen_point`。
- * @param tolerance_pixels 参数 `tolerance_pixels`。
- * @return 函数返回值。
+ * @brief Picks the top-most object under a screen point.
+ * @param canvas Canvas view instance.
+ * @param screen_point Point in screen coordinates.
+ * @param tolerance_pixels Pick tolerance in pixels.
+ * @return Pointer to hit object or NULL.
  */
 GraphicObject* canvas_view_pick_object(const CanvasView* canvas, Vec2 screen_point, float tolerance_pixels)
 {

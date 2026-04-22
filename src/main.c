@@ -19,10 +19,9 @@
  */
 
 /**
- * @brief main 函数。
- *
- * @param void 无参数。
- * @return 函数返回值。
+ * @brief Program entry point.
+ * @param void No parameters.
+ * @return Application exit code.
  */
 int main(void)
 {

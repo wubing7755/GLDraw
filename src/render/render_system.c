@@ -66,10 +66,9 @@ struct RenderSystem {
 };
 
 /**
- * @brief log_gl_error_if_any 函数。
- *
- * @param stage 参数 `stage`。
- * @return 无。
+ * @brief Log any pending GL errors.
+ * @param stage Label describing the stage where the error check occurs.
+ * @return No return value.
  */
 static void log_gl_error_if_any(const char* stage)
 {
@@ -90,16 +89,15 @@ static void log_gl_error_if_any(const char* stage)
 }
 
 /**
- * @brief render_debug_callback 函数。
- *
- * @param source 参数 `source`。
- * @param type 参数 `type`。
- * @param id 参数 `id`。
- * @param severity 参数 `severity`。
- * @param length 参数 `length`。
- * @param message 参数 `message`。
- * @param user_param 参数 `user_param`。
- * @return 函数返回值。
+ * @brief GL debug message callback.
+ * @param source GL message source.
+ * @param type GL message type.
+ * @param id GL message ID.
+ * @param severity GL message severity.
+ * @param length Message length.
+ * @param message Message string.
+ * @param user_param User parameter.
+ * @return No return value.
  */
 static void APIENTRY render_debug_callback(GLenum source,
                                            GLenum type,
@@ -130,10 +128,9 @@ static void APIENTRY render_debug_callback(GLenum source,
 }
 
 /**
- * @brief render_log_frame_stats 函数。
- *
- * @param renderer 参数 `renderer`。
- * @return 无。
+ * @brief Log frame statistics every 120 frames (debug builds only).
+ * @param renderer Renderer instance.
+ * @return No return value.
  */
 static void render_log_frame_stats(const RenderSystem* renderer)
 {
@@ -158,10 +155,9 @@ static void render_log_frame_stats(const RenderSystem* renderer)
 }
 
 /**
- * @brief read_text_file 函数。
- *
- * @param path 参数 `path`。
- * @return 函数返回值。
+ * @brief Read a text file into a heap-allocated buffer.
+ * @param path File path.
+ * @return Newly allocated buffer on success, `NULL` on failure.
  */
 static char* read_text_file(const char* path)
 {
@@ -191,12 +187,11 @@ static char* read_text_file(const char* path)
 }
 
 /**
- * @brief compile_shader 函数。
- *
- * @param type 参数 `type`。
- * @param source 参数 `source`。
- * @param label 参数 `label`。
- * @return 函数返回值。
+ * @brief Compile a shader from source string.
+ * @param type Shader type (GL_VERTEX_SHADER or GL_FRAGMENT_SHADER).
+ * @param source Shader source code.
+ * @param label Human-readable label for error messages.
+ * @return Shader handle on success, `0` on failure.
  */
 static GLuint compile_shader(GLenum type, const char* source, const char* label)
 {
@@ -220,11 +215,10 @@ static GLuint compile_shader(GLenum type, const char* source, const char* label)
 }
 
 /**
- * @brief load_program 函数。
- *
- * @param vertex_path 参数 `vertex_path`。
- * @param fragment_path 参数 `fragment_path`。
- * @return 函数返回值。
+ * @brief Load a shader program from vertex and fragment source files.
+ * @param vertex_path Path to vertex shader file.
+ * @param fragment_path Path to fragment shader file.
+ * @return Program handle on success, `0` on failure.
  */
 static GLuint load_program(const char* vertex_path, const char* fragment_path)
 {
@@ -287,11 +281,13 @@ static GLuint load_program(const char* vertex_path, const char* fragment_path)
  */
 
 /**
- * @brief ensure_screen_vertex_capacity 函数。
+ * @brief Ensure CPU screen-vertex buffer can store requested vertex count.
+ * @param renderer Renderer instance.
+ * @param vertex_count Requested vertex count.
+ * @return `1` on success, `0` on allocation failure.
  *
- * @param renderer 参数 `renderer`。
- * @param vertex_count 参数 `vertex_count`。
- * @return 函数返回值。
+ * Risk note:
+ * - Uses `realloc`; on failure old buffers remain valid and unchanged.
  */
 static int ensure_screen_vertex_capacity(RenderSystem* renderer, size_t vertex_count)
 {
@@ -310,11 +306,10 @@ static int ensure_screen_vertex_capacity(RenderSystem* renderer, size_t vertex_c
 }
 
 /**
- * @brief ensure_path_capacity 函数。
- *
- * @param renderer 参数 `renderer`。
- * @param point_count 参数 `point_count`。
- * @return 函数返回值。
+ * @brief Ensure path buffer can store requested point count.
+ * @param renderer Renderer instance.
+ * @param point_count Requested point count.
+ * @return `1` on success, `0` on allocation failure.
  */
 static int ensure_path_capacity(RenderSystem* renderer, size_t point_count)
 {
@@ -331,11 +326,10 @@ static int ensure_path_capacity(RenderSystem* renderer, size_t point_count)
 }
 
 /**
- * @brief ensure_gpu_vertex_capacity 函数。
- *
- * @param renderer 参数 `renderer`。
- * @param vertex_count 参数 `vertex_count`。
- * @return 函数返回值。
+ * @brief Ensure GPU VBO can store requested vertex count.
+ * @param renderer Renderer instance.
+ * @param vertex_count Requested vertex count.
+ * @return `1` on success, `0` if renderer is `NULL`.
  */
 static int ensure_gpu_vertex_capacity(RenderSystem* renderer, size_t vertex_count)
 {
@@ -358,12 +352,11 @@ static int ensure_gpu_vertex_capacity(RenderSystem* renderer, size_t vertex_coun
 }
 
 /**
- * @brief write_screen_vertex 函数。
- *
- * @param cursor 参数 `cursor`。
- * @param screen 参数 `screen`。
- * @param color 参数 `color`。
- * @return 无。
+ * @brief Write a vertex into the CPU buffer at the cursor position.
+ * @param cursor [in,out] Write cursor pointer.
+ * @param screen Screen coordinate.
+ * @param color Vertex color.
+ * @return No return value.
  */
 static void write_screen_vertex(float** cursor, Vec2 screen, Color color)
 {
@@ -376,10 +369,9 @@ static void write_screen_vertex(float** cursor, Vec2 screen, Color color)
 }
 
 /**
- * @brief batch_primitive_for 函数。
- *
- * @param primitive 参数 `primitive`。
- * @return 函数返回值。
+ * @brief Normalize primitive type for batching.
+ * @param primitive GL primitive type.
+ * @return GL primitive type suitable for batching.
  */
 static GLenum batch_primitive_for(GLenum primitive)
 {
@@ -387,11 +379,10 @@ static GLenum batch_primitive_for(GLenum primitive)
 }
 
 /**
- * @brief batch_vertex_count_for 函数。
- *
- * @param primitive 参数 `primitive`。
- * @param point_count 参数 `point_count`。
- * @return 函数返回值。
+ * @brief Compute how many vertices a primitive type will add to the batch.
+ * @param primitive GL primitive type.
+ * @param point_count Number of points.
+ * @return Number of vertices that will be batched.
  */
 static int batch_vertex_count_for(GLenum primitive, int point_count)
 {
@@ -407,11 +398,10 @@ static int batch_vertex_count_for(GLenum primitive, int point_count)
 }
 
 /**
- * @brief upload_vertices 函数。
- *
- * @param renderer 参数 `renderer`。
- * @param vertex_count 参数 `vertex_count`。
- * @return 函数返回值。
+ * @brief Upload batched vertices to GPU.
+ * @param renderer Renderer instance.
+ * @param vertex_count Number of vertices to upload.
+ * @return `1` on success, `0` on failure.
  */
 static int upload_vertices(RenderSystem* renderer, int vertex_count)
 {
@@ -432,10 +422,9 @@ static int upload_vertices(RenderSystem* renderer, int vertex_count)
 }
 
 /**
- * @brief begin_frame_batch 函数。
- *
- * @param renderer 参数 `renderer`。
- * @return 无。
+ * @brief Begin a new frame batch, resetting batch state.
+ * @param renderer Renderer instance.
+ * @return No return value.
  */
 static void begin_frame_batch(RenderSystem* renderer)
 {
@@ -451,13 +440,12 @@ static void begin_frame_batch(RenderSystem* renderer)
 }
 
 /**
- * @brief can_append_line_batch 函数。
- *
- * @param renderer 参数 `renderer`。
- * @param primitive 参数 `primitive`。
- * @param line_width 参数 `line_width`。
- * @param append_vertices 参数 `append_vertices`。
- * @return 函数返回值。
+ * @brief Check whether a new batch can be appended to the current batch.
+ * @param renderer Renderer instance.
+ * @param primitive GL primitive type.
+ * @param line_width Line width.
+ * @param append_vertices Number of vertices to append.
+ * @return `1` if appendable, `0` otherwise.
  */
 static int can_append_line_batch(RenderSystem* renderer,
                                  GLenum primitive,
@@ -480,11 +468,11 @@ static int can_append_line_batch(RenderSystem* renderer,
 }
 
 /**
- * @brief 提交并绘制当前缓存批次。
- * @param renderer [in,out] 渲染器。
- * @return 无。
+ * @brief Submit and draw the current batched cache.
+ * @param renderer [in,out] Renderer.
+ * @return No return value.
  *
- * @note 仅当 `batched_vertex_count > 0` 时触发上传与绘制，随后重置批次状态。
+ * @note Only triggers upload and draw when `batched_vertex_count > 0`, then resets batch state.
  */
 static void flush_batch(RenderSystem* renderer)
 {
@@ -505,16 +493,15 @@ static void flush_batch(RenderSystem* renderer)
 }
 
 /**
- * @brief append_line_vertices 函数。
- *
- * @param renderer 参数 `renderer`。
- * @param canvas 参数 `canvas`。
- * @param points 参数 `points`。
- * @param count 参数 `count`。
- * @param color 参数 `color`。
- * @param primitive 参数 `primitive`。
- * @param line_width 参数 `line_width`。
- * @return 函数返回值。
+ * @brief Add line vertices to the current batch.
+ * @param renderer Renderer instance.
+ * @param canvas Canvas view.
+ * @param points Point array.
+ * @param count Point count.
+ * @param color Line color.
+ * @param primitive GL primitive type.
+ * @param line_width Line width.
+ * @return `1` on success, `0` on failure.
  */
 static int append_line_vertices(RenderSystem* renderer,
                                 const CanvasView* canvas,
@@ -563,10 +550,9 @@ static int append_line_vertices(RenderSystem* renderer,
 }
 
 /**
- * @brief end_frame_batch 函数。
- *
- * @param renderer 参数 `renderer`。
- * @return 无。
+ * @brief End the frame batch, flushing any remaining batched content.
+ * @param renderer Renderer instance.
+ * @return No return value.
  */
 static void end_frame_batch(RenderSystem* renderer)
 {
@@ -574,14 +560,14 @@ static void end_frame_batch(RenderSystem* renderer)
 }
 
 /**
- * @brief 绘制一条折线/线带路径。
- * @param renderer [in,out] 渲染器。
- * @param canvas [in] 画布视图。
- * @param points [in] 路径点数组。
- * @param count [in] 点数量。
- * @param color [in] 线颜色。
- * @param line_width [in] 线宽。
- * @return 无。
+ * @brief Draw a polyline/line-strip path.
+ * @param renderer [in,out] Renderer.
+ * @param canvas [in] Canvas view.
+ * @param points [in] Path point array.
+ * @param count [in] Point count.
+ * @param color [in] Line color.
+ * @param line_width [in] Line width.
+ * @return No return value.
  */
 static void draw_polyline(RenderSystem* renderer,
                           const CanvasView* canvas,
@@ -604,12 +590,11 @@ static void draw_polyline(RenderSystem* renderer,
 }
 
 /**
- * @brief count_grid_lines 函数。
- *
- * @param start 参数 `start`。
- * @param end 参数 `end`。
- * @param spacing 参数 `spacing`。
- * @return 函数返回值。
+ * @brief Count grid lines between start and end at the given spacing.
+ * @param start Start coordinate.
+ * @param end End coordinate.
+ * @param spacing Grid spacing.
+ * @return Number of grid lines.
  */
 static int count_grid_lines(float start, float end, float spacing)
 {
@@ -630,16 +615,16 @@ static int count_grid_lines(float start, float end, float spacing)
 }
 
 /**
- * @brief 绘制当前可视区域的网格与坐标轴。
- * @param renderer [in,out] 渲染器。
- * @param canvas [in] 画布视图。
- * @return 无。
+ * @brief Draw the grid and axes for the current visible area.
+ * @param renderer [in,out] Renderer.
+ * @param canvas [in] Canvas view.
+ * @return No return value.
  *
- * 算法步骤：
- * 1. 计算可视世界矩形与网格起止坐标；
- * 2. 批量生成垂直/水平网格线段端点；
- * 3. 追加到 line batch；
- * 4. 额外绘制 X/Y 轴高亮线。
+ * Algorithm:
+ * 1. Compute visible world rectangle and grid start/end coordinates;
+ * 2. Batch-generate vertical/horizontal grid line segment endpoints;
+ * 3. Append to line batch;
+ * 4. Also draw X/Y axis highlight lines.
  */
 static void draw_grid(RenderSystem* renderer, const CanvasView* canvas)
 {
@@ -697,13 +682,12 @@ static void draw_grid(RenderSystem* renderer, const CanvasView* canvas)
 }
 
 /**
- * @brief draw_object 函数。
- *
- * @param renderer 参数 `renderer`。
- * @param canvas 参数 `canvas`。
- * @param object 参数 `object`。
- * @param selected 参数 `selected`。
- * @return 无。
+ * @brief Draw a single graphic object.
+ * @param renderer Renderer instance.
+ * @param canvas Canvas view.
+ * @param object Object to draw.
+ * @param selected Whether the object is selected (adds highlight).
+ * @return No return value.
  */
 static void draw_object(RenderSystem* renderer,
                         const CanvasView* canvas,
@@ -730,13 +714,12 @@ static void draw_object(RenderSystem* renderer,
  */
 
 /**
- * @brief render_canvas_scissor_box 函数。
- *
- * @param viewport 参数 `viewport`。
- * @param framebuffer_width 参数 `framebuffer_width`。
- * @param framebuffer_height 参数 `framebuffer_height`。
- * @param out_scissor 参数 `out_scissor`。
- * @return 函数返回值。
+ * @brief Convert canvas viewport to GL scissor box.
+ * @param viewport Canvas viewport rectangle.
+ * @param framebuffer_width Framebuffer width.
+ * @param framebuffer_height Framebuffer height.
+ * @param out_scissor [out] Output scissor box (x, y, w, h).
+ * @return `1` when resulting scissor area is valid and non-empty, else `0`.
  */
 static int render_canvas_scissor_box(const RectF* viewport, int framebuffer_width, int framebuffer_height, GLint out_scissor[4])
 {
@@ -786,10 +769,9 @@ static int render_canvas_scissor_box(const RectF* viewport, int framebuffer_widt
 }
 
 /**
- * @brief render_system_create 函数。
- *
- * @param window 参数 `window`。
- * @return 函数返回值。
+ * @brief Create the rendering system and initialize GPU resources.
+ * @param window Already-initialized platform window.
+ * @return Renderer instance on success, `NULL` on failure.
  */
 RenderSystem* render_system_create(PlatformWindow* window)
 {
@@ -865,10 +847,9 @@ RenderSystem* render_system_create(PlatformWindow* window)
 }
 
 /**
- * @brief render_system_destroy 函数。
- *
- * @param renderer 参数 `renderer`。
- * @return 无。
+ * @brief Destroy the rendering system and release GPU/heap resources.
+ * @param renderer Renderer instance.
+ * @return No return value.
  */
 void render_system_destroy(RenderSystem* renderer)
 {
@@ -885,12 +866,11 @@ void render_system_destroy(RenderSystem* renderer)
 }
 
 /**
- * @brief render_system_resize 函数。
- *
- * @param renderer 参数 `renderer`。
- * @param width 参数 `width`。
- * @param height 参数 `height`。
- * @return 无。
+ * @brief Handle window resize events.
+ * @param renderer Renderer instance.
+ * @param width New width in pixels.
+ * @param height New height in pixels.
+ * @return No return value.
  */
 void render_system_resize(RenderSystem* renderer, int width, int height)
 {
@@ -910,11 +890,11 @@ void render_system_resize(RenderSystem* renderer, int width, int height)
 
 /**
  * @brief Render full canvas frame.
- * @param renderer [in,out] 渲染器。
- * @param document [in] 文档对象集合。
- * @param canvas [in] 画布视图。
- * @param overlay_object [in] 工具叠加预览对象（可为 `NULL`）。
- * @return 无。
+ * @param renderer [in,out] Renderer.
+ * @param document [in] Document object collection.
+ * @param canvas [in] Canvas view.
+ * @param overlay_object [in] Tool overlay preview object (may be `NULL`).
+ * @return No return value.
  *
  * Why preserve scissor state:
  * - UI and renderer may share context state; previous scissor state is restored

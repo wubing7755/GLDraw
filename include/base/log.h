@@ -1,8 +1,8 @@
 /**
  * @file log.h
- * @brief 轻量级日志输出宏与实现。
+ * @brief Lightweight log output macros and implementation.
  *
- * 日志统一输出到 `stderr`，并带有级别、文件与行号信息。
+ * All logs are output to `stderr` with level, file, and line number information.
  */
 #ifndef GLDRAW_BASE_LOG_H
 #define GLDRAW_BASE_LOG_H
@@ -11,14 +11,14 @@
 #include <stdio.h>
 
 /**
- * @brief 内部日志实现函数（单行输出到 `stderr`）。
- * @param level 日志级别字符串。
- * @param file 调用位置文件名。
- * @param line 调用位置行号。
- * @param fmt `printf` 风格格式串。
- * @param ... 与 `fmt` 匹配的可变参数。
- * @return 无。
- * @note 调用方必须保证格式串与参数类型一致。
+ * @brief Internal log implementation function (single line to `stderr`).
+ * @param level Log level string.
+ * @param file Caller's file name.
+ * @param line Caller's line number.
+ * @param fmt `printf`-style format string.
+ * @param ... Variable arguments matching `fmt`.
+ * @return No return value.
+ * @note Callers must ensure the format string matches the argument types.
  */
 static inline void log_write_impl(const char* level,
                                   const char* file,
@@ -35,7 +35,7 @@ static inline void log_write_impl(const char* level,
 }
 
 /** @def LOG_DEBUG
- * @brief Debug 日志宏（仅在非 `NDEBUG` 构建启用）。
+ * @brief Debug log macro (enabled only in non-`NDEBUG` builds).
  */
 #ifndef NDEBUG
 #define LOG_DEBUG(fmt, ...) log_write_impl("DEBUG", __FILE__, __LINE__, fmt, __VA_ARGS__)
@@ -44,15 +44,15 @@ static inline void log_write_impl(const char* level,
 #endif
 
 /** @def LOG_INFO
- * @brief Info 日志宏。
+ * @brief Info log macro.
  */
 #define LOG_INFO(fmt, ...) log_write_impl("INFO", __FILE__, __LINE__, fmt, __VA_ARGS__)
 /** @def LOG_WARN
- * @brief Warn 日志宏。
+ * @brief Warning log macro.
  */
 #define LOG_WARN(fmt, ...) log_write_impl("WARN", __FILE__, __LINE__, fmt, __VA_ARGS__)
 /** @def LOG_ERROR
- * @brief Error 日志宏。
+ * @brief Error log macro.
  */
 #define LOG_ERROR(fmt, ...) log_write_impl("ERROR", __FILE__, __LINE__, fmt, __VA_ARGS__)
 

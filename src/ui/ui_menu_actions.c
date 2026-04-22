@@ -23,12 +23,12 @@
 #include <GLFW/glfw3.h>
 
 /**
- * @brief 创建新文档并重置相关状态。
+ * @brief Creates a new document and resets related state.
  *
- * @param workspace [in,out] 工作区对象。
- * @return 无。
+ * @param workspace [in,out] Workspace instance.
+ * @return None.
  *
- * @note 会重建历史栈并重置画布缩放/中心，确保“新建文档”状态一致。
+ * @note Rebuilds history stack and resets canvas zoom/center to ensure consistent “new document” state.
  */
 static void app_workspace_new(Workspace* workspace)
 {
@@ -56,16 +56,16 @@ static void app_workspace_new(Workspace* workspace)
 }
 
 /**
- * @brief 将视图缩放到包围全部对象的最佳范围。
+ * @brief Zooms view to optimal range enclosing all objects.
  *
- * 算法步骤：
- * 1. 遍历对象，计算整体包围盒；
- * 2. 对包围盒增加固定边距；
- * 3. 基于视口宽高计算 `zoom_x/zoom_y`；
- * 4. 取较小值作为新缩放并将中心置于包围盒中心。
+ * Algorithm steps:
+ * 1. Iterates objects to compute overall bounding box.
+ * 2. Adds fixed padding to bounding box.
+ * 3. Computes zoom_x/zoom_y based on viewport dimensions.
+ * 4. Takes smaller value as new zoom and centers on bounding box center.
  *
- * @param workspace [in,out] 工作区对象。
- * @return 无。
+ * @param workspace [in,out] Workspace instance.
+ * @return None.
  */
 static void app_zoom_to_fit(Workspace* workspace)
 {
@@ -132,9 +132,9 @@ static void app_zoom_to_fit(Workspace* workspace)
 }
 
 /**
- * @brief 切换画布网格显示。
- * @param workspace [in,out] 工作区对象。
- * @return 无。
+ * @brief Toggles canvas grid display.
+ * @param workspace [in,out] Workspace instance.
+ * @return None.
  */
 static void app_toggle_grid(Workspace* workspace)
 {
@@ -145,9 +145,9 @@ static void app_toggle_grid(Workspace* workspace)
 }
 
 /**
- * @brief 触发检查器显示切换动作（当前为日志占位）。
- * @param workspace [in,out] 工作区对象（当前未直接使用）。
- * @return 无。
+ * @brief Triggers inspector visibility toggle (currently logs placeholder).
+ * @param workspace [in,out] Workspace instance (currently unused).
+ * @return None.
  */
 static void app_toggle_inspector(Workspace* workspace)
 {
@@ -156,9 +156,9 @@ static void app_toggle_inspector(Workspace* workspace)
 }
 
 /**
- * @brief 触发快捷键帮助动作（当前为日志占位）。
- * @param workspace [in,out] 工作区对象（当前未直接使用）。
- * @return 无。
+ * @brief Triggers keyboard shortcuts help (currently logs placeholder).
+ * @param workspace [in,out] Workspace instance (currently unused).
+ * @return None.
  */
 static void app_show_shortcuts(Workspace* workspace)
 {
@@ -167,9 +167,9 @@ static void app_show_shortcuts(Workspace* workspace)
 }
 
 /**
- * @brief 触发关于对话框动作（当前为日志占位）。
- * @param workspace [in,out] 工作区对象（当前未直接使用）。
- * @return 无。
+ * @brief Triggers about dialog (currently logs placeholder).
+ * @param workspace [in,out] Workspace instance (currently unused).
+ * @return None.
  */
 static void app_show_about(Workspace* workspace)
 {
@@ -178,9 +178,9 @@ static void app_show_about(Workspace* workspace)
 }
 
 /**
- * @brief 执行“另存为”命令。
- * @param workspace [in,out] 工作区对象。
- * @return 保存成功返回非零，否则返回 0。
+ * @brief Executes “Save As” command.
+ * @param workspace [in,out] Workspace instance.
+ * @return Non-zero on success, 0 on failure.
  */
 static int app_save_as(Workspace* workspace)
 {
@@ -191,9 +191,9 @@ static int app_save_as(Workspace* workspace)
 }
 
 /**
- * @brief 执行 PNG 导出命令（待实现）。
- * @param workspace [in,out] 工作区对象（当前未直接使用）。
- * @return 当前固定返回 0。
+ * @brief Executes PNG export command (not yet implemented).
+ * @param workspace [in,out] Workspace instance (currently unused).
+ * @return Currently always returns 0.
  */
 static int app_export_png(Workspace* workspace)
 {
@@ -204,9 +204,9 @@ static int app_export_png(Workspace* workspace)
 }
 
 /**
- * @brief 判断菜单动作当前是否可用。
- * @param id [in] 菜单动作 ID。
- * @return 可用返回非零，不可用返回 0。
+ * @brief Checks if menu action is currently available.
+ * @param id [in] Menu action ID.
+ * @return Non-zero if available, 0 if unavailable.
  */
 int ui_menu_is_action_available(MenuId id)
 {
@@ -223,16 +223,16 @@ int ui_menu_is_action_available(MenuId id)
 }
 
 /**
- * @brief 执行菜单动作分发。
+ * @brief Executes menu action dispatch.
  *
- * 算法步骤：
- * 1. 依据 `id` 进入对应分支；
- * 2. 调用文档/画布/历史相关操作；
- * 3. 对撤销重做等会改变修订号的动作同步 dirty 标记。
+ * Algorithm steps:
+ * 1. Enters corresponding branch based on id.
+ * 2. Calls document/canvas/history related operations.
+ * 3. Syncs dirty flag for actions that change revision number (like undo/redo).
  *
- * @param workspace [in,out] 工作区对象。
- * @param id [in] 菜单动作 ID。
- * @return 无。
+ * @param workspace [in,out] Workspace instance.
+ * @param id [in] Menu action ID.
+ * @return None.
  */
 void ui_menu_execute(Workspace* workspace, MenuId id)
 {

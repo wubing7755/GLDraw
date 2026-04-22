@@ -1,13 +1,13 @@
 /**
  * @file ui_menu_def.h
- * @brief 菜单项静态定义与菜单 ID 枚举。
+ * @brief Menu item static definitions and menu ID enumeration.
  */
 #ifndef GLDRAW_UI_UI_MENU_DEF_H
 #define GLDRAW_UI_UI_MENU_DEF_H
 
 /**
  * @enum MenuItemType
- * @brief 菜单项类型。
+ * @brief Menu item type.
  */
 typedef enum MenuItemType {
     MENU_ITEM_ACTION,
@@ -17,9 +17,9 @@ typedef enum MenuItemType {
 
 /**
  * @enum MenuId
- * @brief 菜单动作 ID 枚举。
+ * @brief Menu action ID enumeration.
  *
- * 约定分段：
+ * Assigned ranges:
  * - 1~99: File
  * - 100~199: Edit
  * - 200~299: View
@@ -62,13 +62,13 @@ typedef enum MenuId {
 
 /**
  * @struct MenuItemDef
- * @brief 菜单项配置。
+ * @brief Menu item configuration.
  *
- * @member type 菜单项类型。
- * @member label 显示文本。
- * @member shortcut 快捷键文本。
- * @member id 菜单动作 ID。
- * @member parent_id 父级菜单 ID（顶层为 -1）。
+ * @member type Menu item type.
+ * @member label Display text.
+ * @member shortcut Keyboard shortcut text.
+ * @member id Menu action ID.
+ * @member parent_id Parent menu ID (-1 for top-level).
  */
 typedef struct MenuItemDef {
     MenuItemType  type;
@@ -79,14 +79,14 @@ typedef struct MenuItemDef {
 } MenuItemDef;
 
 /**
- * @brief 获取菜单定义项数量。
- * @return 菜单定义表项数量。
+ * @brief Gets the menu definition count.
+ * @return Number of menu definition entries.
  */
 int ui_menu_def_count(void);
 
 /**
- * @brief 获取菜单定义表。
- * @return 指向静态菜单定义数组的只读指针。
+ * @brief Gets the menu definition table.
+ * @return Pointer to static menu definition array.
  */
 const MenuItemDef* ui_menu_def_items(void);
 

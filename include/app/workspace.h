@@ -1,6 +1,6 @@
 /**
  * @file workspace.h
- * @brief 编辑器运行时共享工作区定义。
+ * @brief Editor runtime shared workspace definition.
  */
 #ifndef GLDRAW_APP_WORKSPACE_H
 #define GLDRAW_APP_WORKSPACE_H
@@ -14,24 +14,24 @@ struct Workspace;
 
 /**
  * @typedef WorkspaceCommandFn
- * @brief 工作区命令回调签名（如保存/加载）。
- * @param workspace 目标工作区。
- * @param user_data 调用方透传上下文。
- * @return 成功返回非零，失败返回 0。
+ * @brief Workspace command callback signature (e.g., save/load).
+ * @param workspace Target workspace.
+ * @param user_data Caller-supplied context passed through.
+ * @return Non-zero on success, zero on failure.
  */
 typedef int (*WorkspaceCommandFn)(struct Workspace* workspace, void* user_data);
 
 /**
  * @struct WorkspaceLayout
- * @brief UI 计算出的布局快照。
+ * @brief Layout snapshot computed by the UI.
  *
- * @member window_bounds 窗口边界。
- * @member canvas_content_bounds 画布可用内容区。
- * @member appbar_bounds 顶部工具条区域。
- * @member rail_bounds 左侧工具轨区域。
- * @member panel_bounds 右侧面板区域。
- * @member status_bounds 底部状态栏区域。
- * @member layout_revision 布局版本号（用于跨系统同步）。
+ * @member window_bounds Window boundary.
+ * @member canvas_content_bounds Available canvas content area.
+ * @member appbar_bounds Top toolbar area.
+ * @member rail_bounds Left tool rail area.
+ * @member panel_bounds Right panel area.
+ * @member status_bounds Bottom status bar area.
+ * @member layout_revision Layout version number (used for cross-system sync).
  */
 typedef struct WorkspaceLayout {
     RectF window_bounds;
@@ -45,20 +45,20 @@ typedef struct WorkspaceLayout {
 
 /**
  * @struct Workspace
- * @brief 运行时核心状态容器。
+ * @brief Runtime core state container.
  *
- * @member document 当前文档对象与选择状态。
- * @member history 撤销/重做历史。
- * @member canvas 画布视图状态。
- * @member tools 工具控制器。
- * @member layout UI 布局信息。
- * @member current_document_path 当前文档路径（空串表示未命名文档）。
- * @member status_message 状态栏消息。
- * @member saved_revision 最近一次保存对应的文档修订号。
- * @member document_dirty 文档是否脏（非零表示有未保存改动）。
- * @member save_document 保存回调。
- * @member load_document 加载回调。
- * @member command_user_data 回调上下文。
+ * @member document Current document object and selection state.
+ * @member history Undo/redo history.
+ * @member canvas Canvas view state.
+ * @member tools Tool controller.
+ * @member layout UI layout information.
+ * @member current_document_path Current document path (empty string means unnamed).
+ * @member status_message Status bar message.
+ * @member saved_revision Document revision corresponding to the last save.
+ * @member document_dirty Whether the document is dirty (non-zero means unsaved changes).
+ * @member save_document Save callback.
+ * @member load_document Load callback.
+ * @member command_user_data Callback context.
  */
 typedef struct Workspace {
     Document document;
@@ -76,9 +76,9 @@ typedef struct Workspace {
 } Workspace;
 
 /**
- * @brief 将当前文档修订号标记为“已保存”。
- * @param workspace 目标工作区，为 `NULL` 时无操作。
- * @return 无。
+ * @brief Mark the current document revision as saved.
+ * @param workspace Target workspace; no-op if `NULL`.
+ * @return No return value.
  */
 static inline void workspace_mark_saved(Workspace* workspace)
 {
@@ -91,9 +91,9 @@ static inline void workspace_mark_saved(Workspace* workspace)
 }
 
 /**
- * @brief 根据 `saved_revision` 与当前修订号同步脏标记。
- * @param workspace 目标工作区，为 `NULL` 时无操作。
- * @return 无。
+ * @brief Sync the dirty flag based on `saved_revision` and the current revision.
+ * @param workspace Target workspace; no-op if `NULL`.
+ * @return No return value.
  */
 static inline void workspace_sync_document_dirty(Workspace* workspace)
 {

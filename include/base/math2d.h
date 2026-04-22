@@ -1,9 +1,9 @@
 /**
  * @file math2d.h
- * @brief 2D 数学内联工具函数。
+ * @brief 2D math inline utility functions.
  *
- * 本文件提供向量运算、标量夹取和矩形判定等常用基础能力。
- * 所有函数均为 `static inline`，用于减少跨模块重复代码。
+ * Provides common basics: vector operations, scalar clamping, and rectangle tests.
+ * All functions are `static inline` to reduce cross-module duplicate code.
  */
 #ifndef GLDRAW_BASE_MATH2D_H
 #define GLDRAW_BASE_MATH2D_H
@@ -12,10 +12,10 @@
 #include <base/types.h>
 
 /**
- * @brief 构造二维向量。
- * @param x X 分量。
- * @param y Y 分量。
- * @return 构造后的 `Vec2`。
+ * @brief Construct a 2D vector.
+ * @param x X component.
+ * @param y Y component.
+ * @return The constructed `Vec2`.
  */
 static inline Vec2 vec2_make(float x, float y)
 {
@@ -26,10 +26,10 @@ static inline Vec2 vec2_make(float x, float y)
 }
 
 /**
- * @brief 逐分量相加两个向量。
- * @param a 第一个向量。
- * @param b 第二个向量。
- * @return `a + b`。
+ * @brief Component-wise addition of two vectors.
+ * @param a First vector.
+ * @param b Second vector.
+ * @return `a + b`.
  */
 static inline Vec2 vec2_add(Vec2 a, Vec2 b)
 {
@@ -37,10 +37,10 @@ static inline Vec2 vec2_add(Vec2 a, Vec2 b)
 }
 
 /**
- * @brief 逐分量相减两个向量。
- * @param a 被减向量。
- * @param b 减数向量。
- * @return `a - b`。
+ * @brief Component-wise subtraction of two vectors.
+ * @param a Vector being subtracted.
+ * @param b Vector to subtract.
+ * @return `a - b`.
  */
 static inline Vec2 vec2_sub(Vec2 a, Vec2 b)
 {
@@ -48,10 +48,10 @@ static inline Vec2 vec2_sub(Vec2 a, Vec2 b)
 }
 
 /**
- * @brief 向量按标量缩放。
- * @param value 输入向量。
- * @param scalar 缩放系数。
- * @return `value * scalar`。
+ * @brief Scale a vector by a scalar.
+ * @param value Input vector.
+ * @param scalar Scale factor.
+ * @return `value * scalar`.
  */
 static inline Vec2 vec2_scale(Vec2 value, float scalar)
 {
@@ -59,10 +59,10 @@ static inline Vec2 vec2_scale(Vec2 value, float scalar)
 }
 
 /**
- * @brief 计算两个向量的点积。
- * @param a 第一个向量。
- * @param b 第二个向量。
- * @return 点积值 `a.x * b.x + a.y * b.y`。
+ * @brief Compute the dot product of two vectors.
+ * @param a First vector.
+ * @param b Second vector.
+ * @return Dot product `a.x * b.x + a.y * b.y`.
  */
 static inline float vec2_dot(Vec2 a, Vec2 b)
 {
@@ -70,9 +70,9 @@ static inline float vec2_dot(Vec2 a, Vec2 b)
 }
 
 /**
- * @brief 计算向量长度平方。
- * @param value 输入向量。
- * @return 长度平方值（避免 `sqrt` 开销）。
+ * @brief Compute the squared length of a vector.
+ * @param value Input vector.
+ * @return Squared length (avoids `sqrt` overhead).
  */
 static inline float vec2_length_sq(Vec2 value)
 {
@@ -80,9 +80,9 @@ static inline float vec2_length_sq(Vec2 value)
 }
 
 /**
- * @brief 计算向量欧氏长度。
- * @param value 输入向量。
- * @return 向量长度。
+ * @brief Compute the Euclidean length of a vector.
+ * @param value Input vector.
+ * @return Vector length.
  */
 static inline float vec2_length(Vec2 value)
 {
@@ -90,12 +90,12 @@ static inline float vec2_length(Vec2 value)
 }
 
 /**
- * @brief 将标量约束到闭区间 `[min_value, max_value]`。
- * @param value 输入值。
- * @param min_value 下界。
- * @param max_value 上界。
- * @return 夹取后的值。
- * @note 调用方应保证 `min_value <= max_value`。
+ * @brief Clamp a scalar to the closed interval `[min_value, max_value]`.
+ * @param value Input value.
+ * @param min_value Lower bound.
+ * @param max_value Upper bound.
+ * @return Clamped value.
+ * @note Callers must ensure `min_value <= max_value`.
  */
 static inline float clampf(float value, float min_value, float max_value)
 {
@@ -109,9 +109,9 @@ static inline float clampf(float value, float min_value, float max_value)
 }
 
 /**
- * @brief 获取矩形左边界。
- * @param rect 输入矩形。
- * @return 左边界 `x`。
+ * @brief Get the left edge of a rectangle.
+ * @param rect Input rectangle.
+ * @return Left edge `x`.
  */
 static inline float rectf_left(const RectF* rect)
 {
@@ -119,9 +119,9 @@ static inline float rectf_left(const RectF* rect)
 }
 
 /**
- * @brief 获取矩形右边界。
- * @param rect 输入矩形。
- * @return 右边界 `x + w`。
+ * @brief Get the right edge of a rectangle.
+ * @param rect Input rectangle.
+ * @return Right edge `x + w`.
  */
 static inline float rectf_right(const RectF* rect)
 {
@@ -129,9 +129,9 @@ static inline float rectf_right(const RectF* rect)
 }
 
 /**
- * @brief 获取矩形下边界。
- * @param rect 输入矩形。
- * @return 下边界 `y`。
+ * @brief Get the bottom edge of a rectangle.
+ * @param rect Input rectangle.
+ * @return Bottom edge `y`.
  */
 static inline float rectf_bottom(const RectF* rect)
 {
@@ -139,9 +139,9 @@ static inline float rectf_bottom(const RectF* rect)
 }
 
 /**
- * @brief 获取矩形上边界。
- * @param rect 输入矩形。
- * @return 上边界 `y + h`。
+ * @brief Get the top edge of a rectangle.
+ * @param rect Input rectangle.
+ * @return Top edge `y + h`.
  */
 static inline float rectf_top(const RectF* rect)
 {
@@ -149,10 +149,10 @@ static inline float rectf_top(const RectF* rect)
 }
 
 /**
- * @brief 判断点是否位于矩形内部（含边界）。
- * @param rect 输入矩形。
- * @param point 待检测点。
- * @return 点在矩形内返回非零，否则返回 0。
+ * @brief Check whether a point is inside the rectangle (including the boundary).
+ * @param rect Input rectangle.
+ * @param point Point to test.
+ * @return Non-zero if the point is inside, zero otherwise.
  */
 static inline int rectf_contains_point(const RectF* rect, Vec2 point)
 {

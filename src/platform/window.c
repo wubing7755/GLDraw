@@ -100,10 +100,8 @@ void platform_window_shutdown(PlatformWindow* window)
 }
 
 /**
- * @brief platform_window_poll_events 函数。
- *
- * @param void 无参数。
- * @return 无。
+ * @brief Poll window events.
+ * @return No return value.
  */
 void platform_window_poll_events(void)
 {
@@ -111,10 +109,9 @@ void platform_window_poll_events(void)
 }
 
 /**
- * @brief platform_window_swap_buffers 函数。
- *
- * @param window 参数 `window`。
- * @return 无。
+ * @brief Swap the window front and back buffers.
+ * @param window Target window.
+ * @return No return value.
  */
 void platform_window_swap_buffers(PlatformWindow* window)
 {
@@ -124,10 +121,9 @@ void platform_window_swap_buffers(PlatformWindow* window)
 }
 
 /**
- * @brief platform_window_should_close 函数。
- *
- * @param window 参数 `window`。
- * @return 函数返回值。
+ * @brief Query whether the window should close.
+ * @param window Target window.
+ * @return Non-zero if the window should close, zero otherwise.
  */
 int platform_window_should_close(const PlatformWindow* window)
 {

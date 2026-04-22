@@ -1,6 +1,6 @@
 /**
  * @file ui_menu_actions.h
- * @brief 菜单动作分发接口。
+ * @brief Menu action dispatch interface.
  */
 #ifndef GLDRAW_UI_UI_MENU_ACTIONS_H
 #define GLDRAW_UI_UI_MENU_ACTIONS_H
@@ -10,17 +10,17 @@
 struct Workspace;
 
 /**
- * @brief 执行指定菜单动作。
- * @param workspace 工作区对象。
- * @param id 菜单动作 ID。
- * @return 无。
+ * @brief Executes the specified menu action.
+ * @param workspace Workspace instance.
+ * @param id Menu action ID.
+ * @return None.
  */
 void ui_menu_execute(struct Workspace* workspace, MenuId id);
 
 /**
- * @brief 判断菜单动作当前是否可用。
- * @param id 菜单动作 ID。
- * @return 可用返回非零，不可用返回 0。
+ * @brief Checks if menu action is currently available.
+ * @param id Menu action ID.
+ * @return Non-zero if available, 0 if unavailable.
  */
 int ui_menu_is_action_available(MenuId id);
 

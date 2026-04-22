@@ -15,10 +15,9 @@
 #include <string.h>
 
 /**
- * @brief document_init 函数。
- *
- * @param document 参数 `document`。
- * @return 无。
+ * @brief Initializes a document.
+ * @param document Document to initialize.
+ * @return None.
  */
 void document_init(Document* document)
 {
@@ -32,10 +31,9 @@ void document_init(Document* document)
 }
 
 /**
- * @brief document_shutdown 函数。
- *
- * @param document 参数 `document`。
- * @return 无。
+ * @brief Shuts down a document and frees resources.
+ * @param document Document to shut down.
+ * @return None.
  */
 void document_shutdown(Document* document)
 {
@@ -56,10 +54,9 @@ void document_shutdown(Document* document)
 }
 
 /**
- * @brief document_reset 函数。
- *
- * @param document 参数 `document`。
- * @return 无。
+ * @brief Resets a document to initial empty state.
+ * @param document Document to reset.
+ * @return None.
  */
 void document_reset(Document* document)
 {
@@ -81,11 +78,10 @@ void document_reset(Document* document)
 }
 
 /**
- * @brief document_add_object 函数。
- *
- * @param document 参数 `document`。
- * @param object 参数 `object`。
- * @return 函数返回值。
+ * @brief Adds an object to the document.
+ * @param document Document instance.
+ * @param object Object to add.
+ * @return 1 on success, 0 on failure.
  */
 int document_add_object(Document* document, GraphicObject* object)
 {
@@ -100,12 +96,11 @@ int document_add_object(Document* document, GraphicObject* object)
 }
 
 /**
- * @brief document_append_object_with_id 函数。
- *
- * @param document 参数 `document`。
- * @param object 参数 `object`。
- * @param id 参数 `id`。
- * @return 函数返回值。
+ * @brief Appends an object with a specific ID.
+ * @param document Document instance.
+ * @param object Object to append.
+ * @param id Desired object ID.
+ * @return 1 on success, 0 on failure.
  */
 int document_append_object_with_id(Document* document, GraphicObject* object, ObjectId id)
 {
@@ -127,11 +122,10 @@ int document_append_object_with_id(Document* document, GraphicObject* object, Ob
 }
 
 /**
- * @brief document_find_object 函数。
- *
- * @param document 参数 `document`。
- * @param id 参数 `id`。
- * @return 函数返回值。
+ * @brief Finds an object by ID.
+ * @param document Document instance.
+ * @param id Object ID to find.
+ * @return Pointer to object or NULL.
  */
 GraphicObject* document_find_object(const Document* document, ObjectId id)
 {
@@ -151,11 +145,10 @@ GraphicObject* document_find_object(const Document* document, ObjectId id)
 }
 
 /**
- * @brief document_get_object_at 函数。
- *
- * @param document 参数 `document`。
- * @param index 参数 `index`。
- * @return 函数返回值。
+ * @brief Gets an object at a specific index.
+ * @param document Document instance.
+ * @param index Object index.
+ * @return Pointer to object or NULL.
  */
 GraphicObject* document_get_object_at(const Document* document, int index)
 {
@@ -166,11 +159,10 @@ GraphicObject* document_get_object_at(const Document* document, int index)
 }
 
 /**
- * @brief document_selection_contains 函数。
- *
- * @param document 参数 `document`。
- * @param id 参数 `id`。
- * @return 函数返回值。
+ * @brief Checks if an object is in the selection.
+ * @param document Document instance.
+ * @param id Object ID to check.
+ * @return 1 if selected, 0 otherwise.
  */
 int document_selection_contains(const Document* document, ObjectId id)
 {
@@ -190,10 +182,9 @@ int document_selection_contains(const Document* document, ObjectId id)
 }
 
 /**
- * @brief document_clear_selection 函数。
- *
- * @param document 参数 `document`。
- * @return 无。
+ * @brief Clears the selection.
+ * @param document Document instance.
+ * @return None.
  */
 void document_clear_selection(Document* document)
 {
@@ -203,11 +194,10 @@ void document_clear_selection(Document* document)
 }
 
 /**
- * @brief document_selection_add 函数。
- *
- * @param document 参数 `document`。
- * @param id 参数 `id`。
- * @return 函数返回值。
+ * @brief Adds an object to the selection.
+ * @param document Document instance.
+ * @param id Object ID to add.
+ * @return 1 on success, 0 on failure.
  */
 int document_selection_add(Document* document, ObjectId id)
 {
@@ -228,11 +218,10 @@ int document_selection_add(Document* document, ObjectId id)
 }
 
 /**
- * @brief document_selection_remove 函数。
- *
- * @param document 参数 `document`。
- * @param id 参数 `id`。
- * @return 无。
+ * @brief Removes an object from the selection.
+ * @param document Document instance.
+ * @param id Object ID to remove.
+ * @return None.
  */
 void document_selection_remove(Document* document, ObjectId id)
 {
@@ -255,11 +244,10 @@ void document_selection_remove(Document* document, ObjectId id)
 }
 
 /**
- * @brief document_selection_toggle 函数。
- *
- * @param document 参数 `document`。
- * @param id 参数 `id`。
- * @return 无。
+ * @brief Toggles an object in the selection.
+ * @param document Document instance.
+ * @param id Object ID to toggle.
+ * @return None.
  */
 void document_selection_toggle(Document* document, ObjectId id)
 {
@@ -275,10 +263,9 @@ void document_selection_toggle(Document* document, ObjectId id)
 }
 
 /**
- * @brief document_primary_selection 函数。
- *
- * @param document 参数 `document`。
- * @return 函数返回值。
+ * @brief Gets the primary (first) selected object.
+ * @param document Document instance.
+ * @return Pointer to primary selected object or NULL.
  */
 GraphicObject* document_primary_selection(const Document* document)
 {
@@ -289,11 +276,10 @@ GraphicObject* document_primary_selection(const Document* document)
 }
 
 /**
- * @brief document_remove_object 函数。
- *
- * @param document 参数 `document`。
- * @param id 参数 `id`。
- * @return 函数返回值。
+ * @brief Removes an object from the document.
+ * @param document Document instance.
+ * @param id Object ID to remove.
+ * @return 1 on success, 0 on failure.
  */
 int document_remove_object(Document* document, ObjectId id)
 {
@@ -322,10 +308,9 @@ int document_remove_object(Document* document, ObjectId id)
 }
 
 /**
- * @brief document_delete_selection 函数。
- *
- * @param document 参数 `document`。
- * @return 无。
+ * @brief Deletes all selected objects.
+ * @param document Document instance.
+ * @return None.
  */
 void document_delete_selection(Document* document)
 {
@@ -350,10 +335,9 @@ void document_delete_selection(Document* document)
 }
 
 /**
- * @brief document_touch 函数。
- *
- * @param document 参数 `document`。
- * @return 无。
+ * @brief Increments the document revision.
+ * @param document Document instance.
+ * @return None.
  */
 void document_touch(Document* document)
 {
@@ -363,10 +347,9 @@ void document_touch(Document* document)
 }
 
 /**
- * @brief document_max_id 函数。
- *
- * @param document 参数 `document`。
- * @return 函数返回值。
+ * @brief Gets the maximum object ID in the document.
+ * @param document Document instance.
+ * @return Maximum object ID.
  */
 ObjectId document_max_id(const Document* document)
 {

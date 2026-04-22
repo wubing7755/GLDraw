@@ -1,6 +1,6 @@
 /**
  * @file tool.h
- * @brief 工具系统抽象接口与事件数据结构。
+ * @brief Tool system abstract interface and event data structures.
  */
 #ifndef GLDRAW_TOOLS_TOOL_H
 #define GLDRAW_TOOLS_TOOL_H
@@ -15,7 +15,7 @@ struct DocumentHistory;
 
 /**
  * @enum ToolKind
- * @brief 内置工具类型。
+ * @brief Built-in tool types.
  */
 typedef enum {
     TOOL_KIND_SELECT = 0,
@@ -28,15 +28,15 @@ typedef enum {
 
 /**
  * @struct ToolEvent
- * @brief 传递给工具的标准化输入事件。
+ * @brief Normalized input event passed to tools.
  *
- * @member screen_pos 当前屏幕坐标。
- * @member world_pos 当前世界坐标。
- * @member delta_screen 相对上次事件的屏幕位移。
- * @member delta_world 相对上次事件的世界位移。
- * @member button 鼠标按键编号（移动事件通常为 `-1`）。
- * @member mods 修饰键位掩码。
- * @member wheel_y 滚轮 Y 方向增量。
+ * @member screen_pos Current screen coordinates.
+ * @member world_pos Current world coordinates.
+ * @member delta_screen Screen-space displacement since the last event.
+ * @member delta_world World-space displacement since the last event.
+ * @member button Mouse button number (-1 for move events).
+ * @member mods Modifier key bitmask.
+ * @member wheel_y Scroll wheel Y delta.
  */
 typedef struct {
     Vec2 screen_pos;
@@ -50,12 +50,12 @@ typedef struct {
 
 /**
  * @struct ToolContext
- * @brief 工具操作上下文。
+ * @brief Tool operation context.
  *
- * @member workspace 工作区。
- * @member document 当前文档。
- * @member history 历史栈。
- * @member canvas 画布视图。
+ * @member workspace Workspace.
+ * @member document Current document.
+ * @member history History stack.
+ * @member canvas Canvas view.
  */
 typedef struct {
     struct Workspace* workspace;
@@ -69,15 +69,15 @@ typedef struct ToolVTable ToolVTable;
 
 /**
  * @struct ToolVTable
- * @brief 工具多态回调表。
+ * @brief Tool polymorphic callback table.
  *
- * @member label 返回工具显示名称。
- * @member activate 工具激活回调。
- * @member deactivate 工具停用回调。
- * @member pointer_down 鼠标按下回调。
- * @member pointer_move 鼠标移动回调。
- * @member pointer_up 鼠标释放回调。
- * @member key_down 键盘按下回调。
+ * @member label Returns the tool display name.
+ * @member activate Tool activate callback.
+ * @member deactivate Tool deactivate callback.
+ * @member pointer_down Mouse pointer down callback.
+ * @member pointer_move Mouse pointer move callback.
+ * @member pointer_up Mouse pointer up callback.
+ * @member key_down Key down callback.
  */
 struct ToolVTable {
     const char* (*label)(const Tool* tool);
@@ -91,12 +91,12 @@ struct ToolVTable {
 
 /**
  * @struct Tool
- * @brief 工具运行时实例。
+ * @brief Tool runtime instance.
  *
- * @member kind 工具类型。
- * @member vtable 回调表。
- * @member state 工具私有状态。
- * @member overlay_object 工具预览图元。
+ * @member kind Tool type.
+ * @member vtable Callback table.
+ * @member state Tool-private state.
+ * @member overlay_object Tool preview graphic object.
  */
 struct Tool {
     ToolKind kind;

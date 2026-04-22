@@ -1,6 +1,6 @@
 /**
  * @file window.h
- * @brief GLFW 窗口薄封装接口。
+ * @brief GLFW window thin-wrapper interface.
  */
 #ifndef GLDRAW_PLATFORM_WINDOW_H
 #define GLDRAW_PLATFORM_WINDOW_H
@@ -10,12 +10,12 @@
 
 /**
  * @struct PlatformWindow
- * @brief 平台窗口状态。
+ * @brief Platform window state.
  *
- * @member handle GLFW 原生窗口句柄。
- * @member width 期望窗口宽度。
- * @member height 期望窗口高度。
- * @member title 窗口标题字符串。
+ * @member handle GLFW native window handle.
+ * @member width Desired window width.
+ * @member height Desired window height.
+ * @member title Window title string.
  */
 typedef struct {
     GLFWwindow* handle;
@@ -25,39 +25,39 @@ typedef struct {
 } PlatformWindow;
 
 /**
- * @brief 初始化 GLFW 并创建窗口。
- * @param window 窗口结构体输出地址。
- * @param width 目标宽度。
- * @param height 目标高度。
- * @param title 窗口标题。
- * @return 成功返回 `0`，失败返回 `-1`。
+ * @brief Initialize GLFW and create the window.
+ * @param window Output address for the window structure.
+ * @param width Target width.
+ * @param height Target height.
+ * @param title Window title.
+ * @return `0` on success, `-1` on failure.
  */
 int platform_window_init(PlatformWindow* window, int width, int height, const char* title);
 
 /**
- * @brief 销毁窗口并清理 GLFW。
- * @param window 目标窗口。
- * @return 无。
+ * @brief Destroy the window and shut down GLFW.
+ * @param window Target window.
+ * @return No return value.
  */
 void platform_window_shutdown(PlatformWindow* window);
 
 /**
- * @brief 轮询窗口事件。
- * @return 无。
+ * @brief Poll window events.
+ * @return No return value.
  */
 void platform_window_poll_events(void);
 
 /**
- * @brief 交换窗口前后缓冲。
- * @param window 目标窗口。
- * @return 无。
+ * @brief Swap the window front and back buffers.
+ * @param window Target window.
+ * @return No return value.
  */
 void platform_window_swap_buffers(PlatformWindow* window);
 
 /**
- * @brief 查询窗口是否应关闭。
- * @param window 目标窗口。
- * @return 应关闭返回非零，否则返回 0。
+ * @brief Query whether the window should close.
+ * @param window Target window.
+ * @return Non-zero if the window should close, zero otherwise.
  */
 int platform_window_should_close(const PlatformWindow* window);
 

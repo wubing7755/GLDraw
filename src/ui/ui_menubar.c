@@ -72,12 +72,11 @@ static const UiQuickActionDef g_quick_actions[] = {
 };
 
 /**
- * @brief ui_build_menu_item_text 函数。
- *
- * @param out_text 参数 `out_text`。
- * @param out_size 参数 `out_size`。
- * @param item 参数 `item`。
- * @return 无。
+ * @brief Builds menu item text with shortcut.
+ * @param out_text Output text buffer.
+ * @param out_size Buffer size.
+ * @param item Menu item definition.
+ * @return None.
  */
 static void ui_build_menu_item_text(char* out_text, size_t out_size, const MenuItemDef* item)
 {
@@ -304,10 +303,9 @@ static int ui_render_dropdown(struct nk_context* ctx, int parent_id)
 }
 
 /**
- * @brief ui_render_theme_dropdown 函数。
- *
- * @param menubar 参数 `menubar`。
- * @return 函数返回值。
+ * @brief Renders the theme dropdown menu.
+ * @param menubar Menu bar instance.
+ * @return Selected theme index or -1.
  */
 static int ui_render_theme_dropdown(UiMenuBar* menubar)
 {
@@ -348,11 +346,10 @@ static int ui_render_theme_dropdown(UiMenuBar* menubar)
 }
 
 /**
- * @brief ui_render_top_menu 函数。
- *
- * @param menubar 参数 `menubar`。
- * @param menu 参数 `menu`。
- * @return 函数返回值。
+ * @brief Renders a top-level menu.
+ * @param menubar Menu bar instance.
+ * @param menu Top menu definition.
+ * @return Clicked menu item ID or -1.
  */
 static int ui_render_top_menu(UiMenuBar* menubar, const UiTopMenuDef* menu)
 {
@@ -384,12 +381,11 @@ static int ui_render_top_menu(UiMenuBar* menubar, const UiTopMenuDef* menu)
 }
 
 /**
- * @brief ui_dispatch_menu_action 函数。
- *
- * @param menubar 参数 `menubar`。
- * @param workspace 参数 `workspace`。
- * @param clicked_id 参数 `clicked_id`。
- * @return 无。
+ * @brief Dispatches a menu action.
+ * @param menubar Menu bar instance.
+ * @param workspace Workspace instance.
+ * @param clicked_id Clicked menu item ID.
+ * @return None.
  */
 static void ui_dispatch_menu_action(UiMenuBar* menubar, Workspace* workspace, int clicked_id)
 {
@@ -406,12 +402,11 @@ static void ui_dispatch_menu_action(UiMenuBar* menubar, Workspace* workspace, in
 }
 
 /**
- * @brief ui_menubar_build 函数。
- *
- * @param menubar 参数 `menubar`。
- * @param workspace 参数 `workspace`。
- * @param window_width 参数 `window_width`。
- * @return 无。
+ * @brief Builds the menu bar UI.
+ * @param menubar Menu bar instance.
+ * @param workspace Workspace instance.
+ * @param window_width Window width.
+ * @return None.
  */
 void ui_menubar_build(UiMenuBar* menubar, Workspace* workspace, int window_width)
 {

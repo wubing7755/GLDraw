@@ -1,6 +1,6 @@
 /**
  * @file object.h
- * @brief 图元对象多态接口与类型定义。
+ * @brief Graphic object polymorphic interface and type definitions.
  */
 #ifndef GLDRAW_DOCUMENT_OBJECT_H
 #define GLDRAW_DOCUMENT_OBJECT_H
@@ -9,7 +9,7 @@
 
 /**
  * @enum GraphicObjectType
- * @brief 内置图元类型枚举。
+ * @brief Built-in graphic object type enum.
  */
 typedef enum {
     GRAPHIC_OBJECT_LINE = 0,
@@ -19,10 +19,10 @@ typedef enum {
 
 /**
  * @struct GraphicStyle
- * @brief 图元通用描边样式。
+ * @brief Common stroke style for graphic objects.
  *
- * @member stroke_color 描边颜色。
- * @member stroke_width 描边宽度（世界坐标单位）。
+ * @member stroke_color Stroke color.
+ * @member stroke_width Stroke width (in world coordinate units).
  */
 typedef struct {
     Color stroke_color;
@@ -34,17 +34,17 @@ typedef struct GraphicObjectVTable GraphicObjectVTable;
 
 /**
  * @struct GraphicObjectVTable
- * @brief 图元多态行为表。
+ * @brief Graphic object polymorphic behavior table.
  *
- * @member name 类型名称。
- * @member destroy 析构实现。
- * @member translate 平移实现。
- * @member get_bounds 包围盒计算实现。
- * @member hit_test 命中测试实现。
- * @member get_path_point_count 路径采样点数量实现。
- * @member write_path_points 路径采样点写出实现。
- * @member get_scalar 标量属性读取实现。
- * @member set_scalar 标量属性写入实现。
+ * @member name Type name.
+ * @member destroy Destructor implementation.
+ * @member translate Translation implementation.
+ * @member get_bounds Bounding box computation implementation.
+ * @member hit_test Hit-test implementation.
+ * @member get_path_point_count Path sample point count implementation.
+ * @member write_path_points Path sample point write-out implementation.
+ * @member get_scalar Scalar property read implementation.
+ * @member set_scalar Scalar property write implementation.
  */
 struct GraphicObjectVTable {
     const char* name;
@@ -60,14 +60,14 @@ struct GraphicObjectVTable {
 
 /**
  * @struct GraphicObject
- * @brief 运行时图元对象。
+ * @brief Runtime graphic object.
  *
- * @member id 文档内对象 ID。
- * @member type 图元类型。
- * @member vtable 多态行为表。
- * @member impl 类型私有实现数据。
- * @member style 绘制样式。
- * @member revision 对象修订号。
+ * @member id Object ID within the document.
+ * @member type Object type.
+ * @member vtable Polymorphic behavior table.
+ * @member impl Type-private implementation data.
+ * @member style Drawing style.
+ * @member revision Object revision number.
  */
 struct GraphicObject {
     ObjectId id;
@@ -79,127 +79,127 @@ struct GraphicObject {
 };
 
 /**
- * @brief 获取新建对象默认样式。
- * @return 默认 `GraphicStyle`。
+ * @brief Get the default style for newly created objects.
+ * @return Default `GraphicStyle`.
  */
 GraphicStyle object_default_style(void);
 
 /**
- * @brief 获取图元类型名称。
- * @param type 图元类型枚举值。
- * @return 对应名称字符串。
+ * @brief Get the type name of a graphic object.
+ * @param type Graphic object type enum value.
+ * @return Corresponding name string.
  */
 const char* object_type_name(GraphicObjectType type);
 
 /**
- * @brief 创建线段对象。
- * @param p1 起点。
- * @param p2 终点。
- * @param style 描边样式。
- * @return 成功返回对象指针，失败返回 `NULL`。
+ * @brief Create a line object.
+ * @param p1 Start point.
+ * @param p2 End point.
+ * @param style Stroke style.
+ * @return Object pointer on success, `NULL` on failure.
  */
 GraphicObject* object_create_line(Vec2 p1, Vec2 p2, GraphicStyle style);
 
 /**
- * @brief 创建矩形对象。
- * @param rect 矩形边界。
- * @param style 描边样式。
- * @return 成功返回对象指针，失败返回 `NULL`。
+ * @brief Create a rectangle object.
+ * @param rect Rectangle boundary.
+ * @param style Stroke style.
+ * @return Object pointer on success, `NULL` on failure.
  */
 GraphicObject* object_create_rect(RectF rect, GraphicStyle style);
 
 /**
- * @brief 创建椭圆对象。
- * @param bounds 包围矩形。
- * @param style 描边样式。
- * @return 成功返回对象指针，失败返回 `NULL`。
+ * @brief Create an ellipse object.
+ * @param bounds Bounding rectangle.
+ * @param style Stroke style.
+ * @return Object pointer on success, `NULL` on failure.
  */
 GraphicObject* object_create_ellipse(RectF bounds, GraphicStyle style);
 
 /**
- * @brief 深拷贝图元对象。
- * @param object 源对象。
- * @return 成功返回新对象，失败返回 `NULL`。
+ * @brief Deep-copy a graphic object.
+ * @param object Source object.
+ * @return New object on success, `NULL` on failure.
  */
 GraphicObject* object_clone(const GraphicObject* object);
 
 /**
- * @brief 销毁图元对象。
- * @param object 目标对象（可为 `NULL`）。
- * @return 无。
+ * @brief Destroy a graphic object.
+ * @param object Target object (may be `NULL`).
+ * @return No return value.
  */
 void object_destroy(GraphicObject* object);
 
 /**
- * @brief 平移图元几何。
- * @param object 目标对象。
- * @param delta 平移增量。
- * @return 无。
+ * @brief Translate the object geometry.
+ * @param object Target object.
+ * @param delta Translation delta.
+ * @return No return value.
  */
 void object_translate(GraphicObject* object, Vec2 delta);
 
 /**
- * @brief 获取图元轴对齐包围盒。
- * @param object 目标对象。
- * @return 包围盒；参数非法时返回空矩形。
+ * @brief Get the object's axis-aligned bounding box.
+ * @param object Target object.
+ * @return Bounding box; returns an empty rectangle if parameters are invalid.
  */
 RectF object_get_bounds(const GraphicObject* object);
 
 /**
- * @brief 图元命中测试。
- * @param object 目标对象。
- * @param point 世界坐标测试点。
- * @param tolerance 命中容差。
- * @return 命中返回非零，否则返回 0。
+ * @brief Object hit-test.
+ * @param object Target object.
+ * @param point World-coordinate test point.
+ * @param tolerance Hit tolerance.
+ * @return Non-zero on hit, zero otherwise.
  */
 int object_hit_test(const GraphicObject* object, Vec2 point, float tolerance);
 
 /**
- * @brief 获取图元路径采样点数量。
- * @param object 目标对象。
- * @return 路径点数量。
+ * @brief Get the number of path sample points for the object.
+ * @param object Target object.
+ * @return Path point count.
  */
 int object_get_path_point_count(const GraphicObject* object);
 
 /**
- * @brief 写出图元路径采样点。
- * @param object 目标对象。
- * @param out_points 输出数组。
- * @return 无。
+ * @brief Write out the object's path sample points.
+ * @param object Target object.
+ * @param out_points Output array.
+ * @return No return value.
  */
 void object_write_path_points(const GraphicObject* object, Vec2* out_points);
 
 /**
- * @brief 读取图元标量属性。
- * @param object 目标对象。
- * @param key 属性键名。
- * @param out_value 属性输出值。
- * @return 支持该键并读取成功返回非零，否则返回 0。
+ * @brief Read an object scalar property.
+ * @param object Target object.
+ * @param key Property key name.
+ * @param out_value Property output value.
+ * @return Non-zero if the key is supported and read succeeded, zero otherwise.
  */
 int object_get_scalar(const GraphicObject* object, const char* key, float* out_value);
 
 /**
- * @brief 写入图元标量属性。
- * @param object 目标对象。
- * @param key 属性键名。
- * @param value 新值。
- * @return 写入成功返回非零，否则返回 0。
+ * @brief Write an object scalar property.
+ * @param object Target object.
+ * @param key Property key name.
+ * @param value New value.
+ * @return Non-zero on success, zero otherwise.
  */
 int object_set_scalar(GraphicObject* object, const char* key, float value);
 
 /**
- * @brief 设置图元描边颜色。
- * @param object 目标对象。
- * @param color 新颜色。
- * @return 无。
+ * @brief Set the object stroke color.
+ * @param object Target object.
+ * @param color New color.
+ * @return No return value.
  */
 void object_set_stroke_color(GraphicObject* object, Color color);
 
 /**
- * @brief 设置图元描边宽度。
- * @param object 目标对象。
- * @param stroke_width 新宽度。
- * @return 无。
+ * @brief Set the object stroke width.
+ * @param object Target object.
+ * @param stroke_width New width.
+ * @return No return value.
  */
 void object_set_stroke_width(GraphicObject* object, float stroke_width);
 

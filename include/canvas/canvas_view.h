@@ -1,6 +1,6 @@
 /**
  * @file canvas_view.h
- * @brief 画布视口状态与坐标变换接口。
+ * @brief Canvas viewport state and coordinate transform interface.
  */
 #ifndef GLDRAW_CANVAS_CANVAS_VIEW_H
 #define GLDRAW_CANVAS_CANVAS_VIEW_H
@@ -10,11 +10,11 @@
 
 /**
  * @struct CanvasViewportState
- * @brief 画布相机的规范状态。
+ * @brief Canonical state of the canvas camera.
  *
- * @member viewport 屏幕空间视口矩形。
- * @member center 世界坐标系下视口中心。
- * @member zoom 缩放因子。
+ * @member viewport Screen-space viewport rectangle.
+ * @member center Viewport center in world coordinates.
+ * @member zoom Zoom factor.
  */
 typedef struct CanvasViewportState {
     RectF viewport;
@@ -24,12 +24,12 @@ typedef struct CanvasViewportState {
 
 /**
  * @struct CanvasView
- * @brief 画布运行时状态。
+ * @brief Canvas runtime state.
  *
- * @member document 参与拾取与渲染的数据文档（不拥有）。
- * @member viewport_state 视口/中心/缩放状态。
- * @member show_grid 是否显示网格。
- * @member background 画布背景色。
+ * @member document Data document participating in picking and rendering (non-owning).
+ * @member viewport_state Viewport/center/zoom state.
+ * @member show_grid Whether to show the grid.
+ * @member background Canvas background color.
  */
 typedef struct CanvasView {
     Document* document;
@@ -39,138 +39,139 @@ typedef struct CanvasView {
 } CanvasView;
 
 /**
- * @brief 初始化画布状态并绑定文档。
- * @param canvas 画布实例输出地址。
- * @param document 初始绑定文档（可为 `NULL`）。
- * @param viewport 初始屏幕视口。
- * @return 无。
+ * @brief Initialize the canvas state and bind a document.
+ * @param canvas Canvas instance output address.
+ * @param document Initially bound document (may be `NULL`).
+ * @param viewport Initial screen viewport.
+ * @return No return value.
  */
 void canvas_view_init(CanvasView* canvas, Document* document, RectF viewport);
 
 /**
- * @brief 重新绑定文档。
- * @param canvas 画布实例。
- * @param document 新文档指针。
- * @return 无。
+ * @brief Re-bind a document.
+ * @param canvas Canvas instance.
+ * @param document New document pointer.
+ * @return No return value.
  */
 void canvas_view_set_document(CanvasView* canvas, Document* document);
 
 /**
- * @brief 设置画布屏幕视口。
- * @param canvas 画布实例。
- * @param viewport 视口矩形。
- * @return 无。
+ * @brief Set the canvas screen viewport.
+ * @param canvas Canvas instance.
+ * @param viewport Viewport rectangle.
+ * @return No return value.
  */
 void canvas_view_set_viewport(CanvasView* canvas, RectF viewport);
 
 /**
- * @brief 设置画布中心点（世界坐标）。
- * @param canvas 画布实例。
- * @param center 新中心点。
- * @return 无。
+ * @brief Set the canvas center point (in world coordinates).
+ * @param canvas Canvas instance.
+ * @param center New center point.
+ * @return No return value.
  */
 void canvas_view_set_center(CanvasView* canvas, Vec2 center);
 
 /**
- * @brief 设置缩放因子。
- * @param canvas 画布实例。
- * @param zoom 新缩放值（实现中会进行有效范围夹取）。
- * @return 无。
+ * @brief Set the zoom factor.
+ * @param canvas Canvas instance.
+ * @param zoom New zoom value (clamped to a valid range in the implementation).
+ * @return No return value.
  */
 void canvas_view_set_zoom(CanvasView* canvas, float zoom);
 
 /**
- * @brief 原子设置中心与缩放。
- * @param canvas 画布实例。
- * @param center 新中心点。
- * @param zoom 新缩放值。
- * @return 无。
+ * @brief Atomically set center and zoom.
+ * @param canvas Canvas instance.
+ * @param center New center point.
+ * @param zoom New zoom value.
+ * @return No return value.
  */
 void canvas_view_set_center_zoom(CanvasView* canvas, Vec2 center, float zoom);
 
 /**
- * @brief 获取当前屏幕视口。
- * @param canvas 画布实例。
- * @return 当前视口矩形。
+ * @brief Get the current screen viewport.
+ * @param canvas Canvas instance.
+ * @return Current viewport rectangle.
  */
 RectF canvas_view_viewport(const CanvasView* canvas);
 
 /**
- * @brief 获取当前世界坐标中心。
- * @param canvas 画布实例。
- * @return 当前中心点。
+ * @brief Get the current world-coordinate center.
+ * @param canvas Canvas instance.
+ * @return Current center point.
  */
 Vec2 canvas_view_center(const CanvasView* canvas);
 
 /**
- * @brief 获取当前缩放值。
- * @param canvas 画布实例。
- * @return 当前缩放因子。
+ * @brief Get the current zoom value.
+ * @param canvas Canvas instance.
+ * @return Current zoom factor.
  */
 float canvas_view_zoom(const CanvasView* canvas);
 
 /**
- * @brief 将世界坐标转换为屏幕坐标。
- * @param canvas 画布实例。
- * @param world 世界坐标点。
- * @return 对应的屏幕坐标点。
+ * @brief Convert world coordinates to screen coordinates.
+ * @param canvas Canvas instance.
+ * @param world World coordinate point.
+ * @return Corresponding screen coordinate point.
  */
 Vec2 canvas_view_world_to_screen(const CanvasView* canvas, Vec2 world);
 
 /**
- * @brief 将屏幕坐标转换为世界坐标。
- * @param canvas 画布实例。
- * @param screen 屏幕坐标点。
- * @return 对应的世界坐标点。
+ * @brief Convert screen coordinates to world coordinates.
+ * @param canvas Canvas instance.
+ * @param screen Screen coordinate point.
+ * @return Corresponding world coordinate point.
  */
 Vec2 canvas_view_screen_to_world(const CanvasView* canvas, Vec2 screen);
 
 /**
- * @brief 按屏幕位移平移画布。
- * @param canvas 画布实例。
- * @param delta_screen 屏幕空间位移增量。
- * @return 无。
+ * @brief Pan the canvas by a screen-space displacement.
+ * @param canvas Canvas instance.
+ * @param delta_screen Screen-space displacement delta.
+ * @return No return value.
  */
 void canvas_view_pan_screen_delta(CanvasView* canvas, Vec2 delta_screen);
 
 /**
- * @brief 以指定屏幕锚点执行缩放。
+ * @brief Zoom at a given screen anchor point.
  *
- * 算法要点：先计算缩放前锚点对应世界坐标，再缩放并计算缩放后坐标，
- * 最后用两者差值修正中心点，实现“光标处缩放不漂移”。
+ * Algorithm: compute the world coordinate of the anchor before zoom, zoom,
+ * compute the new world coordinate, then correct the center by the difference
+ * to achieve "zoom without cursor drift."
  *
- * @param canvas 画布实例。
- * @param factor 缩放倍率（大于 1 放大，小于 1 缩小）。
- * @param screen_anchor 屏幕锚点。
- * @return 无。
+ * @param canvas Canvas instance.
+ * @param factor Zoom factor (> 1 zooms in, < 1 zooms out).
+ * @param screen_anchor Screen anchor point.
+ * @return No return value.
  */
 void canvas_view_zoom_at_screen_point(CanvasView* canvas, float factor, Vec2 screen_anchor);
 
 /**
- * @brief 将像素容差换算为世界坐标容差。
- * @param canvas 画布实例。
- * @param pixels 像素单位容差。
- * @return 世界坐标单位容差。
+ * @brief Convert pixel tolerance to world-coordinate tolerance.
+ * @param canvas Canvas instance.
+ * @param pixels Tolerance in pixels.
+ * @return Tolerance in world coordinates.
  */
 float canvas_view_world_tolerance_for_pixels(const CanvasView* canvas, float pixels);
 
 /**
- * @brief 获取当前可见世界矩形。
- * @param canvas 画布实例。
- * @return 视口在世界坐标系下覆盖的矩形。
+ * @brief Get the currently visible world rectangle.
+ * @param canvas Canvas instance.
+ * @return Rectangle covered by the viewport in world coordinates.
  */
 RectF canvas_view_visible_world_rect(const CanvasView* canvas);
 
 /**
- * @brief 在屏幕点执行对象拾取。
+ * @brief Pick an object at a screen point.
  *
- * 算法要点：从对象数组末尾逆序遍历（后绘制对象优先命中），
- * 并将像素容差换算到世界坐标后调用对象命中测试。
+ * Algorithm: iterate backward from the end of the object array (later-drawn objects take priority),
+ * convert the pixel tolerance to world coordinates, and call the object's hit-test.
  *
- * @param canvas 画布实例。
- * @param screen_point 屏幕空间待拾取点。
- * @param tolerance_pixels 像素容差。
- * @return 命中对象指针；未命中或参数非法时返回 `NULL`。
+ * @param canvas Canvas instance.
+ * @param screen_point Screen-space point to pick.
+ * @param tolerance_pixels Tolerance in pixels.
+ * @return Pointer to the hit object; returns `NULL` on miss or invalid parameters.
  */
 GraphicObject* canvas_view_pick_object(const CanvasView* canvas, Vec2 screen_point, float tolerance_pixels);
 

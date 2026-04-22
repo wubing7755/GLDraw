@@ -86,10 +86,9 @@ typedef struct {
 } LoadedObjectData;
 
 /**
- * @brief read_text_file 函数。
- *
- * @param path 参数 `path`。
- * @return 函数返回值。
+ * @brief Reads a text file.
+ * @param path File path.
+ * @return File contents or NULL.
  */
 static char* read_text_file(const char* path)
 {
@@ -131,11 +130,10 @@ static char* read_text_file(const char* path)
 }
 
 /**
- * @brief duplicate_path_with_suffix 函数。
- *
- * @param path 参数 `path`。
- * @param suffix 参数 `suffix`。
- * @return 函数返回值。
+ * @brief Duplicates a path with a suffix appended.
+ * @param path Original path.
+ * @param suffix Suffix to append.
+ * @return Duplicated path or NULL.
  */
 static char* duplicate_path_with_suffix(const char* path, const char* suffix)
 {
@@ -161,10 +159,9 @@ static char* duplicate_path_with_suffix(const char* path, const char* suffix)
 }
 
 /**
- * @brief file_exists_at_path 函数。
- *
- * @param path 参数 `path`。
- * @return 函数返回值。
+ * @brief Checks if a file exists at path.
+ * @param path File path.
+ * @return 1 if exists, 0 otherwise.
  */
 static int file_exists_at_path(const char* path)
 {
@@ -184,10 +181,9 @@ static int file_exists_at_path(const char* path)
 }
 
 /**
- * @brief object_type_tag 函数。
- *
- * @param type 参数 `type`。
- * @return 函数返回值。
+ * @brief Gets the type tag string for an object.
+ * @param type Object type.
+ * @return Type tag string.
  */
 static const char* object_type_tag(GraphicObjectType type)
 {
@@ -204,11 +200,10 @@ static const char* object_type_tag(GraphicObjectType type)
 }
 
 /**
- * @brief replace_file_with_temp 函数。
- *
- * @param temp_path 参数 `temp_path`。
- * @param target_path 参数 `target_path`。
- * @return 函数返回值。
+ * @brief Replaces target file with temp file atomically.
+ * @param temp_path Temp file path.
+ * @param target_path Target file path.
+ * @return 1 on success, 0 on failure.
  */
 static int replace_file_with_temp(const char* temp_path, const char* target_path)
 {
@@ -238,12 +233,12 @@ static int replace_file_with_temp(const char* temp_path, const char* target_path
 }
 
 /**
- * @brief 将文档序列化为 JSON 并写入已打开文件。
- * @param file [in,out] 目标文件句柄。
- * @param document [in] 待序列化文档。
- * @return 写入成功返回 `1`，失败返回 `0`。
+ * @brief Serializes document to JSON and writes to open file.
+ * @param file [in,out] Target file handle.
+ * @param document [in] Document to serialize.
+ * @return 1 on success, 0 on failure.
  *
- * @note 使用 `ferror(file)` 作为整体写入失败检测。
+ * @note Uses ferror(file) for overall write failure detection.
  */
 static int write_document_json(FILE* file, const Document* document)
 {
@@ -306,11 +301,10 @@ static int write_document_json(FILE* file, const Document* document)
 }
 
 /**
- * @brief json_match_keyword 函数。
- *
- * @param parser 参数 `parser`。
- * @param keyword 参数 `keyword`。
- * @return 函数返回值。
+ * @brief Checks if parser matches a keyword at current position.
+ * @param parser JSON parser.
+ * @param keyword Keyword to match.
+ * @return 1 if matched, 0 otherwise.
  */
 static int json_match_keyword(const JsonParser* parser, const char* keyword)
 {
@@ -339,10 +333,9 @@ static int json_match_keyword(const JsonParser* parser, const char* keyword)
 }
 
 /**
- * @brief json_parser_skip_ws 函数。
- *
- * @param parser 参数 `parser`。
- * @return 无。
+ * @brief Skips whitespace in JSON parser.
+ * @param parser JSON parser.
+ * @return None.
  */
 static void json_parser_skip_ws(JsonParser* parser)
 {
@@ -353,9 +346,9 @@ static void json_parser_skip_ws(JsonParser* parser)
 }
 
 /**
- * @brief Advance parser to next token.
- * @param parser [in,out] JSON 解析器状态。
- * @return 无。
+ * @brief Advances parser to next token.
+ * @param parser [in,out] JSON parser state.
+ * @return None.
  *
  * Risk note:
  * - Keeps implementation intentionally strict; malformed escape/number forms
@@ -467,11 +460,10 @@ static void json_parser_next(JsonParser* parser)
 }
 
 /**
- * @brief json_token_is_string 函数。
- *
- * @param parser 参数 `parser`。
- * @param literal 参数 `literal`。
- * @return 函数返回值。
+ * @brief Checks if current token is a specific string literal.
+ * @param parser JSON parser.
+ * @param literal String literal to match.
+ * @return 1 if matches, 0 otherwise.
  */
 static int json_token_is_string(const JsonParser* parser, const char* literal)
 {
@@ -487,11 +479,10 @@ static int json_token_is_string(const JsonParser* parser, const char* literal)
 }
 
 /**
- * @brief json_expect 函数。
- *
- * @param parser 参数 `parser`。
- * @param type 参数 `type`。
- * @return 函数返回值。
+ * @brief Expects a specific token type.
+ * @param parser JSON parser.
+ * @param type Expected token type.
+ * @return 1 if matches, 0 otherwise.
  */
 static int json_expect(JsonParser* parser, JsonTokenType type)
 {
@@ -499,11 +490,10 @@ static int json_expect(JsonParser* parser, JsonTokenType type)
 }
 
 /**
- * @brief json_parse_u32 函数。
- *
- * @param parser 参数 `parser`。
- * @param out_value 参数 `out_value`。
- * @return 函数返回值。
+ * @brief Parses an unsigned 32-bit integer.
+ * @param parser JSON parser.
+ * @param out_value Output value pointer.
+ * @return 1 on success, 0 on failure.
  */
 static int json_parse_u32(JsonParser* parser, unsigned int* out_value)
 {
@@ -525,11 +515,10 @@ static int json_parse_u32(JsonParser* parser, unsigned int* out_value)
 }
 
 /**
- * @brief json_parse_float 函数。
- *
- * @param parser 参数 `parser`。
- * @param out_value 参数 `out_value`。
- * @return 函数返回值。
+ * @brief Parses a float value.
+ * @param parser JSON parser.
+ * @param out_value Output value pointer.
+ * @return 1 on success, 0 on failure.
  */
 static int json_parse_float(JsonParser* parser, float* out_value)
 {
@@ -545,10 +534,9 @@ static int json_parse_float(JsonParser* parser, float* out_value)
 static int json_skip_value(JsonParser* parser);
 
 /**
- * @brief json_skip_object 函数。
- *
- * @param parser 参数 `parser`。
- * @return 函数返回值。
+ * @brief Skips a JSON object.
+ * @param parser JSON parser.
+ * @return 1 on success, 0 on failure.
  */
 static int json_skip_object(JsonParser* parser)
 {
@@ -587,10 +575,9 @@ static int json_skip_object(JsonParser* parser)
 }
 
 /**
- * @brief json_skip_array 函数。
- *
- * @param parser 参数 `parser`。
- * @return 函数返回值。
+ * @brief Skips a JSON array.
+ * @param parser JSON parser.
+ * @return 1 on success, 0 on failure.
  */
 static int json_skip_array(JsonParser* parser)
 {
@@ -621,10 +608,9 @@ static int json_skip_array(JsonParser* parser)
 }
 
 /**
- * @brief json_skip_value 函数。
- *
- * @param parser 参数 `parser`。
- * @return 函数返回值。
+ * @brief Skips any JSON value.
+ * @param parser JSON parser.
+ * @return 1 on success, 0 on failure.
  */
 static int json_skip_value(JsonParser* parser)
 {
@@ -646,11 +632,10 @@ static int json_skip_value(JsonParser* parser)
 }
 
 /**
- * @brief parse_stroke_object 函数。
- *
- * @param parser 参数 `parser`。
- * @param data 参数 `data`。
- * @return 函数返回值。
+ * @brief Parses a stroke object.
+ * @param parser JSON parser.
+ * @param data Loaded object data.
+ * @return 1 on success, 0 on failure.
  */
 static int parse_stroke_object(JsonParser* parser, LoadedObjectData* data)
 {
@@ -752,11 +737,10 @@ static int parse_stroke_object(JsonParser* parser, LoadedObjectData* data)
 }
 
 /**
- * @brief parse_geometry_object 函数。
- *
- * @param parser 参数 `parser`。
- * @param data 参数 `data`。
- * @return 函数返回值。
+ * @brief Parses a geometry object.
+ * @param parser JSON parser.
+ * @param data Loaded object data.
+ * @return 1 on success, 0 on failure.
  */
 static int parse_geometry_object(JsonParser* parser, LoadedObjectData* data)
 {
@@ -846,11 +830,10 @@ static int parse_geometry_object(JsonParser* parser, LoadedObjectData* data)
 }
 
 /**
- * @brief parse_object_type 函数。
- *
- * @param parser 参数 `parser`。
- * @param data 参数 `data`。
- * @return 函数返回值。
+ * @brief Parses an object type.
+ * @param parser JSON parser.
+ * @param data Loaded object data.
+ * @return 1 on success, 0 on failure.
  */
 static int parse_object_type(JsonParser* parser, LoadedObjectData* data)
 {
@@ -876,10 +859,9 @@ static int parse_object_type(JsonParser* parser, LoadedObjectData* data)
 }
 
 /**
- * @brief build_loaded_object 函数。
- *
- * @param data 参数 `data`。
- * @return 函数返回值。
+ * @brief Builds a graphic object from loaded data.
+ * @param data Loaded object data.
+ * @return New object or NULL.
  */
 static GraphicObject* build_loaded_object(const LoadedObjectData* data)
 {
@@ -939,15 +921,15 @@ static GraphicObject* build_loaded_object(const LoadedObjectData* data)
 
 /**
  * @brief Parse one object entry and append it to document.
- * @param parser [in,out] JSON 解析器。
- * @param document [in,out] 目标文档。
- * @return 解析并追加成功返回 `1`，否则返回 `0`。
+ * @param parser [in,out] JSON parser.
+ * @param document [in,out] Target document.
+ * @return 1 on success, 0 on failure.
  *
- * 算法步骤：
- * 1. 读取对象字段（`id/type/stroke/geometry`）；
- * 2. 未识别字段统一跳过值；
- * 3. 校验后构建运行时对象；
- * 4. 以指定 ID 追加进文档。
+ * Algorithm steps:
+ * 1. Reads object fields (id/type/stroke/geometry).
+ * 2. Skips unrecognized fields.
+ * 3. Validates and constructs runtime object.
+ * 4. Appends to document with specified ID.
  *
  * Risk note:
  * - On append failure, allocated object is destroyed immediately to prevent leaks.
@@ -1040,12 +1022,11 @@ static int parse_object_entry(JsonParser* parser, Document* document)
 }
 
 /**
- * @brief parse_selection_array 函数。
- *
- * @param parser 参数 `parser`。
- * @param selection_ids 参数 `selection_ids`。
- * @param selection_count 参数 `selection_count`。
- * @return 函数返回值。
+ * @brief Parses a selection array.
+ * @param parser JSON parser.
+ * @param selection_ids Output array for selection IDs.
+ * @param selection_count Output count pointer.
+ * @return 1 on success, 0 on failure.
  */
 static int parse_selection_array(JsonParser* parser, ObjectId* selection_ids, int* selection_count)
 {
@@ -1085,11 +1066,10 @@ static int parse_selection_array(JsonParser* parser, ObjectId* selection_ids, in
 }
 
 /**
- * @brief parse_objects_array 函数。
- *
- * @param parser 参数 `parser`。
- * @param document 参数 `document`。
- * @return 函数返回值。
+ * @brief Parses an objects array.
+ * @param parser JSON parser.
+ * @param document Target document.
+ * @return 1 on success, 0 on failure.
  */
 static int parse_objects_array(JsonParser* parser, Document* document)
 {
@@ -1122,11 +1102,11 @@ static int parse_objects_array(JsonParser* parser, Document* document)
 
 /**
  * @brief Parse top-level document JSON object.
- * @param parser [in,out] JSON 解析器。
- * @param document [in,out] 目标文档。
- * @return `1` on valid schema/content, `0` on parse/schema mismatch.
+ * @param parser [in,out] JSON parser.
+ * @param document [in,out] Target document.
+ * @return 1 on valid schema/content, 0 on parse/schema mismatch.
  *
- * @note 该函数只接受受支持的 schema，并严格校验 `format/version`。
+ * @note This function only accepts supported schema and strictly validates format/version.
  */
 static int parse_document_root(JsonParser* parser, Document* document)
 {
@@ -1237,11 +1217,10 @@ static int parse_document_root(JsonParser* parser, Document* document)
  */
 
 /**
- * @brief document_save_json 函数。
- *
- * @param document 参数 `document`。
- * @param path 参数 `path`。
- * @return 函数返回值。
+ * @brief Saves document to JSON file.
+ * @param document Document to save.
+ * @param path Output file path.
+ * @return 1 on success, 0 on failure.
  */
 int document_save_json(const Document* document, const char* path)
 {
@@ -1297,10 +1276,10 @@ int document_save_json(const Document* document, const char* path)
 }
 
 /**
- * @brief Load document from JSON file into runtime model.
- * @param document [in,out] 目标文档。
- * @param path [in] JSON 文件路径。
- * @return `1` on success, `0` on I/O/parse/validation failure.
+ * @brief Loads document from JSON file into runtime model.
+ * @param document [in,out] Target document.
+ * @param path [in] JSON file path.
+ * @return 1 on success, 0 on I/O/parse/validation failure.
  *
  * Why staged load:
  * - Parses into a temporary `loaded_document` first; current document is only

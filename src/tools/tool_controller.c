@@ -48,10 +48,9 @@ typedef struct {
 } ShapeToolState;
 
 /**
- * @brief snapshot_reset 函数。
- *
- * @param snapshot 参数 `snapshot`。
- * @return 无。
+ * @brief Resets a snapshot.
+ * @param snapshot Snapshot to reset.
+ * @return None.
  */
 static void snapshot_reset(DocumentSnapshot* snapshot)
 {
@@ -60,10 +59,9 @@ static void snapshot_reset(DocumentSnapshot* snapshot)
 }
 
 /**
- * @brief destroy_overlay 函数。
- *
- * @param tool 参数 `tool`。
- * @return 无。
+ * @brief Destroys a tool's overlay object.
+ * @param tool Tool instance.
+ * @return None.
  */
 static void destroy_overlay(Tool* tool)
 {
@@ -74,11 +72,10 @@ static void destroy_overlay(Tool* tool)
 }
 
 /**
- * @brief rect_from_points 函数。
- *
- * @param a 参数 `a`。
- * @param b 参数 `b`。
- * @return 函数返回值。
+ * @brief Creates a rectangle from two points.
+ * @param a First point.
+ * @param b Second point.
+ * @return Rectangle bounds.
  */
 static RectF rect_from_points(Vec2 a, Vec2 b)
 {
@@ -91,13 +88,12 @@ static RectF rect_from_points(Vec2 a, Vec2 b)
 }
 
 /**
- * @brief build_shape_object 函数。
- *
- * @param kind 参数 `kind`。
- * @param anchor 参数 `anchor`。
- * @param current 参数 `current`。
- * @param style 参数 `style`。
- * @return 函数返回值。
+ * @brief Builds a shape object from tool kind.
+ * @param kind Shape tool kind.
+ * @param anchor Anchor point.
+ * @param current Current point.
+ * @param style Graphic style.
+ * @return New shape object or NULL.
  */
 static GraphicObject* build_shape_object(ToolKind kind, Vec2 anchor, Vec2 current, GraphicStyle style)
 {
@@ -114,11 +110,10 @@ static GraphicObject* build_shape_object(ToolKind kind, Vec2 anchor, Vec2 curren
 }
 
 /**
- * @brief selection_matches_snapshot 函数。
- *
- * @param document 参数 `document`。
- * @param snapshot 参数 `snapshot`。
- * @return 函数返回值。
+ * @brief Checks if selection matches a snapshot.
+ * @param document Document instance.
+ * @param snapshot Snapshot to compare.
+ * @return 1 if matches, 0 otherwise.
  */
 static int selection_matches_snapshot(const Document* document, const DocumentSnapshot* snapshot)
 {
@@ -142,10 +137,10 @@ static int selection_matches_snapshot(const Document* document, const DocumentSn
 }
 
 /**
- * @brief Push document edit to history and sync dirty flag.
- * @param context [in,out] 工具上下文。
- * @param before_snapshot [in,out] 编辑前快照（该函数会消费并重置）。
- * @return 无。
+ * @brief Pushes document edit to history and syncs dirty flag.
+ * @param context [in,out] Tool context.
+ * @param before_snapshot [in,out] Before snapshot (consumed and reset by this function).
+ * @return None.
  *
  * @remark Safely resets snapshot even when context/history is invalid.
  */
@@ -167,10 +162,9 @@ static void tool_commit_document_change(ToolContext* context, DocumentSnapshot* 
 }
 
 /**
- * @brief select_tool_label 函数。
- *
- * @param tool 参数 `tool`。
- * @return 函数返回值。
+ * @brief Gets the select tool label.
+ * @param tool Tool instance.
+ * @return Tool label string.
  */
 static const char* select_tool_label(const Tool* tool)
 {
@@ -179,11 +173,10 @@ static const char* select_tool_label(const Tool* tool)
 }
 
 /**
- * @brief select_tool_deactivate 函数。
- *
- * @param tool 参数 `tool`。
- * @param context 参数 `context`。
- * @return 无。
+ * @brief Deactivates the select tool.
+ * @param tool Tool instance.
+ * @param context Tool context.
+ * @return None.
  */
 static void select_tool_deactivate(Tool* tool, ToolContext* context)
 {
@@ -197,11 +190,11 @@ static void select_tool_deactivate(Tool* tool, ToolContext* context)
 }
 
 /**
- * @brief Handle select tool pointer press.
- * @param tool [in,out] 选择工具实例。
- * @param context [in,out] 工具上下文。
- * @param event [in] 指针事件。
- * @return 无。
+ * @brief Handles select tool pointer press.
+ * @param tool [in,out] Select tool instance.
+ * @param context [in,out] Tool context.
+ * @param event [in] Pointer event.
+ * @return None.
  *
  * Why snapshot first:
  * - Captures "before" state before selection/drag mutations so history entry
@@ -286,11 +279,11 @@ static void select_tool_pointer_down(Tool* tool, ToolContext* context, const Too
 }
 
 /**
- * @brief 拖拽过程中按世界坐标增量移动选中对象。
- * @param tool [in,out] 选择工具实例。
- * @param context [in,out] 工具上下文。
- * @param event [in] 指针事件。
- * @return 无。
+ * @brief Moves selected objects by world coordinate delta during drag.
+ * @param tool [in,out] Select tool instance.
+ * @param context [in,out] Tool context.
+ * @param event [in] Pointer event.
+ * @return None.
  */
 static void select_tool_pointer_move(Tool* tool, ToolContext* context, const ToolEvent* event)
 {
@@ -321,13 +314,13 @@ static void select_tool_pointer_move(Tool* tool, ToolContext* context, const Too
 }
 
 /**
- * @brief 结束选择拖拽并按需写入平移历史。
- * @param tool [in,out] 选择工具实例。
- * @param context [in,out] 工具上下文。
- * @param event [in] 指针事件。
- * @return 无。
+ * @brief Ends selection drag and writes translate history if needed.
+ * @param tool [in,out] Select tool instance.
+ * @param context [in,out] Tool context.
+ * @param event [in] Pointer event.
+ * @return None.
  *
- * @note 仅当实际发生位移且对象集合非空时才写入 `translate` 历史条目。
+ * @note Only writes translate history entry when displacement actually occurred and object set is non-empty.
  */
 static void select_tool_pointer_up(Tool* tool, ToolContext* context, const ToolEvent* event)
 {
@@ -358,13 +351,12 @@ static void select_tool_pointer_up(Tool* tool, ToolContext* context, const ToolE
 }
 
 /**
- * @brief select_tool_key_down 函数。
- *
- * @param tool 参数 `tool`。
- * @param context 参数 `context`。
- * @param key 参数 `key`。
- * @param mods 参数 `mods`。
- * @return 无。
+ * @brief Handles key down for select tool.
+ * @param tool Tool instance.
+ * @param context Tool context.
+ * @param key Key code.
+ * @param mods Modifier flags.
+ * @return None.
  */
 static void select_tool_key_down(Tool* tool, ToolContext* context, int key, int mods)
 {
@@ -396,10 +388,9 @@ static const ToolVTable g_select_tool_vtable = {
 };
 
 /**
- * @brief pan_tool_label 函数。
- *
- * @param tool 参数 `tool`。
- * @return 函数返回值。
+ * @brief Gets the pan tool label.
+ * @param tool Tool instance.
+ * @return Tool label string.
  */
 static const char* pan_tool_label(const Tool* tool)
 {
@@ -408,11 +399,10 @@ static const char* pan_tool_label(const Tool* tool)
 }
 
 /**
- * @brief pan_tool_deactivate 函数。
- *
- * @param tool 参数 `tool`。
- * @param context 参数 `context`。
- * @return 无。
+ * @brief Deactivates the pan tool.
+ * @param tool Tool instance.
+ * @param context Tool context.
+ * @return None.
  */
 static void pan_tool_deactivate(Tool* tool, ToolContext* context)
 {
@@ -422,12 +412,11 @@ static void pan_tool_deactivate(Tool* tool, ToolContext* context)
 }
 
 /**
- * @brief pan_tool_pointer_down 函数。
- *
- * @param tool 参数 `tool`。
- * @param context 参数 `context`。
- * @param event 参数 `event`。
- * @return 无。
+ * @brief Handles pointer down for pan tool.
+ * @param tool Tool instance.
+ * @param context Tool context.
+ * @param event Pointer event.
+ * @return None.
  */
 static void pan_tool_pointer_down(Tool* tool, ToolContext* context, const ToolEvent* event)
 {
@@ -441,12 +430,11 @@ static void pan_tool_pointer_down(Tool* tool, ToolContext* context, const ToolEv
 }
 
 /**
- * @brief pan_tool_pointer_move 函数。
- *
- * @param tool 参数 `tool`。
- * @param context 参数 `context`。
- * @param event 参数 `event`。
- * @return 无。
+ * @brief Handles pointer move for pan tool.
+ * @param tool Tool instance.
+ * @param context Tool context.
+ * @param event Pointer event.
+ * @return None.
  */
 static void pan_tool_pointer_move(Tool* tool, ToolContext* context, const ToolEvent* event)
 {
@@ -459,12 +447,11 @@ static void pan_tool_pointer_move(Tool* tool, ToolContext* context, const ToolEv
 }
 
 /**
- * @brief pan_tool_pointer_up 函数。
- *
- * @param tool 参数 `tool`。
- * @param context 参数 `context`。
- * @param event 参数 `event`。
- * @return 无。
+ * @brief Handles pointer up for pan tool.
+ * @param tool Tool instance.
+ * @param context Tool context.
+ * @param event Pointer event.
+ * @return None.
  */
 static void pan_tool_pointer_up(Tool* tool, ToolContext* context, const ToolEvent* event)
 {
@@ -477,13 +464,12 @@ static void pan_tool_pointer_up(Tool* tool, ToolContext* context, const ToolEven
 }
 
 /**
- * @brief pan_tool_key_down 函数。
- *
- * @param tool 参数 `tool`。
- * @param context 参数 `context`。
- * @param key 参数 `key`。
- * @param mods 参数 `mods`。
- * @return 无。
+ * @brief Handles key down for pan tool.
+ * @param tool Tool instance.
+ * @param context Tool context.
+ * @param key Key code.
+ * @param mods Modifier flags.
+ * @return None.
  */
 static void pan_tool_key_down(Tool* tool, ToolContext* context, int key, int mods)
 {
@@ -506,10 +492,9 @@ static const ToolVTable g_pan_tool_vtable = {
 };
 
 /**
- * @brief shape_tool_label 函数。
- *
- * @param tool 参数 `tool`。
- * @return 函数返回值。
+ * @brief Gets the shape tool label.
+ * @param tool Tool instance.
+ * @return Tool label string.
  */
 static const char* shape_tool_label(const Tool* tool)
 {
@@ -526,11 +511,10 @@ static const char* shape_tool_label(const Tool* tool)
 }
 
 /**
- * @brief shape_tool_deactivate 函数。
- *
- * @param tool 参数 `tool`。
- * @param context 参数 `context`。
- * @return 无。
+ * @brief Deactivates the shape tool.
+ * @param tool Tool instance.
+ * @param context Tool context.
+ * @return None.
  */
 static void shape_tool_deactivate(Tool* tool, ToolContext* context)
 {
@@ -541,11 +525,11 @@ static void shape_tool_deactivate(Tool* tool, ToolContext* context)
 }
 
 /**
- * @brief 开始图形绘制交互并创建半透明预览对象。
- * @param tool [in,out] 形状工具实例。
- * @param context [in,out] 工具上下文（当前未直接使用）。
- * @param event [in] 指针事件。
- * @return 无。
+ * @brief Begins shape drawing interaction and creates semi-transparent preview.
+ * @param tool [in,out] Shape tool instance.
+ * @param context [in,out] Tool context (currently unused).
+ * @param event [in] Pointer event.
+ * @return None.
  */
 static void shape_tool_pointer_down(Tool* tool, ToolContext* context, const ToolEvent* event)
 {
@@ -567,11 +551,11 @@ static void shape_tool_pointer_down(Tool* tool, ToolContext* context, const Tool
 }
 
 /**
- * @brief 指针移动时更新形状预览对象。
- * @param tool [in,out] 形状工具实例。
- * @param context [in,out] 工具上下文（当前未直接使用）。
- * @param event [in] 指针事件。
- * @return 无。
+ * @brief Updates shape preview object on pointer move.
+ * @param tool [in,out] Shape tool instance.
+ * @param context [in,out] Tool context (currently unused).
+ * @param event [in] Pointer event.
+ * @return None.
  */
 static void shape_tool_pointer_move(Tool* tool, ToolContext* context, const ToolEvent* event)
 {
@@ -590,17 +574,17 @@ static void shape_tool_pointer_move(Tool* tool, ToolContext* context, const Tool
 }
 
 /**
- * @brief Finalize shape creation on pointer release.
- * @param tool [in,out] 形状工具实例。
- * @param context [in,out] 工具上下文。
- * @param event [in] 指针事件。
- * @return 无。
+ * @brief Finalizes shape creation on pointer release.
+ * @param tool [in,out] Shape tool instance.
+ * @param context [in,out] Tool context.
+ * @param event [in] Pointer event.
+ * @return None.
  *
- * 算法步骤：
- * 1. 捕获编辑前快照；
- * 2. 依据锚点和当前点构建最终对象；
- * 3. 追加到文档并更新选择；
- * 4. 将本次变更提交到历史栈。
+ * Algorithm steps:
+ * 1. Captures before edit snapshot.
+ * 2. Builds final object from anchor and current points.
+ * 3. Appends to document and updates selection.
+ * 4. Commits change to history stack.
  *
  * Risk note:
  * - Captures history snapshot before append; allocation/add failures clean up
@@ -641,13 +625,12 @@ static void shape_tool_pointer_up(Tool* tool, ToolContext* context, const ToolEv
 }
 
 /**
- * @brief shape_tool_key_down 函数。
- *
- * @param tool 参数 `tool`。
- * @param context 参数 `context`。
- * @param key 参数 `key`。
- * @param mods 参数 `mods`。
- * @return 无。
+ * @brief Handles key down for shape tool.
+ * @param tool Tool instance.
+ * @param context Tool context.
+ * @param key Key code.
+ * @param mods Modifier flags.
+ * @return None.
  */
 static void shape_tool_key_down(Tool* tool, ToolContext* context, int key, int mods)
 {
@@ -668,13 +651,12 @@ static const ToolVTable g_shape_tool_vtable = {
 };
 
 /**
- * @brief tool_init_slot 函数。
- *
- * @param tool 参数 `tool`。
- * @param kind 参数 `kind`。
- * @param vtable 参数 `vtable`。
- * @param state_size 参数 `state_size`。
- * @return 无。
+ * @brief Initializes a tool slot.
+ * @param tool Tool to initialize.
+ * @param kind Tool kind.
+ * @param vtable Tool vtable.
+ * @param state_size Size of tool state.
+ * @return None.
  */
 static void tool_init_slot(Tool* tool, ToolKind kind, const ToolVTable* vtable, size_t state_size)
 {
@@ -687,10 +669,9 @@ static void tool_init_slot(Tool* tool, ToolKind kind, const ToolVTable* vtable, 
 }
 
 /**
- * @brief tool_controller_init 函数。
- *
- * @param controller 参数 `controller`。
- * @return 无。
+ * @brief Initializes the tool controller.
+ * @param controller Controller instance.
+ * @return None.
  */
 void tool_controller_init(ToolController* controller)
 {
@@ -708,10 +689,9 @@ void tool_controller_init(ToolController* controller)
 }
 
 /**
- * @brief tool_controller_shutdown 函数。
- *
- * @param controller 参数 `controller`。
- * @return 无。
+ * @brief Shuts down the tool controller.
+ * @param controller Controller instance.
+ * @return None.
  */
 void tool_controller_shutdown(ToolController* controller)
 {
@@ -729,10 +709,9 @@ void tool_controller_shutdown(ToolController* controller)
 }
 
 /**
- * @brief tool_controller_get_active 函数。
- *
- * @param controller 参数 `controller`。
- * @return 函数返回值。
+ * @brief Gets the active tool.
+ * @param controller Controller instance.
+ * @return Active tool pointer.
  */
 Tool* tool_controller_get_active(ToolController* controller)
 {
@@ -743,10 +722,9 @@ Tool* tool_controller_get_active(ToolController* controller)
 }
 
 /**
- * @brief tool_controller_active_label 函数。
- *
- * @param controller 参数 `controller`。
- * @return 函数返回值。
+ * @brief Gets the active tool label.
+ * @param controller Controller instance.
+ * @return Active tool label string.
  */
 const char* tool_controller_active_label(const ToolController* controller)
 {
@@ -759,10 +737,9 @@ const char* tool_controller_active_label(const ToolController* controller)
 }
 
 /**
- * @brief tool_controller_overlay_object 函数。
- *
- * @param controller 参数 `controller`。
- * @return 函数返回值。
+ * @brief Gets the overlay object of the active tool.
+ * @param controller Controller instance.
+ * @return Overlay object or NULL.
  */
 GraphicObject* tool_controller_overlay_object(const ToolController* controller)
 {
@@ -773,12 +750,11 @@ GraphicObject* tool_controller_overlay_object(const ToolController* controller)
 }
 
 /**
- * @brief tool_controller_set_active 函数。
- *
- * @param controller 参数 `controller`。
- * @param context 参数 `context`。
- * @param kind 参数 `kind`。
- * @return 无。
+ * @brief Sets the active tool.
+ * @param controller Controller instance.
+ * @param context Tool context.
+ * @param kind Tool kind to activate.
+ * @return None.
  */
 void tool_controller_set_active(ToolController* controller, ToolContext* context, ToolKind kind)
 {
@@ -802,11 +778,11 @@ void tool_controller_set_active(ToolController* controller, ToolContext* context
 }
 
 /**
- * @brief 分发按下事件并开启指针捕获。
- * @param controller [in,out] 工具控制器。
- * @param context [in,out] 工具上下文。
- * @param event [in] 指针事件。
- * @return 无。
+ * @brief Dispatches pointer press event and starts pointer capture.
+ * @param controller [in,out] Tool controller.
+ * @param context [in,out] Tool context.
+ * @param event [in] Pointer event.
+ * @return None.
  */
 void tool_controller_pointer_down(ToolController* controller, ToolContext* context, const ToolEvent* event)
 {
@@ -821,11 +797,11 @@ void tool_controller_pointer_down(ToolController* controller, ToolContext* conte
 }
 
 /**
- * @brief 分发移动事件到当前激活工具。
- * @param controller [in,out] 工具控制器。
- * @param context [in,out] 工具上下文。
- * @param event [in] 指针事件。
- * @return 无。
+ * @brief Dispatches move event to currently active tool.
+ * @param controller [in,out] Tool controller.
+ * @param context [in,out] Tool context.
+ * @param event [in] Pointer event.
+ * @return None.
  */
 void tool_controller_pointer_move(ToolController* controller, ToolContext* context, const ToolEvent* event)
 {
@@ -839,11 +815,11 @@ void tool_controller_pointer_move(ToolController* controller, ToolContext* conte
 }
 
 /**
- * @brief 分发释放事件并结束指针捕获。
- * @param controller [in,out] 工具控制器。
- * @param context [in,out] 工具上下文。
- * @param event [in] 指针事件。
- * @return 无。
+ * @brief Dispatches release event and ends pointer capture.
+ * @param controller [in,out] Tool controller.
+ * @param context [in,out] Tool context.
+ * @param event [in] Pointer event.
+ * @return None.
  */
 void tool_controller_pointer_up(ToolController* controller, ToolContext* context, const ToolEvent* event)
 {
@@ -858,13 +834,12 @@ void tool_controller_pointer_up(ToolController* controller, ToolContext* context
 }
 
 /**
- * @brief tool_controller_key_down 函数。
- *
- * @param controller 参数 `controller`。
- * @param context 参数 `context`。
- * @param key 参数 `key`。
- * @param mods 参数 `mods`。
- * @return 无。
+ * @brief Handles key down for tool controller.
+ * @param controller Controller instance.
+ * @param context Tool context.
+ * @param key Key code.
+ * @param mods Modifier flags.
+ * @return None.
  */
 void tool_controller_key_down(ToolController* controller, ToolContext* context, int key, int mods)
 {
@@ -936,13 +911,12 @@ void tool_controller_key_down(ToolController* controller, ToolContext* context, 
 }
 
 /**
- * @brief tool_controller_scroll 函数。
- *
- * @param controller 参数 `controller`。
- * @param context 参数 `context`。
- * @param screen_pos 参数 `screen_pos`。
- * @param yoffset 参数 `yoffset`。
- * @return 无。
+ * @brief Handles scroll event for tool controller.
+ * @param controller Controller instance.
+ * @param context Tool context.
+ * @param screen_pos Screen position.
+ * @param yoffset Vertical scroll offset.
+ * @return None.
  */
 void tool_controller_scroll(ToolController* controller, ToolContext* context, Vec2 screen_pos, float yoffset)
 {
