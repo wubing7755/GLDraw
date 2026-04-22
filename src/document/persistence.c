@@ -85,7 +85,11 @@ typedef struct {
     int has_height;
 } LoadedObjectData;
 
-/** Read entire file into heap buffer (NUL-terminated). Caller owns returned memory. */
+/**
+ * @brief Reads a text file.
+ * @param path File path.
+ * @return File contents or NULL.
+ */
 static char* read_text_file(const char* path)
 {
     FILE* file = NULL;
@@ -125,7 +129,12 @@ static char* read_text_file(const char* path)
     return buffer;
 }
 
-/** Allocate `path + suffix` string. Caller owns returned memory. */
+/**
+ * @brief Duplicates a path with a suffix appended.
+ * @param path Original path.
+ * @param suffix Suffix to append.
+ * @return Duplicated path or NULL.
+ */
 static char* duplicate_path_with_suffix(const char* path, const char* suffix)
 {
     size_t path_length = 0;
@@ -149,7 +158,11 @@ static char* duplicate_path_with_suffix(const char* path, const char* suffix)
     return result;
 }
 
-/** Cheap file-exists check via open attempt. */
+/**
+ * @brief Checks if a file exists at path.
+ * @param path File path.
+ * @return 1 if exists, 0 otherwise.
+ */
 static int file_exists_at_path(const char* path)
 {
     FILE* file = NULL;
@@ -167,7 +180,11 @@ static int file_exists_at_path(const char* path)
     return 1;
 }
 
-/** Map object type enum to persisted JSON tag. */
+/**
+ * @brief Gets the type tag string for an object.
+ * @param type Object type.
+ * @return Type tag string.
+ */
 static const char* object_type_tag(GraphicObjectType type)
 {
     switch (type) {
@@ -183,9 +200,10 @@ static const char* object_type_tag(GraphicObjectType type)
 }
 
 /**
- * @brief Atomically replace target file with temp file.
- * Why:
- * - Write-then-replace avoids corrupting existing file on partial write failure.
+ * @brief Replaces target file with temp file atomically.
+ * @param temp_path Temp file path.
+ * @param target_path Target file path.
+ * @return 1 on success, 0 on failure.
  */
 static int replace_file_with_temp(const char* temp_path, const char* target_path)
 {
@@ -215,9 +233,12 @@ static int replace_file_with_temp(const char* temp_path, const char* target_path
 }
 
 /**
- * Serialize document as JSON into already-open file handle.
- * Risk note: individual `fprintf` returns are not checked line-by-line; final
- * `ferror(file)` is used as aggregate write-failure detection.
+ * @brief Serializes document to JSON and writes to open file.
+ * @param file [in,out] Target file handle.
+ * @param document [in] Document to serialize.
+ * @return 1 on success, 0 on failure.
+ *
+ * @note Uses ferror(file) for overall write failure detection.
  */
 static int write_document_json(FILE* file, const Document* document)
 {
@@ -279,7 +300,12 @@ static int write_document_json(FILE* file, const Document* document)
     return ferror(file) == 0;
 }
 
-/** Check whether parser position matches keyword and token boundary. */
+/**
+ * @brief Checks if parser matches a keyword at current position.
+ * @param parser JSON parser.
+ * @param keyword Keyword to match.
+ * @return 1 if matched, 0 otherwise.
+ */
 static int json_match_keyword(const JsonParser* parser, const char* keyword)
 {
     size_t length = 0;
@@ -306,7 +332,11 @@ static int json_match_keyword(const JsonParser* parser, const char* keyword)
     return !(isalnum((unsigned char)next) || next == '_');
 }
 
-/** Skip JSON whitespace from current parser position. */
+/**
+ * @brief Skips whitespace in JSON parser.
+ * @param parser JSON parser.
+ * @return None.
+ */
 static void json_parser_skip_ws(JsonParser* parser)
 {
     while (parser->pos < parser->length &&
@@ -316,7 +346,10 @@ static void json_parser_skip_ws(JsonParser* parser)
 }
 
 /**
- * @brief Advance parser to next token.
+ * @brief Advances parser to next token.
+ * @param parser [in,out] JSON parser state.
+ * @return None.
+ *
  * Risk note:
  * - Keeps implementation intentionally strict; malformed escape/number forms
  *   become `JSON_TOKEN_INVALID` to fail-fast during load.
@@ -426,7 +459,12 @@ static void json_parser_next(JsonParser* parser)
     parser->type = JSON_TOKEN_INVALID;
 }
 
-/** Compare current string token with literal. */
+/**
+ * @brief Checks if current token is a specific string literal.
+ * @param parser JSON parser.
+ * @param literal String literal to match.
+ * @return 1 if matches, 0 otherwise.
+ */
 static int json_token_is_string(const JsonParser* parser, const char* literal)
 {
     size_t literal_length = 0;
@@ -440,13 +478,23 @@ static int json_token_is_string(const JsonParser* parser, const char* literal)
            strncmp(parser->token_start, literal, literal_length) == 0;
 }
 
-/** Check expected token type. */
+/**
+ * @brief Expects a specific token type.
+ * @param parser JSON parser.
+ * @param type Expected token type.
+ * @return 1 if matches, 0 otherwise.
+ */
 static int json_expect(JsonParser* parser, JsonTokenType type)
 {
     return parser && parser->type == type;
 }
 
-/** Parse unsigned integer token with integer range validation. */
+/**
+ * @brief Parses an unsigned 32-bit integer.
+ * @param parser JSON parser.
+ * @param out_value Output value pointer.
+ * @return 1 on success, 0 on failure.
+ */
 static int json_parse_u32(JsonParser* parser, unsigned int* out_value)
 {
     double value = 0.0;
@@ -466,7 +514,12 @@ static int json_parse_u32(JsonParser* parser, unsigned int* out_value)
     return 1;
 }
 
-/** Parse float token and advance parser. */
+/**
+ * @brief Parses a float value.
+ * @param parser JSON parser.
+ * @param out_value Output value pointer.
+ * @return 1 on success, 0 on failure.
+ */
 static int json_parse_float(JsonParser* parser, float* out_value)
 {
     if (!parser || !out_value || parser->type != JSON_TOKEN_NUMBER) {
@@ -480,7 +533,11 @@ static int json_parse_float(JsonParser* parser, float* out_value)
 
 static int json_skip_value(JsonParser* parser);
 
-/** Skip unknown JSON object recursively. */
+/**
+ * @brief Skips a JSON object.
+ * @param parser JSON parser.
+ * @return 1 on success, 0 on failure.
+ */
 static int json_skip_object(JsonParser* parser)
 {
     if (!json_expect(parser, JSON_TOKEN_LBRACE)) {
@@ -517,7 +574,11 @@ static int json_skip_object(JsonParser* parser)
     }
 }
 
-/** Skip unknown JSON array recursively. */
+/**
+ * @brief Skips a JSON array.
+ * @param parser JSON parser.
+ * @return 1 on success, 0 on failure.
+ */
 static int json_skip_array(JsonParser* parser)
 {
     if (!json_expect(parser, JSON_TOKEN_LBRACKET)) {
@@ -546,7 +607,11 @@ static int json_skip_array(JsonParser* parser)
     }
 }
 
-/** Skip arbitrary JSON value recursively. */
+/**
+ * @brief Skips any JSON value.
+ * @param parser JSON parser.
+ * @return 1 on success, 0 on failure.
+ */
 static int json_skip_value(JsonParser* parser)
 {
     switch (parser->type) {
@@ -566,7 +631,12 @@ static int json_skip_value(JsonParser* parser)
     }
 }
 
-/** Parse `"stroke"` sub-object into loaded object staging struct. */
+/**
+ * @brief Parses a stroke object.
+ * @param parser JSON parser.
+ * @param data Loaded object data.
+ * @return 1 on success, 0 on failure.
+ */
 static int parse_stroke_object(JsonParser* parser, LoadedObjectData* data)
 {
     if (!json_expect(parser, JSON_TOKEN_LBRACE)) {
@@ -666,7 +736,12 @@ static int parse_stroke_object(JsonParser* parser, LoadedObjectData* data)
     }
 }
 
-/** Parse `"geometry"` sub-object into loaded object staging struct. */
+/**
+ * @brief Parses a geometry object.
+ * @param parser JSON parser.
+ * @param data Loaded object data.
+ * @return 1 on success, 0 on failure.
+ */
 static int parse_geometry_object(JsonParser* parser, LoadedObjectData* data)
 {
     if (!json_expect(parser, JSON_TOKEN_LBRACE)) {
@@ -754,7 +829,12 @@ static int parse_geometry_object(JsonParser* parser, LoadedObjectData* data)
     }
 }
 
-/** Parse and validate object `"type"` token. */
+/**
+ * @brief Parses an object type.
+ * @param parser JSON parser.
+ * @param data Loaded object data.
+ * @return 1 on success, 0 on failure.
+ */
 static int parse_object_type(JsonParser* parser, LoadedObjectData* data)
 {
     if (!json_expect(parser, JSON_TOKEN_STRING)) {
@@ -778,7 +858,11 @@ static int parse_object_type(JsonParser* parser, LoadedObjectData* data)
     return 1;
 }
 
-/** Build runtime object from parsed staged fields; returns `NULL` on missing required data. */
+/**
+ * @brief Builds a graphic object from loaded data.
+ * @param data Loaded object data.
+ * @return New object or NULL.
+ */
 static GraphicObject* build_loaded_object(const LoadedObjectData* data)
 {
     if (!data || !data->has_id || !data->has_type ||
@@ -837,6 +921,16 @@ static GraphicObject* build_loaded_object(const LoadedObjectData* data)
 
 /**
  * @brief Parse one object entry and append it to document.
+ * @param parser [in,out] JSON parser.
+ * @param document [in,out] Target document.
+ * @return 1 on success, 0 on failure.
+ *
+ * Algorithm steps:
+ * 1. Reads object fields (id/type/stroke/geometry).
+ * 2. Skips unrecognized fields.
+ * 3. Validates and constructs runtime object.
+ * 4. Appends to document with specified ID.
+ *
  * Risk note:
  * - On append failure, allocated object is destroyed immediately to prevent leaks.
  */
@@ -927,7 +1021,13 @@ static int parse_object_entry(JsonParser* parser, Document* document)
     return 1;
 }
 
-/** Parse selection ID array (extra IDs beyond max are safely ignored). */
+/**
+ * @brief Parses a selection array.
+ * @param parser JSON parser.
+ * @param selection_ids Output array for selection IDs.
+ * @param selection_count Output count pointer.
+ * @return 1 on success, 0 on failure.
+ */
 static int parse_selection_array(JsonParser* parser, ObjectId* selection_ids, int* selection_count)
 {
     if (!json_expect(parser, JSON_TOKEN_LBRACKET)) {
@@ -965,7 +1065,12 @@ static int parse_selection_array(JsonParser* parser, ObjectId* selection_ids, in
     }
 }
 
-/** Parse objects array and append all parsed entries to document. */
+/**
+ * @brief Parses an objects array.
+ * @param parser JSON parser.
+ * @param document Target document.
+ * @return 1 on success, 0 on failure.
+ */
 static int parse_objects_array(JsonParser* parser, Document* document)
 {
     if (!json_expect(parser, JSON_TOKEN_LBRACKET)) {
@@ -997,7 +1102,11 @@ static int parse_objects_array(JsonParser* parser, Document* document)
 
 /**
  * @brief Parse top-level document JSON object.
- * @return `1` on valid schema/content, `0` on parse/schema mismatch.
+ * @param parser [in,out] JSON parser.
+ * @param document [in,out] Target document.
+ * @return 1 on valid schema/content, 0 on parse/schema mismatch.
+ *
+ * @note This function only accepts supported schema and strictly validates format/version.
  */
 static int parse_document_root(JsonParser* parser, Document* document)
 {
@@ -1106,6 +1215,13 @@ static int parse_document_root(JsonParser* parser, Document* document)
  * @brief Save document to JSON path using temp-file replacement.
  * @return `1` on success, `0` on allocation/I/O/serialization failure.
  */
+
+/**
+ * @brief Saves document to JSON file.
+ * @param document Document to save.
+ * @param path Output file path.
+ * @return 1 on success, 0 on failure.
+ */
 int document_save_json(const Document* document, const char* path)
 {
     FILE* file = NULL;
@@ -1160,8 +1276,10 @@ int document_save_json(const Document* document, const char* path)
 }
 
 /**
- * @brief Load document from JSON file into runtime model.
- * @return `1` on success, `0` on I/O/parse/validation failure.
+ * @brief Loads document from JSON file into runtime model.
+ * @param document [in,out] Target document.
+ * @param path [in] JSON file path.
+ * @return 1 on success, 0 on I/O/parse/validation failure.
  *
  * Why staged load:
  * - Parses into a temporary `loaded_document` first; current document is only

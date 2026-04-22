@@ -34,7 +34,11 @@ typedef struct {
     RectF bounds;
 } EllipseData;
 
-/** Bump per-object revision after successful mutations. Complexity: `O(1)`. */
+/**
+ * @brief Increments the object revision.
+ * @param object Object instance.
+ * @return None.
+ */
 static void object_bump_revision(GraphicObject* object)
 {
     if (object) {
@@ -42,7 +46,13 @@ static void object_bump_revision(GraphicObject* object)
     }
 }
 
-/** Read style scalar by key. Complexity: `O(1)` with small fixed key set. */
+/**
+ * @brief Gets a style scalar value.
+ * @param object Object instance.
+ * @param key Style key name.
+ * @param out_value Output value pointer.
+ * @return 1 on success, 0 on failure.
+ */
 static int style_get_scalar(const GraphicObject* object, const char* key, float* out_value)
 {
     if (strcmp(key, "stroke_r") == 0) { *out_value = object->style.stroke_color.r; return 1; }
@@ -53,7 +63,13 @@ static int style_get_scalar(const GraphicObject* object, const char* key, float*
     return 0;
 }
 
-/** Write style scalar by key. Complexity: `O(1)` with small fixed key set. */
+/**
+ * @brief Sets a style scalar value.
+ * @param object Object instance.
+ * @param key Style key name.
+ * @param value New value.
+ * @return 1 on success, 0 on failure.
+ */
 static int style_set_scalar(GraphicObject* object, const char* key, float value)
 {
     if (strcmp(key, "stroke_r") == 0) { object->style.stroke_color.r = value; return 1; }
@@ -64,14 +80,23 @@ static int style_set_scalar(GraphicObject* object, const char* key, float value)
     return 0;
 }
 
-/** Line object destructor; releases `impl` then wrapper object. */
+/**
+ * @brief Destroys a line object.
+ * @param object Line object instance.
+ * @return None.
+ */
 static void line_destroy(GraphicObject* object)
 {
     free(object->impl);
     free(object);
 }
 
-/** Translate line endpoints by world delta. Complexity: `O(1)`. */
+/**
+ * @brief Translates a line object.
+ * @param object Line object instance.
+ * @param delta Translation vector.
+ * @return None.
+ */
 static void line_translate(GraphicObject* object, Vec2 delta)
 {
     LineData* line = (LineData*)object->impl;
@@ -79,7 +104,11 @@ static void line_translate(GraphicObject* object, Vec2 delta)
     line->p2 = vec2_add(line->p2, delta);
 }
 
-/** Axis-aligned bounds for line segment. Complexity: `O(1)`. */
+/**
+ * @brief Gets the bounding box of a line.
+ * @param object Line object instance.
+ * @return Bounding rectangle.
+ */
 static RectF line_bounds(const GraphicObject* object)
 {
     const LineData* line = (const LineData*)object->impl;
@@ -92,10 +121,11 @@ static RectF line_bounds(const GraphicObject* object)
 }
 
 /**
- * @brief Compute shortest distance from point to line segment AB.
- * Why:
- * - Projecting onto AB and clamping `t` gives nearest on-segment point robustly.
- * Complexity: `O(1)`.
+ * @brief Calculates distance from point to line segment.
+ * @param point Point to test.
+ * @param a Line segment start point.
+ * @param b Line segment end point.
+ * @return Distance to segment.
  */
 static float line_distance_to_segment(Vec2 point, Vec2 a, Vec2 b)
 {
@@ -113,21 +143,36 @@ static float line_distance_to_segment(Vec2 point, Vec2 a, Vec2 b)
     return vec2_length(vec2_sub(point, nearest));
 }
 
-/** Line hit-test uses geometric point-to-segment distance. Complexity: `O(1)`. */
+/**
+ * @brief Hit tests a line object.
+ * @param object Line object instance.
+ * @param point Test point.
+ * @param tolerance Hit tolerance.
+ * @return 1 if hit, 0 otherwise.
+ */
 static int line_hit_test(const GraphicObject* object, Vec2 point, float tolerance)
 {
     const LineData* line = (const LineData*)object->impl;
     return line_distance_to_segment(point, line->p1, line->p2) <= tolerance;
 }
 
-/** Returns 2 (the line segment endpoints p1 and p2). */
+/**
+ * @brief Gets the path point count for a line.
+ * @param object Line object instance.
+ * @return Number of path points.
+ */
 static int line_get_path_point_count(const GraphicObject* object)
 {
     (void)object;
     return 2;
 }
 
-/** Write line path points (p1, p2) into caller buffer (caller must provide at least 2 elements). */
+/**
+ * @brief Writes path points for a line.
+ * @param object Line object instance.
+ * @param out_points Output array for path points.
+ * @return None.
+ */
 static void line_write_path_points(const GraphicObject* object, Vec2* out_points)
 {
     const LineData* line = (const LineData*)object->impl;
@@ -135,7 +180,13 @@ static void line_write_path_points(const GraphicObject* object, Vec2* out_points
     out_points[1] = line->p2;
 }
 
-/** Read line scalar property or fallback to style scalar. */
+/**
+ * @brief Gets a scalar property of a line.
+ * @param object Line object instance.
+ * @param key Property key.
+ * @param out_value Output value pointer.
+ * @return 1 on success, 0 on failure.
+ */
 static int line_get_scalar(const GraphicObject* object, const char* key, float* out_value)
 {
     const LineData* line = (const LineData*)object->impl;
@@ -146,7 +197,13 @@ static int line_get_scalar(const GraphicObject* object, const char* key, float* 
     return style_get_scalar(object, key, out_value);
 }
 
-/** Write line scalar property or fallback to style scalar. */
+/**
+ * @brief Sets a scalar property of a line.
+ * @param object Line object instance.
+ * @param key Property key.
+ * @param value New value.
+ * @return 1 on success, 0 on failure.
+ */
 static int line_set_scalar(GraphicObject* object, const char* key, float value)
 {
     LineData* line = (LineData*)object->impl;
@@ -157,14 +214,23 @@ static int line_set_scalar(GraphicObject* object, const char* key, float value)
     return style_set_scalar(object, key, value);
 }
 
-/** Rectangle object destructor. */
+/**
+ * @brief Destroys a rectangle object.
+ * @param object Rectangle object instance.
+ * @return None.
+ */
 static void rect_destroy(GraphicObject* object)
 {
     free(object->impl);
     free(object);
 }
 
-/** Translate rectangle origin by world delta. */
+/**
+ * @brief Translates a rectangle object.
+ * @param object Rectangle object instance.
+ * @param delta Translation vector.
+ * @return None.
+ */
 static void rect_translate(GraphicObject* object, Vec2 delta)
 {
     RectData* rect = (RectData*)object->impl;
@@ -172,14 +238,24 @@ static void rect_translate(GraphicObject* object, Vec2 delta)
     rect->rect.y += delta.y;
 }
 
-/** Return rectangle bounds directly from payload. */
+/**
+ * @brief Gets the bounding box of a rectangle.
+ * @param object Rectangle object instance.
+ * @return Bounding rectangle.
+ */
 static RectF rect_bounds(const GraphicObject* object)
 {
     const RectData* rect = (const RectData*)object->impl;
     return rect->rect;
 }
 
-/** Rectangle hit-test expands bounds by tolerance for easier selection. */
+/**
+ * @brief Hit tests a rectangle object.
+ * @param object Rectangle object instance.
+ * @param point Test point.
+ * @param tolerance Hit tolerance.
+ * @return 1 if hit, 0 otherwise.
+ */
 static int rect_hit_test(const GraphicObject* object, Vec2 point, float tolerance)
 {
     RectF bounds = rect_bounds(object);
@@ -190,14 +266,23 @@ static int rect_hit_test(const GraphicObject* object, Vec2 point, float toleranc
     return rectf_contains_point(&bounds, point);
 }
 
-/** Returns 5 (4 corners plus closing repeat of first corner to close the polyline). */
+/**
+ * @brief Gets the path point count for a rectangle.
+ * @param object Rectangle object instance.
+ * @return Number of path points.
+ */
 static int rect_get_path_point_count(const GraphicObject* object)
 {
     (void)object;
     return 5;
 }
 
-/** Emit rectangle corners plus closing point. */
+/**
+ * @brief Writes path points for a rectangle.
+ * @param object Rectangle object instance.
+ * @param out_points Output array for path points.
+ * @return None.
+ */
 static void rect_write_path_points(const GraphicObject* object, Vec2* out_points)
 {
     const RectData* rect = (const RectData*)object->impl;
@@ -208,7 +293,13 @@ static void rect_write_path_points(const GraphicObject* object, Vec2* out_points
     out_points[4] = out_points[0];
 }
 
-/** Read rectangle scalar property or style scalar. */
+/**
+ * @brief Gets a scalar property of a rectangle.
+ * @param object Rectangle object instance.
+ * @param key Property key.
+ * @param out_value Output value pointer.
+ * @return 1 on success, 0 on failure.
+ */
 static int rect_get_scalar(const GraphicObject* object, const char* key, float* out_value)
 {
     const RectData* rect = (const RectData*)object->impl;
@@ -219,7 +310,13 @@ static int rect_get_scalar(const GraphicObject* object, const char* key, float* 
     return style_get_scalar(object, key, out_value);
 }
 
-/** Write rectangle scalar property or style scalar. */
+/**
+ * @brief Sets a scalar property of a rectangle.
+ * @param object Rectangle object instance.
+ * @param key Property key.
+ * @param value New value.
+ * @return 1 on success, 0 on failure.
+ */
 static int rect_set_scalar(GraphicObject* object, const char* key, float value)
 {
     RectData* rect = (RectData*)object->impl;
@@ -230,14 +327,23 @@ static int rect_set_scalar(GraphicObject* object, const char* key, float value)
     return style_set_scalar(object, key, value);
 }
 
-/** Ellipse object destructor. */
+/**
+ * @brief Destroys an ellipse object.
+ * @param object Ellipse object instance.
+ * @return None.
+ */
 static void ellipse_destroy(GraphicObject* object)
 {
     free(object->impl);
     free(object);
 }
 
-/** Translate ellipse bounds origin by world delta. */
+/**
+ * @brief Translates an ellipse object.
+ * @param object Ellipse object instance.
+ * @param delta Translation vector.
+ * @return None.
+ */
 static void ellipse_translate(GraphicObject* object, Vec2 delta)
 {
     EllipseData* ellipse = (EllipseData*)object->impl;
@@ -245,14 +351,24 @@ static void ellipse_translate(GraphicObject* object, Vec2 delta)
     ellipse->bounds.y += delta.y;
 }
 
-/** Return ellipse axis-aligned bounds. */
+/**
+ * @brief Gets the bounding box of an ellipse.
+ * @param object Ellipse object instance.
+ * @return Bounding rectangle.
+ */
 static RectF ellipse_bounds(const GraphicObject* object)
 {
     const EllipseData* ellipse = (const EllipseData*)object->impl;
     return ellipse->bounds;
 }
 
-/** Hit-test in ellipse's normalized unit-circle coordinate space. Complexity: `O(1)`. */
+/**
+ * @brief Hit tests an ellipse object.
+ * @param object Ellipse object instance.
+ * @param point Test point.
+ * @param tolerance Hit tolerance.
+ * @return 1 if hit, 0 otherwise.
+ */
 static int ellipse_hit_test(const GraphicObject* object, Vec2 point, float tolerance)
 {
     RectF bounds = ellipse_bounds(object);
@@ -271,7 +387,11 @@ static int ellipse_hit_test(const GraphicObject* object, Vec2 point, float toler
     return (nx * nx + ny * ny) <= 1.0f;
 }
 
-/** Ellipse polyline uses fixed segment count plus closure point. */
+/**
+ * @brief Gets the path point count for an ellipse.
+ * @param object Ellipse object instance.
+ * @return Number of path points.
+ */
 static int ellipse_get_path_point_count(const GraphicObject* object)
 {
     (void)object;
@@ -279,9 +399,10 @@ static int ellipse_get_path_point_count(const GraphicObject* object)
 }
 
 /**
- * @brief Emit sampled ellipse perimeter.
- * Risk note:
- * - Caller must provide at least `ELLIPSE_SEGMENTS + 1` output points.
+ * @brief Writes path points for an ellipse.
+ * @param object Ellipse object instance.
+ * @param out_points Output array for path points.
+ * @return None.
  */
 static void ellipse_write_path_points(const GraphicObject* object, Vec2* out_points)
 {
@@ -300,7 +421,13 @@ static void ellipse_write_path_points(const GraphicObject* object, Vec2* out_poi
     out_points[ELLIPSE_SEGMENTS] = out_points[0];
 }
 
-/** Read ellipse scalar property or style scalar. */
+/**
+ * @brief Gets a scalar property of an ellipse.
+ * @param object Ellipse object instance.
+ * @param key Property key.
+ * @param out_value Output value pointer.
+ * @return 1 on success, 0 on failure.
+ */
 static int ellipse_get_scalar(const GraphicObject* object, const char* key, float* out_value)
 {
     const EllipseData* ellipse = (const EllipseData*)object->impl;
@@ -311,7 +438,13 @@ static int ellipse_get_scalar(const GraphicObject* object, const char* key, floa
     return style_get_scalar(object, key, out_value);
 }
 
-/** Write ellipse scalar property or style scalar. */
+/**
+ * @brief Sets a scalar property of an ellipse.
+ * @param object Ellipse object instance.
+ * @param key Property key.
+ * @param value New value.
+ * @return 1 on success, 0 on failure.
+ */
 static int ellipse_set_scalar(GraphicObject* object, const char* key, float value)
 {
     EllipseData* ellipse = (EllipseData*)object->impl;
@@ -361,7 +494,14 @@ static const GraphicObjectVTable g_ellipse_vtable = {
     ellipse_set_scalar
 };
 
-/** Allocate common object wrapper; takes ownership of `impl` on success. */
+/**
+ * @brief Allocates a new graphic object.
+ * @param type Object type.
+ * @param vtable Virtual function table.
+ * @param impl Type-specific implementation data.
+ * @param style Graphic style.
+ * @return New object or NULL.
+ */
 static GraphicObject* object_alloc(GraphicObjectType type,
                                    const GraphicObjectVTable* vtable,
                                    void* impl,
@@ -381,7 +521,11 @@ static GraphicObject* object_alloc(GraphicObjectType type,
     return object;
 }
 
-/** Return default stroke style for new objects. */
+/**
+ * @brief Gets the default graphic style.
+ * @param void No parameters.
+ * @return Default graphic style.
+ */
 GraphicStyle object_default_style(void)
 {
     GraphicStyle style;
@@ -393,7 +537,11 @@ GraphicStyle object_default_style(void)
     return style;
 }
 
-/** Return debug/display name by object type. */
+/**
+ * @brief Gets the type name string.
+ * @param type Object type.
+ * @return Type name string.
+ */
 const char* object_type_name(GraphicObjectType type)
 {
     switch (type) {
@@ -408,7 +556,13 @@ const char* object_type_name(GraphicObjectType type)
     }
 }
 
-/** Create line object from two endpoints. */
+/**
+ * @brief Creates a line object.
+ * @param p1 Start point.
+ * @param p2 End point.
+ * @param style Graphic style.
+ * @return New line object or NULL.
+ */
 GraphicObject* object_create_line(Vec2 p1, Vec2 p2, GraphicStyle style)
 {
     LineData* line = (LineData*)calloc(1, sizeof(*line));
@@ -420,7 +574,12 @@ GraphicObject* object_create_line(Vec2 p1, Vec2 p2, GraphicStyle style)
     return object_alloc(GRAPHIC_OBJECT_LINE, &g_line_vtable, line, style);
 }
 
-/** Create rectangle object from bounds. */
+/**
+ * @brief Creates a rectangle object.
+ * @param rect Rectangle bounds.
+ * @param style Graphic style.
+ * @return New rectangle object or NULL.
+ */
 GraphicObject* object_create_rect(RectF rect, GraphicStyle style)
 {
     RectData* data = (RectData*)calloc(1, sizeof(*data));
@@ -431,7 +590,12 @@ GraphicObject* object_create_rect(RectF rect, GraphicStyle style)
     return object_alloc(GRAPHIC_OBJECT_RECT, &g_rect_vtable, data, style);
 }
 
-/** Create ellipse object from bounds. */
+/**
+ * @brief Creates an ellipse object.
+ * @param bounds Ellipse bounds.
+ * @param style Graphic style.
+ * @return New ellipse object or NULL.
+ */
 GraphicObject* object_create_ellipse(RectF bounds, GraphicStyle style)
 {
     EllipseData* data = (EllipseData*)calloc(1, sizeof(*data));
@@ -445,6 +609,12 @@ GraphicObject* object_create_ellipse(RectF bounds, GraphicStyle style)
 /**
  * @brief Deep clone object by concrete type.
  * @return New object with copied ID/style/revision, or `NULL` on failure.
+ */
+
+/**
+ * @brief Clones an object by concrete type.
+ * @param object Object to clone.
+ * @return New object with copied ID/style/revision, or NULL on failure.
  */
 GraphicObject* object_clone(const GraphicObject* object)
 {
@@ -486,7 +656,11 @@ GraphicObject* object_clone(const GraphicObject* object)
     return clone;
 }
 
-/** Dispatch destruction through vtable. */
+/**
+ * @brief Destroys an object.
+ * @param object Object to destroy.
+ * @return None.
+ */
 void object_destroy(GraphicObject* object)
 {
     if (object && object->vtable && object->vtable->destroy) {
@@ -494,7 +668,12 @@ void object_destroy(GraphicObject* object)
     }
 }
 
-/** Translate object and bump revision on success. */
+/**
+ * @brief Translates an object.
+ * @param object Object instance.
+ * @param delta Translation vector.
+ * @return None.
+ */
 void object_translate(GraphicObject* object, Vec2 delta)
 {
     if (!object || !object->vtable || !object->vtable->translate) {
@@ -504,7 +683,11 @@ void object_translate(GraphicObject* object, Vec2 delta)
     object_bump_revision(object);
 }
 
-/** Query object bounds via vtable, fallback to empty rect. */
+/**
+ * @brief Gets the bounding box of an object.
+ * @param object Object instance.
+ * @return Bounding rectangle.
+ */
 RectF object_get_bounds(const GraphicObject* object)
 {
     RectF empty = {0.0f, 0.0f, 0.0f, 0.0f};
@@ -514,7 +697,13 @@ RectF object_get_bounds(const GraphicObject* object)
     return object->vtable->get_bounds(object);
 }
 
-/** Hit-test object via vtable. */
+/**
+ * @brief Hit tests an object.
+ * @param object Object instance.
+ * @param point Test point.
+ * @param tolerance Hit tolerance.
+ * @return 1 if hit, 0 otherwise.
+ */
 int object_hit_test(const GraphicObject* object, Vec2 point, float tolerance)
 {
     if (!object || !object->vtable || !object->vtable->hit_test) {
@@ -523,7 +712,11 @@ int object_hit_test(const GraphicObject* object, Vec2 point, float tolerance)
     return object->vtable->hit_test(object, point, tolerance);
 }
 
-/** Query path sample count via vtable. */
+/**
+ * @brief Gets the path point count.
+ * @param object Object instance.
+ * @return Number of path points.
+ */
 int object_get_path_point_count(const GraphicObject* object)
 {
     if (!object || !object->vtable || !object->vtable->get_path_point_count) {
@@ -532,7 +725,12 @@ int object_get_path_point_count(const GraphicObject* object)
     return object->vtable->get_path_point_count(object);
 }
 
-/** Write path points via vtable. */
+/**
+ * @brief Writes path points for an object.
+ * @param object Object instance.
+ * @param out_points Output array for path points.
+ * @return None.
+ */
 void object_write_path_points(const GraphicObject* object, Vec2* out_points)
 {
     if (!object || !object->vtable || !object->vtable->write_path_points) {
@@ -541,7 +739,13 @@ void object_write_path_points(const GraphicObject* object, Vec2* out_points)
     object->vtable->write_path_points(object, out_points);
 }
 
-/** Query scalar property via vtable. */
+/**
+ * @brief Gets a scalar property of an object.
+ * @param object Object instance.
+ * @param key Property key.
+ * @param out_value Output value pointer.
+ * @return 1 on success, 0 on failure.
+ */
 int object_get_scalar(const GraphicObject* object, const char* key, float* out_value)
 {
     if (!object || !object->vtable || !object->vtable->get_scalar) {
@@ -550,7 +754,13 @@ int object_get_scalar(const GraphicObject* object, const char* key, float* out_v
     return object->vtable->get_scalar(object, key, out_value);
 }
 
-/** Set scalar property via vtable and bump revision on success. */
+/**
+ * @brief Sets a scalar property of an object.
+ * @param object Object instance.
+ * @param key Property key.
+ * @param value New value.
+ * @return 1 on success, 0 on failure.
+ */
 int object_set_scalar(GraphicObject* object, const char* key, float value)
 {
     if (!object || !object->vtable || !object->vtable->set_scalar) {
@@ -563,7 +773,12 @@ int object_set_scalar(GraphicObject* object, const char* key, float value)
     return 1;
 }
 
-/** Update stroke color and revision. */
+/**
+ * @brief Sets the stroke color of an object.
+ * @param object Object instance.
+ * @param color Stroke color.
+ * @return None.
+ */
 void object_set_stroke_color(GraphicObject* object, Color color)
 {
     if (!object) {
@@ -573,7 +788,12 @@ void object_set_stroke_color(GraphicObject* object, Color color)
     object_bump_revision(object);
 }
 
-/** Update stroke width and revision. */
+/**
+ * @brief Sets the stroke width of an object.
+ * @param object Object instance.
+ * @param stroke_width Stroke width.
+ * @return None.
+ */
 void object_set_stroke_width(GraphicObject* object, float stroke_width)
 {
     if (!object) {

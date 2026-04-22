@@ -1,14 +1,6 @@
 /**
  * @file render_system.h
- * @brief OpenGL renderer interface for canvas/document drawing.
- *
- * Role in project:
- * - Owns shader program and GPU buffers.
- * - Draws grid, objects, selection emphasis, and tool overlays.
- *
- * Module relationships:
- * - Consumes `Document` geometry and `CanvasView` transforms.
- * - Called each frame by the application loop.
+ * @brief OpenGL rendering system interface.
  */
 #ifndef GLDRAW_RENDER_RENDER_SYSTEM_H
 #define GLDRAW_RENDER_RENDER_SYSTEM_H
@@ -19,13 +11,40 @@
 
 typedef struct RenderSystem RenderSystem;
 
-/** Create renderer resources for an existing window/context. Returns `NULL` on failure. */
+/**
+ * @brief Create the rendering system and initialize GPU resources.
+ * @param window Already-initialized platform window and OpenGL context.
+ * @return Renderer instance on success, or `NULL` on failure.
+ */
 RenderSystem* render_system_create(PlatformWindow* window);
-/** Release all GL/heap resources owned by renderer. */
+
+/**
+ * @brief Destroy the rendering system and release GPU/heap resources.
+ * @param renderer Renderer instance.
+ * @return No return value.
+ */
 void render_system_destroy(RenderSystem* renderer);
-/** Update framebuffer-dependent renderer state after resize. */
+
+/**
+ * @brief Handle window resize events.
+ * @param renderer Renderer instance.
+ * @param width New width in pixels.
+ * @param height New height in pixels.
+ * @return No return value.
+ */
 void render_system_resize(RenderSystem* renderer, int width, int height);
-/** Draw one frame of the canvas scene. Complexity is roughly `O(object_count + grid_lines)`. */
+
+/**
+ * @brief Draw one frame of canvas content.
+ *
+ * Main flow: clear -> draw grid/axes -> draw document objects -> draw tool overlay preview.
+ *
+ * @param renderer Renderer instance.
+ * @param document Current document.
+ * @param canvas Current canvas view.
+ * @param overlay_object Tool overlay preview object (may be `NULL`).
+ * @return No return value.
+ */
 void render_system_draw(RenderSystem* renderer,
                         const Document* document,
                         const CanvasView* canvas,

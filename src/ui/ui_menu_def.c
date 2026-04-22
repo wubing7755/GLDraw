@@ -78,6 +78,12 @@ static MenuItemDef g_menu_items[] = {
  * @brief Get the number of menu item definitions.
  * @return Total count of entries in the menu definition table.
  */
+
+/**
+ * @brief Gets the number of menu item definitions.
+ * @param void No parameters.
+ * @return Menu definition count.
+ */
 int ui_menu_def_count(void)
 {
     return (int)(sizeof(g_menu_items) / sizeof(g_menu_items[0]));
@@ -86,6 +92,12 @@ int ui_menu_def_count(void)
 /**
  * @brief Get the menu item definition table.
  * @return Pointer to the static menu item array.
+ */
+
+/**
+ * @brief Gets the menu item definition table.
+ * @param void No parameters.
+ * @return Pointer to menu definition array.
  */
 const MenuItemDef* ui_menu_def_items(void)
 {

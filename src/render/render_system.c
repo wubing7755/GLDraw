@@ -65,7 +65,11 @@ struct RenderSystem {
     unsigned int debug_frame_counter;
 };
 
-/** Log and drain all pending GL errors for a render stage marker. */
+/**
+ * @brief Log any pending GL errors.
+ * @param stage Label describing the stage where the error check occurs.
+ * @return No return value.
+ */
 static void log_gl_error_if_any(const char* stage)
 {
     GLenum error_code = glGetError();
@@ -84,7 +88,17 @@ static void log_gl_error_if_any(const char* stage)
     }
 }
 
-/** KHR_debug callback used in debug builds for richer driver diagnostics. */
+/**
+ * @brief GL debug message callback.
+ * @param source GL message source.
+ * @param type GL message type.
+ * @param id GL message ID.
+ * @param severity GL message severity.
+ * @param length Message length.
+ * @param message Message string.
+ * @param user_param User parameter.
+ * @return No return value.
+ */
 static void APIENTRY render_debug_callback(GLenum source,
                                            GLenum type,
                                            GLuint id,
@@ -113,7 +127,11 @@ static void APIENTRY render_debug_callback(GLenum source,
 #endif
 }
 
-/** Debug-only lightweight frame stats log with throttling to avoid console spam. */
+/**
+ * @brief Log frame statistics every 120 frames (debug builds only).
+ * @param renderer Renderer instance.
+ * @return No return value.
+ */
 static void render_log_frame_stats(const RenderSystem* renderer)
 {
 #if !defined(NDEBUG)
@@ -136,7 +154,11 @@ static void render_log_frame_stats(const RenderSystem* renderer)
 #endif
 }
 
-/** Read shader source text file into heap buffer. */
+/**
+ * @brief Read a text file into a heap-allocated buffer.
+ * @param path File path.
+ * @return Newly allocated buffer on success, `NULL` on failure.
+ */
 static char* read_text_file(const char* path)
 {
     FILE* file = fopen(path, "rb");
@@ -164,7 +186,13 @@ static char* read_text_file(const char* path)
     return buffer;
 }
 
-/** Compile one shader stage from source; returns 0 on compile failure. */
+/**
+ * @brief Compile a shader from source string.
+ * @param type Shader type (GL_VERTEX_SHADER or GL_FRAGMENT_SHADER).
+ * @param source Shader source code.
+ * @param label Human-readable label for error messages.
+ * @return Shader handle on success, `0` on failure.
+ */
 static GLuint compile_shader(GLenum type, const char* source, const char* label)
 {
     GLuint shader = glCreateShader(type);
@@ -186,7 +214,12 @@ static GLuint compile_shader(GLenum type, const char* source, const char* label)
     return shader;
 }
 
-/** Load, compile, and link shader program; returns 0 on failure. */
+/**
+ * @brief Load a shader program from vertex and fragment source files.
+ * @param vertex_path Path to vertex shader file.
+ * @param fragment_path Path to fragment shader file.
+ * @return Program handle on success, `0` on failure.
+ */
 static GLuint load_program(const char* vertex_path, const char* fragment_path)
 {
     char* vertex_source = read_text_file(vertex_path);
@@ -246,6 +279,16 @@ static GLuint load_program(const char* vertex_path, const char* fragment_path)
  * Risk note:
  * - Uses `realloc`; on failure old buffers remain valid and unchanged.
  */
+
+/**
+ * @brief Ensure CPU screen-vertex buffer can store requested vertex count.
+ * @param renderer Renderer instance.
+ * @param vertex_count Requested vertex count.
+ * @return `1` on success, `0` on allocation failure.
+ *
+ * Risk note:
+ * - Uses `realloc`; on failure old buffers remain valid and unchanged.
+ */
 static int ensure_screen_vertex_capacity(RenderSystem* renderer, size_t vertex_count)
 {
     size_t required_vertex_capacity = vertex_count * RENDER_VERTEX_STRIDE_FLOATS;
@@ -262,7 +305,12 @@ static int ensure_screen_vertex_capacity(RenderSystem* renderer, size_t vertex_c
     return 1;
 }
 
-/** Ensure world-space path buffer can store requested point count. */
+/**
+ * @brief Ensure path buffer can store requested point count.
+ * @param renderer Renderer instance.
+ * @param point_count Requested point count.
+ * @return `1` on success, `0` on allocation failure.
+ */
 static int ensure_path_capacity(RenderSystem* renderer, size_t point_count)
 {
     if (point_count > renderer->path_buffer_capacity) {
@@ -277,7 +325,12 @@ static int ensure_path_capacity(RenderSystem* renderer, size_t point_count)
     return 1;
 }
 
-/** Ensure GPU vertex buffer can store the current batch without reallocation on every draw. */
+/**
+ * @brief Ensure GPU VBO can store requested vertex count.
+ * @param renderer Renderer instance.
+ * @param vertex_count Requested vertex count.
+ * @return `1` on success, `0` if renderer is `NULL`.
+ */
 static int ensure_gpu_vertex_capacity(RenderSystem* renderer, size_t vertex_count)
 {
     size_t required_vertex_capacity = vertex_count * RENDER_VERTEX_STRIDE_FLOATS;
@@ -298,7 +351,13 @@ static int ensure_gpu_vertex_capacity(RenderSystem* renderer, size_t vertex_coun
     return 1;
 }
 
-/** Append one colored screen-space vertex into the CPU staging buffer. */
+/**
+ * @brief Write a vertex into the CPU buffer at the cursor position.
+ * @param cursor [in,out] Write cursor pointer.
+ * @param screen Screen coordinate.
+ * @param color Vertex color.
+ * @return No return value.
+ */
 static void write_screen_vertex(float** cursor, Vec2 screen, Color color)
 {
     *(*cursor)++ = screen.x;
@@ -309,13 +368,22 @@ static void write_screen_vertex(float** cursor, Vec2 screen, Color color)
     *(*cursor)++ = color.a;
 }
 
-/** Normalize line-strip draws to line segments so multiple paths can share one batch. */
+/**
+ * @brief Normalize primitive type for batching.
+ * @param primitive GL primitive type.
+ * @return GL primitive type suitable for batching.
+ */
 static GLenum batch_primitive_for(GLenum primitive)
 {
     return (primitive == GL_LINE_STRIP) ? GL_LINES : primitive;
 }
 
-/** Return the number of staged vertices needed for one batched line draw. */
+/**
+ * @brief Compute how many vertices a primitive type will add to the batch.
+ * @param primitive GL primitive type.
+ * @param point_count Number of points.
+ * @return Number of vertices that will be batched.
+ */
 static int batch_vertex_count_for(GLenum primitive, int point_count)
 {
     if (point_count <= 0) {
@@ -329,7 +397,12 @@ static int batch_vertex_count_for(GLenum primitive, int point_count)
     return point_count;
 }
 
-/** Upload staged screen-space vertices into the dynamic VBO. */
+/**
+ * @brief Upload batched vertices to GPU.
+ * @param renderer Renderer instance.
+ * @param vertex_count Number of vertices to upload.
+ * @return `1` on success, `0` on failure.
+ */
 static int upload_vertices(RenderSystem* renderer, int vertex_count)
 {
     if (!renderer || vertex_count <= 0) {
@@ -348,7 +421,11 @@ static int upload_vertices(RenderSystem* renderer, int vertex_count)
     return 1;
 }
 
-/** Reset frame-local batch state and counters. */
+/**
+ * @brief Begin a new frame batch, resetting batch state.
+ * @param renderer Renderer instance.
+ * @return No return value.
+ */
 static void begin_frame_batch(RenderSystem* renderer)
 {
     if (!renderer) {
@@ -362,7 +439,14 @@ static void begin_frame_batch(RenderSystem* renderer)
     renderer->frame_uploads = 0;
 }
 
-/** Return whether the requested line draw can be appended to the current frame batch. */
+/**
+ * @brief Check whether a new batch can be appended to the current batch.
+ * @param renderer Renderer instance.
+ * @param primitive GL primitive type.
+ * @param line_width Line width.
+ * @param append_vertices Number of vertices to append.
+ * @return `1` if appendable, `0` otherwise.
+ */
 static int can_append_line_batch(RenderSystem* renderer,
                                  GLenum primitive,
                                  float line_width,
@@ -383,7 +467,13 @@ static int can_append_line_batch(RenderSystem* renderer,
            fabsf(renderer->current_line_width - effective_line_width) <= 0.01f;
 }
 
-/** Upload and draw the currently staged line batch, if any. */
+/**
+ * @brief Submit and draw the current batched cache.
+ * @param renderer [in,out] Renderer.
+ * @return No return value.
+ *
+ * @note Only triggers upload and draw when `batched_vertex_count > 0`, then resets batch state.
+ */
 static void flush_batch(RenderSystem* renderer)
 {
     if (!renderer || renderer->batched_vertex_count <= 0) {
@@ -402,7 +492,17 @@ static void flush_batch(RenderSystem* renderer)
     renderer->batched_vertex_count = 0;
 }
 
-/** Append line vertices into the current frame batch without drawing immediately. */
+/**
+ * @brief Add line vertices to the current batch.
+ * @param renderer Renderer instance.
+ * @param canvas Canvas view.
+ * @param points Point array.
+ * @param count Point count.
+ * @param color Line color.
+ * @param primitive GL primitive type.
+ * @param line_width Line width.
+ * @return `1` on success, `0` on failure.
+ */
 static int append_line_vertices(RenderSystem* renderer,
                                 const CanvasView* canvas,
                                 const Vec2* points,
@@ -449,13 +549,26 @@ static int append_line_vertices(RenderSystem* renderer,
     return 1;
 }
 
-/** Flush any remaining frame batch at the end of the render pass. */
+/**
+ * @brief End the frame batch, flushing any remaining batched content.
+ * @param renderer Renderer instance.
+ * @return No return value.
+ */
 static void end_frame_batch(RenderSystem* renderer)
 {
     flush_batch(renderer);
 }
 
-/** Draw one polyline path. */
+/**
+ * @brief Draw a polyline/line-strip path.
+ * @param renderer [in,out] Renderer.
+ * @param canvas [in] Canvas view.
+ * @param points [in] Path point array.
+ * @param count [in] Point count.
+ * @param color [in] Line color.
+ * @param line_width [in] Line width.
+ * @return No return value.
+ */
 static void draw_polyline(RenderSystem* renderer,
                           const CanvasView* canvas,
                           const Vec2* points,
@@ -476,7 +589,13 @@ static void draw_polyline(RenderSystem* renderer,
     append_line_vertices(renderer, canvas, points, count, color, GL_LINE_STRIP, line_width);
 }
 
-/** Count regularly spaced grid lines across one visible axis span. */
+/**
+ * @brief Count grid lines between start and end at the given spacing.
+ * @param start Start coordinate.
+ * @param end End coordinate.
+ * @param spacing Grid spacing.
+ * @return Number of grid lines.
+ */
 static int count_grid_lines(float start, float end, float spacing)
 {
     int count = 0;
@@ -495,7 +614,18 @@ static int count_grid_lines(float start, float end, float spacing)
     return count;
 }
 
-/** Draw world grid and axis lines in currently visible world rectangle. */
+/**
+ * @brief Draw the grid and axes for the current visible area.
+ * @param renderer [in,out] Renderer.
+ * @param canvas [in] Canvas view.
+ * @return No return value.
+ *
+ * Algorithm:
+ * 1. Compute visible world rectangle and grid start/end coordinates;
+ * 2. Batch-generate vertical/horizontal grid line segment endpoints;
+ * 3. Append to line batch;
+ * 4. Also draw X/Y axis highlight lines.
+ */
 static void draw_grid(RenderSystem* renderer, const CanvasView* canvas)
 {
     RectF visible = canvas_view_visible_world_rect(canvas);
@@ -551,7 +681,14 @@ static void draw_grid(RenderSystem* renderer, const CanvasView* canvas)
     append_line_vertices(renderer, canvas, axis_points, 4, axis_color, GL_LINES, 1.5f);
 }
 
-/** Draw one object path with optional selection highlight underlay. */
+/**
+ * @brief Draw a single graphic object.
+ * @param renderer Renderer instance.
+ * @param canvas Canvas view.
+ * @param object Object to draw.
+ * @param selected Whether the object is selected (adds highlight).
+ * @return No return value.
+ */
 static void draw_object(RenderSystem* renderer,
                         const CanvasView* canvas,
                         const GraphicObject* object,
@@ -573,6 +710,15 @@ static void draw_object(RenderSystem* renderer,
 
 /**
  * @brief Convert canvas viewport to GL scissor box.
+ * @return `1` when resulting scissor area is valid and non-empty, else `0`.
+ */
+
+/**
+ * @brief Convert canvas viewport to GL scissor box.
+ * @param viewport Canvas viewport rectangle.
+ * @param framebuffer_width Framebuffer width.
+ * @param framebuffer_height Framebuffer height.
+ * @param out_scissor [out] Output scissor box (x, y, w, h).
  * @return `1` when resulting scissor area is valid and non-empty, else `0`.
  */
 static int render_canvas_scissor_box(const RectF* viewport, int framebuffer_width, int framebuffer_height, GLint out_scissor[4])
@@ -622,7 +768,11 @@ static int render_canvas_scissor_box(const RectF* viewport, int framebuffer_widt
     return 1;
 }
 
-/** Create renderer resources and configure OpenGL state. */
+/**
+ * @brief Create the rendering system and initialize GPU resources.
+ * @param window Already-initialized platform window.
+ * @return Renderer instance on success, `NULL` on failure.
+ */
 RenderSystem* render_system_create(PlatformWindow* window)
 {
     RenderSystem* renderer = (RenderSystem*)calloc(1, sizeof(*renderer));
@@ -696,7 +846,11 @@ RenderSystem* render_system_create(PlatformWindow* window)
     return renderer;
 }
 
-/** Destroy renderer-owned GL objects and heap buffers. */
+/**
+ * @brief Destroy the rendering system and release GPU/heap resources.
+ * @param renderer Renderer instance.
+ * @return No return value.
+ */
 void render_system_destroy(RenderSystem* renderer)
 {
     if (!renderer) {
@@ -711,7 +865,13 @@ void render_system_destroy(RenderSystem* renderer)
     free(renderer);
 }
 
-/** Update viewport and shader uniform after framebuffer resize. */
+/**
+ * @brief Handle window resize events.
+ * @param renderer Renderer instance.
+ * @param width New width in pixels.
+ * @param height New height in pixels.
+ * @return No return value.
+ */
 void render_system_resize(RenderSystem* renderer, int width, int height)
 {
     if (!renderer) {
@@ -730,6 +890,11 @@ void render_system_resize(RenderSystem* renderer, int width, int height)
 
 /**
  * @brief Render full canvas frame.
+ * @param renderer [in,out] Renderer.
+ * @param document [in] Document object collection.
+ * @param canvas [in] Canvas view.
+ * @param overlay_object [in] Tool overlay preview object (may be `NULL`).
+ * @return No return value.
  *
  * Why preserve scissor state:
  * - UI and renderer may share context state; previous scissor state is restored

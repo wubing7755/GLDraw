@@ -1,3 +1,7 @@
+/**
+ * @file ui_menu_actions.h
+ * @brief Menu action dispatch interface.
+ */
 #ifndef GLDRAW_UI_UI_MENU_ACTIONS_H
 #define GLDRAW_UI_UI_MENU_ACTIONS_H
 
@@ -6,28 +10,17 @@
 struct Workspace;
 
 /**
- * @file ui_menu_actions.h
- * @brief Menu action handler interface.
- *
- * This module provides centralized menu action handling.
- * All menu item clicks are routed through `ui_menu_execute()`
- * which dispatches to the appropriate handler.
- */
-
-/**
- * @brief Execute a menu action.
- * @param workspace [in,out] The workspace to operate on.
- * @param id [in] The menu item ID to execute.
- *
- * Routes the menu ID to the appropriate handler function.
- * This is the single entry point for all menu actions.
+ * @brief Executes the specified menu action.
+ * @param workspace Workspace instance.
+ * @param id Menu action ID.
+ * @return None.
  */
 void ui_menu_execute(struct Workspace* workspace, MenuId id);
 
 /**
- * @brief Check whether a menu action is currently implemented and available.
- * @param id [in] Menu item ID.
- * @return Non-zero if available, zero if it should be disabled in UI.
+ * @brief Checks if menu action is currently available.
+ * @param id Menu action ID.
+ * @return Non-zero if available, 0 if unavailable.
  */
 int ui_menu_is_action_available(MenuId id);
 

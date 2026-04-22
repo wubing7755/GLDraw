@@ -58,7 +58,11 @@ static HistoryInternals* g_history_internals_head = NULL;
 static void history_entry_free(DocumentHistoryEntry* entry);
 static void history_entry_reset(DocumentHistoryEntry* entry);
 
-/** Find internal sidecar metadata for one history instance. */
+/**
+ * @brief Finds internal history state.
+ * @param history Document history instance.
+ * @return Internal state or NULL.
+ */
 static HistoryInternals* history_find_internals(const DocumentHistory* history)
 {
     HistoryInternals* cursor = g_history_internals_head;
@@ -71,7 +75,11 @@ static HistoryInternals* history_find_internals(const DocumentHistory* history)
     return NULL;
 }
 
-/** Free sidecar metadata arrays for one history instance. */
+/**
+ * @brief Frees internal history state.
+ * @param internals Internal state to free.
+ * @return None.
+ */
 static void history_free_internals(HistoryInternals* internals)
 {
     if (!internals) {
@@ -92,7 +100,11 @@ static void history_free_internals(HistoryInternals* internals)
     internals->redo_transform_edits = NULL;
 }
 
-/** Remove and destroy sidecar metadata for history. */
+/**
+ * @brief Unregisters internal history state.
+ * @param history Document history instance.
+ * @return None.
+ */
 static void history_unregister_internals(DocumentHistory* history)
 {
     HistoryInternals* prev = NULL;
@@ -114,7 +126,11 @@ static void history_unregister_internals(DocumentHistory* history)
     }
 }
 
-/** Allocate and register sidecar metadata arrays for history. */
+/**
+ * @brief Registers internal history state.
+ * @param history Document history instance.
+ * @return 1 on success, 0 on failure.
+ */
 static int history_register_internals(DocumentHistory* history)
 {
     HistoryInternals* internals = NULL;
@@ -153,13 +169,22 @@ static int history_register_internals(DocumentHistory* history)
     return 1;
 }
 
-/** Get sidecar metadata for history. */
+/**
+ * @brief Gets internal history state.
+ * @param history Document history instance.
+ * @return Internal state or NULL.
+ */
 static HistoryInternals* history_get_internals(const DocumentHistory* history)
 {
     return history_find_internals(history);
 }
 
-/** Move snapshot ownership from `src` to `dst`. Complexity: `O(1)`. */
+/**
+ * @brief Moves a snapshot (transferring ownership).
+ * @param dst Destination snapshot.
+ * @param src Source snapshot.
+ * @return None.
+ */
 static void snapshot_move(DocumentSnapshot* dst, DocumentSnapshot* src)
 {
     document_snapshot_free(dst);
@@ -172,7 +197,12 @@ static void snapshot_move(DocumentSnapshot* dst, DocumentSnapshot* src)
     src->selection.count = 0;
 }
 
-/** Find target object for scalar edit by stable ID. */
+/**
+ * @brief Finds an object by ID for scalar edit operations.
+ * @param document Document instance.
+ * @param id Object ID.
+ * @return Object pointer or NULL.
+ */
 static GraphicObject* history_find_scalar_object(Document* document, ObjectId id)
 {
     if (!document || id == 0) {
@@ -181,7 +211,12 @@ static GraphicObject* history_find_scalar_object(Document* document, ObjectId id
     return document_find_object(document, id);
 }
 
-/** Apply scalar-edit undo by writing previous value to the same object/key. */
+/**
+ * @brief Applies scalar edit undo.
+ * @param document Document instance.
+ * @param edit Scalar edit to undo.
+ * @return 1 on success, 0 on failure.
+ */
 static int history_apply_scalar_edit_undo(Document* document, const HistoryScalarEdit* edit)
 {
     GraphicObject* object = history_find_scalar_object(document, edit ? edit->object_id : 0);
@@ -196,7 +231,12 @@ static int history_apply_scalar_edit_undo(Document* document, const HistoryScala
     return 1;
 }
 
-/** Apply scalar-edit redo by writing new value to the same object/key. */
+/**
+ * @brief Applies scalar edit redo.
+ * @param document Document instance.
+ * @param edit Scalar edit to redo.
+ * @return 1 on success, 0 on failure.
+ */
 static int history_apply_scalar_edit_redo(Document* document, const HistoryScalarEdit* edit)
 {
     GraphicObject* object = history_find_scalar_object(document, edit ? edit->object_id : 0);
@@ -211,7 +251,14 @@ static int history_apply_scalar_edit_redo(Document* document, const HistoryScala
     return 1;
 }
 
-/** Apply one transform edit by translating all recorded objects with `delta`. */
+/**
+ * @brief Applies a transform edit.
+ * @param document Document instance.
+ * @param edit Transform edit data.
+ * @param delta Translation delta.
+ * @param target_revision Target revision number.
+ * @return 1 on success, 0 on failure.
+ */
 static int history_apply_transform(Document* document,
                                    const HistoryTransformEdit* edit,
                                    Vec2 delta,
@@ -235,7 +282,12 @@ static int history_apply_transform(Document* document,
     return 1;
 }
 
-/** Apply transform edit undo (reverse delta). */
+/**
+ * @brief Applies transform edit undo.
+ * @param document Document instance.
+ * @param edit Transform edit to undo.
+ * @return 1 on success, 0 on failure.
+ */
 static int history_apply_transform_edit_undo(Document* document, const HistoryTransformEdit* edit)
 {
     Vec2 undo_delta = {0.0f, 0.0f};
@@ -249,7 +301,12 @@ static int history_apply_transform_edit_undo(Document* document, const HistoryTr
     return history_apply_transform(document, edit, undo_delta, edit->revision_before);
 }
 
-/** Apply transform edit redo (forward delta). */
+/**
+ * @brief Applies transform edit redo.
+ * @param document Document instance.
+ * @param edit Transform edit to redo.
+ * @return 1 on success, 0 on failure.
+ */
 static int history_apply_transform_edit_redo(Document* document, const HistoryTransformEdit* edit)
 {
     if (!edit) {
@@ -258,7 +315,25 @@ static int history_apply_transform_edit_redo(Document* document, const HistoryTr
     return history_apply_transform(document, edit, edit->delta, edit->revision_after);
 }
 
-/** Push one scalar edit entry to undo stack and clear redo chain. */
+/**
+ * @brief Records a scalar property edit and pushes to undo stack.
+ *
+ * Algorithm steps:
+ * 1. Constructs HistoryScalarEdit payload.
+ * 2. Clears redo stack (new branch).
+ * 3. Evicts oldest undo entry if needed.
+ * 4. Writes new entry to end of undo stack.
+ *
+ * @param history [in,out] History instance.
+ * @param document [in] Current document for validation.
+ * @param object_id [in] Object ID.
+ * @param key [in] Property key.
+ * @param before_value [in] Value before change.
+ * @param after_value [in] Value after change.
+ * @param revision_before [in] Revision before change.
+ * @param revision_after [in] Revision after change.
+ * @return 1 on success, 0 on failure.
+ */
 static int history_push_scalar_edit(DocumentHistory* history,
                                     const Document* document,
                                     ObjectId object_id,
@@ -316,7 +391,18 @@ static int history_push_scalar_edit(DocumentHistory* history,
     return 1;
 }
 
-/** Push one transform edit entry to undo stack and clear redo chain. */
+/**
+ * @brief Records a translate edit and pushes to undo stack.
+ *
+ * @param history [in,out] History instance.
+ * @param document [in] Current document.
+ * @param object_ids [in] Array of object IDs to translate.
+ * @param object_count [in] Number of objects.
+ * @param delta [in] Translation vector.
+ * @param revision_before [in] Revision before change.
+ * @param revision_after [in] Revision after change.
+ * @return 1 on success, 0 on failure.
+ */
 static int history_push_transform_edit(DocumentHistory* history,
                                        const Document* document,
                                        const ObjectId* object_ids,
@@ -375,14 +461,22 @@ static int history_push_transform_edit(DocumentHistory* history,
     return 1;
 }
 
-/** Free both snapshots in a history entry. Complexity: `O(n_before + n_after)`. */
+/**
+ * @brief Frees a history entry.
+ * @param entry History entry to free.
+ * @return None.
+ */
 static void history_entry_free(DocumentHistoryEntry* entry)
 {
     document_snapshot_free(&entry->before);
     document_snapshot_free(&entry->after);
 }
 
-/** Reset history entry to empty snapshots. Complexity: `O(1)`. */
+/**
+ * @brief Resets a history entry.
+ * @param entry History entry to reset.
+ * @return None.
+ */
 static void history_entry_reset(DocumentHistoryEntry* entry)
 {
     if (!entry) {
@@ -393,7 +487,11 @@ static void history_entry_reset(DocumentHistoryEntry* entry)
     document_snapshot_init(&entry->after);
 }
 
-/** Allocate and initialize history entry array. Complexity: `O(capacity)`. */
+/**
+ * @brief Allocates history entries.
+ * @param capacity Number of entries to allocate.
+ * @return Allocated entries or NULL.
+ */
 static DocumentHistoryEntry* history_alloc_entries(int capacity)
 {
     DocumentHistoryEntry* entries = NULL;
@@ -416,8 +514,10 @@ static DocumentHistoryEntry* history_alloc_entries(int capacity)
 }
 
 /**
- * @brief Replace document contents with deep-cloned snapshot objects.
- * @return `1` on success, `0` on validation/allocation/clone failure.
+ * @brief Replaces document contents with deep-cloned snapshot objects.
+ * @param document [in,out] Target document.
+ * @param snapshot [in] Snapshot data.
+ * @return 1 on success, 0 on validation/allocation/clone failure.
  *
  * Risk note:
  * - Uses temporary clone array first; document is only replaced after all clones
@@ -469,7 +569,11 @@ static int document_restore_snapshot(Document* document, const DocumentSnapshot*
     return 1;
 }
 
-/** Initialize snapshot to zeroed state. Complexity: `O(1)`. */
+/**
+ * @brief Initializes a document snapshot.
+ * @param snapshot Snapshot to initialize.
+ * @return None.
+ */
 void document_snapshot_init(DocumentSnapshot* snapshot)
 {
     if (snapshot) {
@@ -477,7 +581,11 @@ void document_snapshot_init(DocumentSnapshot* snapshot)
     }
 }
 
-/** Free heap memory owned by snapshot. Complexity: `O(n)`. */
+/**
+ * @brief Frees a document snapshot.
+ * @param snapshot Snapshot to free.
+ * @return None.
+ */
 void document_snapshot_free(DocumentSnapshot* snapshot)
 {
     int i = 0;
@@ -498,7 +606,14 @@ void document_snapshot_free(DocumentSnapshot* snapshot)
     snapshot->next_id = 0;
 }
 
-/** Capture deep copy of document into snapshot. Complexity: `O(n)`. */
+/**
+ * @brief Deep copies a document to a snapshot.
+ * @param snapshot [in,out] Target snapshot (previous content freed first).
+ * @param document [in] Source document.
+ * @return 1 on success, 0 on failure.
+ *
+ * @note Clones objects one by one; failure rolls back allocated content.
+ */
 int document_snapshot_capture(DocumentSnapshot* snapshot, const Document* document)
 {
     int i = 0;
@@ -534,7 +649,11 @@ int document_snapshot_capture(DocumentSnapshot* snapshot, const Document* docume
     return 1;
 }
 
-/** Initialize history stacks and capacity. Complexity: `O(capacity)`. */
+/**
+ * @brief Initializes document history.
+ * @param history History instance to initialize.
+ * @return 1 on success, 0 on failure.
+ */
 int document_history_init(DocumentHistory* history)
 {
     if (!history) {
@@ -560,7 +679,11 @@ int document_history_init(DocumentHistory* history)
     return 1;
 }
 
-/** Free all history entries and internal arrays. Complexity: `O(total_snapshots)`. */
+/**
+ * @brief Shuts down document history.
+ * @param history History instance.
+ * @return None.
+ */
 void document_history_shutdown(DocumentHistory* history)
 {
     int i = 0;
@@ -586,8 +709,11 @@ void document_history_shutdown(DocumentHistory* history)
 }
 
 /**
- * @brief Push edit transaction (`before` + captured `after`) to undo stack.
- * @return `1` on success, `0` on failure.
+ * @brief Pushes edit transaction (`before` + captured `after`) to undo stack.
+ * @param history [in,out] History instance.
+ * @param before [in,out] Before snapshot (consumed/transferred ownership).
+ * @param after_document [in] After-edit document.
+ * @return 1 on success, 0 on failure.
  *
  * Why clear redo:
  * - Any new forward edit invalidates previous redo chain by definition.
@@ -651,8 +777,16 @@ int document_history_push(DocumentHistory* history, DocumentSnapshot* before, co
 }
 
 /**
- * @brief Push lightweight scalar edit transaction without capturing full document snapshots.
- * @return `1` on success, `0` on validation/allocation failure.
+ * @brief Pushes lightweight scalar edit transaction without capturing full document snapshots.
+ * @param history [in,out] History instance.
+ * @param document [in] Current document.
+ * @param object_id [in] Object ID.
+ * @param key [in] Property key.
+ * @param before_value [in] Value before change.
+ * @param after_value [in] Value after change.
+ * @param revision_before [in] Revision before change.
+ * @param revision_after [in] Revision after change.
+ * @return 1 on success, 0 on validation/allocation failure.
  */
 int document_history_push_scalar_edit(DocumentHistory* history,
                                       const Document* document,
@@ -680,8 +814,15 @@ int document_history_push_scalar_edit(DocumentHistory* history,
 }
 
 /**
- * @brief Push lightweight translate transaction for a fixed object-id set.
- * @return `1` on success, `0` on validation/allocation failure.
+ * @brief Pushes lightweight translate transaction for a fixed object-id set.
+ * @param history [in,out] History instance.
+ * @param document [in] Current document.
+ * @param object_ids [in] Object ID list.
+ * @param object_count [in] Number of objects.
+ * @param delta [in] Translation vector.
+ * @param revision_before [in] Revision before change.
+ * @param revision_after [in] Revision after change.
+ * @return 1 on success, 0 on validation/allocation failure.
  */
 int document_history_push_translate_edit(DocumentHistory* history,
                                          const Document* document,
@@ -708,7 +849,19 @@ int document_history_push_translate_edit(DocumentHistory* history,
                                        revision_after);
 }
 
-/** Undo latest transaction and move entry to redo stack. Complexity: `O(n + capacity)` worst-case. */
+/**
+ * @brief Performs one undo and moves entry to redo stack.
+ *
+ * Algorithm steps:
+ * 1. Pops top of undo stack.
+ * 2. Applies inverse operation by entry type (snapshot restore/scalar revert/translate reverse).
+ * 3. Transfers entry to redo stack.
+ * 4. Cleans up auxiliary metadata at original undo slot.
+ *
+ * @param history [in,out] History instance.
+ * @param document [in,out] Target document.
+ * @return 1 on success, 0 on failure.
+ */
 int document_history_undo(DocumentHistory* history, Document* document)
 {
     DocumentHistoryEntry entry;
@@ -764,7 +917,12 @@ int document_history_undo(DocumentHistory* history, Document* document)
     return 1;
 }
 
-/** Redo latest undone transaction and move entry back to undo stack. Complexity: `O(n + capacity)` worst-case. */
+/**
+ * @brief Performs one redo and moves entry back to undo stack.
+ * @param history [in,out] History instance.
+ * @param document [in,out] Target document.
+ * @return 1 on success, 0 on failure.
+ */
 int document_history_redo(DocumentHistory* history, Document* document)
 {
     DocumentHistoryEntry entry;
@@ -820,13 +978,21 @@ int document_history_redo(DocumentHistory* history, Document* document)
     return 1;
 }
 
-/** Check if undo stack has entries. Complexity: `O(1)`. */
+/**
+ * @brief Checks if undo is available.
+ * @param history History instance.
+ * @return 1 if undo available, 0 otherwise.
+ */
 int document_history_can_undo(const DocumentHistory* history)
 {
     return history && history->undo_count > 0;
 }
 
-/** Check if redo stack has entries. Complexity: `O(1)`. */
+/**
+ * @brief Checks if redo is available.
+ * @param history History instance.
+ * @return 1 if redo available, 0 otherwise.
+ */
 int document_history_can_redo(const DocumentHistory* history)
 {
     return history && history->redo_count > 0;

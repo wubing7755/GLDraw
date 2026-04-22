@@ -1,14 +1,6 @@
 /**
  * @file ui_system.h
- * @brief Nuklear UI system lifecycle and layout query API.
- *
- * Role in project:
- * - Builds toolbar/menu/inspector/status UI each frame.
- * - Publishes UI layout bounds used by app input filtering and canvas viewport.
- *
- * Module relationships:
- * - Created/destroyed by application runtime.
- * - Reads/writes workspace state and consumes platform window context.
+ * @brief UI system lifecycle and layout query interface.
  */
 #ifndef GLDRAW_UI_UI_SYSTEM_H
 #define GLDRAW_UI_UI_SYSTEM_H
@@ -20,27 +12,84 @@ struct Workspace;
 
 typedef struct UiSystem UiSystem;
 
-/** Create UI system for an initialized window/context. Returns `NULL` on failure. */
+/**
+ * @brief Create a UI system instance.
+ * @param window Already-initialized platform window.
+ * @return `UiSystem*` on success, `NULL` on failure.
+ */
 UiSystem* ui_system_create(PlatformWindow* window);
-/** Destroy UI resources and contexts. */
+
+/**
+ * @brief Destroy the UI system and release resources.
+ * @param ui UI system instance.
+ * @return No return value.
+ */
 void ui_system_destroy(UiSystem* ui);
-/** Begin a new UI frame (input capture/reset). */
+
+/**
+ * @brief Begin a UI frame.
+ * @param ui UI system instance.
+ * @return No return value.
+ */
 void ui_system_begin_frame(UiSystem* ui);
-/** Build all UI panels and apply workspace mutations. */
+
+/**
+ * @brief Build the entire frame UI and write back to workspace state.
+ * @param ui UI system instance.
+ * @param workspace Workspace.
+ * @return No return value.
+ */
 void ui_system_build(UiSystem* ui, struct Workspace* workspace);
-/** Render prepared UI draw commands. */
+
+/**
+ * @brief Commit UI draw commands.
+ * @param ui UI system instance.
+ * @return No return value.
+ */
 void ui_system_render(UiSystem* ui);
-/** Return non-zero when any UI widget is actively interacting. */
+
+/**
+ * @brief Query whether the UI has an ongoing interaction.
+ * @param ui UI system instance.
+ * @return Non-zero if an interaction is in progress, zero otherwise.
+ */
 int ui_system_has_active_interaction(const UiSystem* ui);
-/** Return non-zero when a screen point is over UI-occupied regions. */
+
+/**
+ * @brief Check whether the screen point is intercepted by the UI region.
+ * @param ui UI system instance.
+ * @param screen_pos Screen coordinate point.
+ * @return Non-zero if intercepted by the UI region, zero otherwise.
+ */
 int ui_system_blocks_pointer(const UiSystem* ui, Vec2 screen_pos);
-/** Get clamped UI-published window bounds used for hit testing and viewport fallback. */
+
+/**
+ * @brief Get window hit-test bounds.
+ * @param ui UI system instance.
+ * @return Window boundary rectangle.
+ */
 RectF ui_system_window_bounds(const UiSystem* ui);
-/** Get computed content area available for canvas. */
+
+/**
+ * @brief Get canvas content area bounds.
+ * @param ui UI system instance.
+ * @return Content area rectangle.
+ */
 RectF ui_system_content_bounds(const UiSystem* ui);
-/** Return non-zero when screen point lies inside canvas content region. */
+
+/**
+ * @brief Check whether a point lies inside the canvas content area.
+ * @param ui UI system instance.
+ * @param screen_pos Screen coordinate point.
+ * @return Non-zero if inside the canvas region, zero otherwise.
+ */
 int ui_system_point_in_canvas(const UiSystem* ui, Vec2 screen_pos);
-/** Get canvas background color derived from active theme. */
+
+/**
+ * @brief Get the canvas background color for the current theme.
+ * @param ui UI system instance.
+ * @return Canvas background color.
+ */
 Color ui_system_canvas_background(const UiSystem* ui);
 
 #endif /* GLDRAW_UI_UI_SYSTEM_H */
