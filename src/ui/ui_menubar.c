@@ -58,19 +58,28 @@ typedef struct UiQuickActionDef {
     const char* label;
     MenuId menu_id;
     float width;
+    const char* tooltip;
 } UiQuickActionDef;
 
 static const UiQuickActionDef g_quick_actions[] = {
-    { "New", MENU_ID_FILE_NEW, 48.0f },
-    { "Open", MENU_ID_FILE_OPEN, 52.0f },
-    { "Save", MENU_ID_FILE_SAVE, 52.0f },
-    { "Undo", MENU_ID_EDIT_UNDO, 52.0f },
-    { "Redo", MENU_ID_EDIT_REDO, 52.0f },
-    { "+", MENU_ID_VIEW_ZOOM_IN, 30.0f },
-    { "-", MENU_ID_VIEW_ZOOM_OUT, 30.0f },
-    { "Fit", MENU_ID_VIEW_ZOOM_FIT, 40.0f },
+    { "New", MENU_ID_FILE_NEW, 48.0f, "Create new document (Ctrl+N)" },
+    { "Open", MENU_ID_FILE_OPEN, 52.0f, "Open document (Ctrl+O)" },
+    { "Save", MENU_ID_FILE_SAVE, 52.0f, "Save document (Ctrl+S)" },
+    { "Undo", MENU_ID_EDIT_UNDO, 52.0f, "Undo (Ctrl+Z)" },
+    { "Redo", MENU_ID_EDIT_REDO, 52.0f, "Redo (Ctrl+Y)" },
+    { "+", MENU_ID_VIEW_ZOOM_IN, 30.0f, "Zoom in (Ctrl++)" },
+    { "-", MENU_ID_VIEW_ZOOM_OUT, 30.0f, "Zoom out (Ctrl+-)" },
+    { "Fit", MENU_ID_VIEW_ZOOM_FIT, 40.0f, "Zoom to fit (Ctrl+0)" },
 };
 
+/**
+ * @brief Builds menu item text with shortcut.
+ * @param workspace Workspace instance.
+ * @param out_text Output text buffer.
+ * @param out_size Buffer size.
+ * @param item Menu item definition.
+ * @return None.
+ */
 static void ui_build_menu_item_text(const Workspace* workspace,
                                     char* out_text,
                                     size_t out_size,
@@ -307,6 +316,11 @@ static int ui_render_dropdown(struct nk_context* ctx, Workspace* workspace, int 
     return clicked_id;
 }
 
+/**
+ * @brief Render the theme dropdown menu.
+ * @param menubar Menu bar instance.
+ * @return Selected theme index, or `-1` if unchanged.
+ */
 static int ui_render_theme_dropdown(UiMenuBar* menubar)
 {
     struct nk_context* ctx = NULL;
@@ -345,6 +359,13 @@ static int ui_render_theme_dropdown(UiMenuBar* menubar)
     return -1;
 }
 
+/**
+ * @brief Render one top-level menu and return any clicked action id.
+ * @param menubar Menu bar instance.
+ * @param workspace Workspace instance.
+ * @param menu Top-level menu definition.
+ * @return Clicked menu item id, or `-1` if no action was triggered.
+ */
 static int ui_render_top_menu(UiMenuBar* menubar, Workspace* workspace, const UiTopMenuDef* menu)
 {
     struct nk_context* ctx = NULL;
@@ -374,6 +395,13 @@ static int ui_render_top_menu(UiMenuBar* menubar, Workspace* workspace, const Ui
     return clicked_id;
 }
 
+/**
+ * @brief Dispatch the clicked menu action.
+ * @param menubar Menu bar instance.
+ * @param workspace Workspace instance.
+ * @param clicked_id Clicked menu action id.
+ * @return None.
+ */
 static void ui_dispatch_menu_action(UiMenuBar* menubar, Workspace* workspace, int clicked_id)
 {
     if (!menubar || !workspace || clicked_id == -1) {

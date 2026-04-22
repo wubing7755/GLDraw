@@ -8,8 +8,7 @@
  *
  * Module relationships:
  * - Uses workspace as central state container.
- * - Coordinates platform window, render system, UI system, tools, and
- * persistence.
+ * - Coordinates platform window, render system, UI system, tools, and persistence.
  */
 #include <app/application.h>
 
@@ -77,8 +76,11 @@ static void app_set_status(Application *app, const char *fmt, ...) {
   va_end(args);
 }
 
-/** Check if file exists by opening it in read-binary mode. Complexity: `O(1)`
- * (metadata + open). */
+/**
+ * @brief Check if a file exists at the given path.
+ * @param path File path string.
+ * @return `1` if the file exists, `0` otherwise.
+ */
 static int app_file_exists(const char *path) {
   FILE *file = NULL;
 
@@ -95,12 +97,17 @@ static int app_file_exists(const char *path) {
   return 1;
 }
 
-/** Return fallback document path used when workspace path is empty. Complexity:
- * `O(1)`. */
+/**
+ * @brief Get the default document path.
+ * @return Default document path string.
+ */
 static const char *app_default_document_path(void) { return "document.json"; }
 
-/** Resolve active document path (workspace path or default). Complexity:
- * `O(1)`. */
+/**
+ * @brief Get the current document path from workspace state.
+ * @param app Application instance.
+ * @return Current document path string.
+ */
 static const char *app_current_document_path(const Application *app) {
   if (app->workspace.current_document_path[0] != '\0') {
     return app->workspace.current_document_path;
@@ -130,8 +137,11 @@ static void app_set_document_path(Application *app, const char *path) {
                              1u] = '\0';
 }
 
-/** Reset tool controller runtime state after major document changes.
- * Complexity: `O(tool_count)`. */
+/**
+ * @brief Reset tool controller state.
+ * @param app Application instance.
+ * @return No return value.
+ */
 static void app_reset_tool_state(Application *app) {
   if (!app) {
     return;
@@ -242,13 +252,23 @@ static int app_exit_application(Application *app) {
   return 1;
 }
 
-/** Workspace save callback adapter. Complexity: same as `app_save_document`. */
+/**
+ * @brief Workspace save callback.
+ * @param workspace Workspace (unused, accessed via user_data).
+ * @param user_data Application instance.
+ * @return `1` on success, `0` on failure.
+ */
 static int app_workspace_save(Workspace *workspace, void *user_data) {
   (void)workspace;
   return app_save_document((Application *)user_data);
 }
 
-/** Workspace load callback adapter. Complexity: same as `app_load_document`. */
+/**
+ * @brief Workspace load callback.
+ * @param workspace Workspace (unused, accessed via user_data).
+ * @param user_data Application instance.
+ * @return `1` on success, `0` on failure.
+ */
 static int app_workspace_load(Workspace *workspace, void *user_data) {
   (void)workspace;
   return app_load_document((Application *)user_data);
@@ -273,8 +293,11 @@ static int app_workspace_execute_action(Workspace *workspace,
   }
 }
 
-/** Load startup document if present; otherwise keep empty document. Complexity:
- * `O(file_size)` when file exists. */
+/**
+ * @brief Open the startup document if it exists.
+ * @param app Application instance.
+ * @return No return value.
+ */
 static void app_open_startup_document(Application *app) {
   const char *path = app_current_document_path(app);
 
@@ -292,8 +315,11 @@ static void app_open_startup_document(Application *app) {
   app_set_status(app, "New empty document");
 }
 
-/** Build tool context struct from application-owned workspace pointers.
- * Complexity: `O(1)`. */
+/**
+ * @brief Build a tool context from application-owned workspace pointers.
+ * @param app Application instance.
+ * @return Tool context value.
+ */
 static ToolContext app_tool_context(Application *app) {
   ToolContext context;
   context.workspace = &app->workspace;
@@ -310,8 +336,6 @@ static ToolContext app_tool_context(Application *app) {
  *
  * Why:
  * - Prevents accidental drawing/selection while interacting with UI widgets.
- *
- * Complexity: `O(1)`.
  */
 static int app_pointer_blocks_canvas(const Application *app, Vec2 screen_pos) {
   if (!app) {
@@ -325,8 +349,11 @@ static int app_pointer_blocks_canvas(const Application *app, Vec2 screen_pos) {
   return app->ui && !ui_system_point_in_canvas(app->ui, screen_pos);
 }
 
-/** Sync tool controller's last pointer anchor with current cursor state.
- * Complexity: `O(1)`. */
+/**
+ * @brief Sync the tool controller pointer anchor with current cursor state.
+ * @param app Application instance.
+ * @return No return value.
+ */
 static void app_sync_tool_pointer_anchor(Application *app) {
   if (!app) {
     return;
@@ -337,8 +364,11 @@ static void app_sync_tool_pointer_anchor(Application *app) {
       canvas_view_screen_to_world(&app->workspace.canvas, app->cursor_screen);
 }
 
-/** Refresh cursor-in-canvas flag for uncaptured pointer movement. Complexity:
- * `O(1)`. */
+/**
+ * @brief Refresh whether the cursor is inside the canvas area.
+ * @param app Application instance.
+ * @return No return value.
+ */
 static void app_sync_canvas_boundary(Application *app) {
   int inside_canvas = 0;
 
@@ -354,8 +384,11 @@ static void app_sync_canvas_boundary(Application *app) {
   }
 }
 
-/** Update canvas viewport and theme background from latest UI layout.
- * Complexity: `O(1)`. */
+/**
+ * @brief Update the canvas viewport from the latest UI layout snapshot.
+ * @param app Application instance.
+ * @return No return value.
+ */
 static void update_canvas_viewport(Application *app) {
   RectF viewport;
   RectF fallback_window = {0.0f, 0.0f, 1.0f, 1.0f};
@@ -391,8 +424,14 @@ static void update_canvas_viewport(Application *app) {
   app_sync_canvas_boundary(app);
 }
 
-/** Build a `ToolEvent` from current cursor and previous anchor state.
- * Complexity: `O(1)`. */
+/**
+ * @brief Build a `ToolEvent` from the current cursor and previous pointer anchor.
+ * @param app Application instance.
+ * @param button Mouse button code.
+ * @param mods Modifier key flags.
+ * @param wheel_y Scroll delta.
+ * @return Tool event value.
+ */
 static ToolEvent make_tool_event(Application *app, int button, int mods,
                                  float wheel_y) {
   ToolEvent event;
@@ -409,7 +448,12 @@ static ToolEvent make_tool_event(Application *app, int button, int mods,
   return event;
 }
 
-/** GLFW framebuffer resize callback: update viewport and renderer dimensions.
+/**
+ * @brief GLFW framebuffer resize callback.
+ * @param handle GLFW window handle.
+ * @param width New framebuffer width.
+ * @param height New framebuffer height.
+ * @return No return value.
  */
 static void framebuffer_size_callback(GLFWwindow *handle, int width,
                                       int height) {
@@ -423,8 +467,13 @@ static void framebuffer_size_callback(GLFWwindow *handle, int width,
   render_system_resize(app->renderer, width, height);
 }
 
-/** GLFW cursor callback: route pointer-move to active tool when canvas is
- * interactive. */
+/**
+ * @brief GLFW cursor movement callback.
+ * @param handle GLFW window handle.
+ * @param xpos Cursor x position in screen coordinates.
+ * @param ypos Cursor y position in screen coordinates.
+ * @return No return value.
+ */
 static void cursor_pos_callback(GLFWwindow *handle, double xpos, double ypos) {
   Application *app = (Application *)glfwGetWindowUserPointer(handle);
   ToolContext context;
@@ -448,7 +497,14 @@ static void cursor_pos_callback(GLFWwindow *handle, double xpos, double ypos) {
   tool_controller_pointer_move(&app->workspace.tools, &context, &event);
 }
 
-/** GLFW mouse callback: route press/release with pointer capture semantics. */
+/**
+ * @brief GLFW mouse button callback.
+ * @param handle GLFW window handle.
+ * @param button Mouse button code.
+ * @param action Press/release action.
+ * @param mods Modifier key flags.
+ * @return No return value.
+ */
 static void mouse_button_callback(GLFWwindow *handle, int button, int action,
                                   int mods) {
   Application *app = (Application *)glfwGetWindowUserPointer(handle);
@@ -519,7 +575,13 @@ static void key_callback(GLFWwindow *handle, int key, int scancode, int action,
   input_router_handle_key(&router_context, &event);
 }
 
-/** GLFW scroll callback: zoom canvas at cursor unless blocked by UI. */
+/**
+ * @brief GLFW scroll callback.
+ * @param handle GLFW window handle.
+ * @param xoffset Horizontal scroll delta (unused).
+ * @param yoffset Vertical scroll delta.
+ * @return No return value.
+ */
 static void scroll_callback(GLFWwindow *handle, double xoffset,
                             double yoffset) {
   Application *app = (Application *)glfwGetWindowUserPointer(handle);
