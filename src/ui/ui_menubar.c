@@ -15,6 +15,7 @@
 #include "ui_menu_def.h"
 #include "ui_menu_actions.h"
 
+#include <app/command_registry.h>
 #include <app/workspace.h>
 
 #include <glad/glad.h>
@@ -57,34 +58,38 @@ typedef struct UiQuickActionDef {
     const char* label;
     MenuId menu_id;
     float width;
-    const char* tooltip;
 } UiQuickActionDef;
 
 static const UiQuickActionDef g_quick_actions[] = {
-    { "New", MENU_ID_FILE_NEW, 48.0f, "Create new document (Ctrl+N)" },
-    { "Open", MENU_ID_FILE_OPEN, 52.0f, "Open document (Ctrl+O)" },
-    { "Save", MENU_ID_FILE_SAVE, 52.0f, "Save document (Ctrl+S)" },
-    { "Undo", MENU_ID_EDIT_UNDO, 52.0f, "Undo (Ctrl+Z)" },
-    { "Redo", MENU_ID_EDIT_REDO, 52.0f, "Redo (Ctrl+Y)" },
-    { "+", MENU_ID_VIEW_ZOOM_IN, 30.0f, "Zoom in (Ctrl++)" },
-    { "-", MENU_ID_VIEW_ZOOM_OUT, 30.0f, "Zoom out (Ctrl+-)" },
-    { "Fit", MENU_ID_VIEW_ZOOM_FIT, 40.0f, "Zoom to fit (Ctrl+0)" },
+    { "New", MENU_ID_FILE_NEW, 48.0f },
+    { "Open", MENU_ID_FILE_OPEN, 52.0f },
+    { "Save", MENU_ID_FILE_SAVE, 52.0f },
+    { "Undo", MENU_ID_EDIT_UNDO, 52.0f },
+    { "Redo", MENU_ID_EDIT_REDO, 52.0f },
+    { "+", MENU_ID_VIEW_ZOOM_IN, 30.0f },
+    { "-", MENU_ID_VIEW_ZOOM_OUT, 30.0f },
+    { "Fit", MENU_ID_VIEW_ZOOM_FIT, 40.0f },
 };
 
-/**
- * @brief Builds menu item text with shortcut.
- * @param out_text Output text buffer.
- * @param out_size Buffer size.
- * @param item Menu item definition.
- * @return None.
- */
-static void ui_build_menu_item_text(char* out_text, size_t out_size, const MenuItemDef* item)
+static void ui_build_menu_item_text(const Workspace* workspace,
+                                    char* out_text,
+                                    size_t out_size,
+                                    const MenuItemDef* item)
 {
+    char shortcut[64];
+
     if (!out_text || out_size == 0 || !item || !item->label) {
         return;
     }
 
-    if (item->shortcut && item->shortcut[0] != '\0') {
+    shortcut[0] = '\0';
+    if (workspace && item->type == MENU_ITEM_ACTION) {
+        command_registry_format_menu_shortcut(workspace, item->id, shortcut, sizeof(shortcut));
+    }
+
+    if (shortcut[0] != '\0') {
+        snprintf(out_text, out_size, "%-20s %s", item->label, shortcut);
+    } else if (item->shortcut && item->shortcut[0] != '\0') {
         snprintf(out_text, out_size, "%-20s %s", item->label, item->shortcut);
     } else {
         snprintf(out_text, out_size, "%s", item->label);
@@ -253,7 +258,7 @@ int ui_menubar_take_theme_reload_request(UiMenuBar* menubar)
  * @param parent_id [in] Parent menu ID to render children for.
  * @return Clicked menu item ID, or `-1` if no item was clicked.
  */
-static int ui_render_dropdown(struct nk_context* ctx, int parent_id)
+static int ui_render_dropdown(struct nk_context* ctx, Workspace* workspace, int parent_id)
 {
     int clicked_id = -1;
     const MenuItemDef* items = ui_menu_def_items();
@@ -283,7 +288,7 @@ static int ui_render_dropdown(struct nk_context* ctx, int parent_id)
             char menu_text[96];
             int enabled = ui_menu_is_action_available((MenuId)item->id);
 
-            ui_build_menu_item_text(menu_text, sizeof(menu_text), item);
+            ui_build_menu_item_text(workspace, menu_text, sizeof(menu_text), item);
 
             if (!enabled) {
                 nk_widget_disable_begin(ctx);
@@ -302,11 +307,6 @@ static int ui_render_dropdown(struct nk_context* ctx, int parent_id)
     return clicked_id;
 }
 
-/**
- * @brief Renders the theme dropdown menu.
- * @param menubar Menu bar instance.
- * @return Selected theme index or -1.
- */
 static int ui_render_theme_dropdown(UiMenuBar* menubar)
 {
     struct nk_context* ctx = NULL;
@@ -345,13 +345,7 @@ static int ui_render_theme_dropdown(UiMenuBar* menubar)
     return -1;
 }
 
-/**
- * @brief Renders a top-level menu.
- * @param menubar Menu bar instance.
- * @param menu Top menu definition.
- * @return Clicked menu item ID or -1.
- */
-static int ui_render_top_menu(UiMenuBar* menubar, const UiTopMenuDef* menu)
+static int ui_render_top_menu(UiMenuBar* menubar, Workspace* workspace, const UiTopMenuDef* menu)
 {
     struct nk_context* ctx = NULL;
     int clicked_id = -1;
@@ -372,7 +366,7 @@ static int ui_render_top_menu(UiMenuBar* menubar, const UiTopMenuDef* menu)
                 menubar->requested_theme_index = theme_index;
             }
         } else {
-            clicked_id = ui_render_dropdown(ctx, menu->parent_id);
+            clicked_id = ui_render_dropdown(ctx, workspace, menu->parent_id);
         }
         nk_menu_end(ctx);
     }
@@ -380,13 +374,6 @@ static int ui_render_top_menu(UiMenuBar* menubar, const UiTopMenuDef* menu)
     return clicked_id;
 }
 
-/**
- * @brief Dispatches a menu action.
- * @param menubar Menu bar instance.
- * @param workspace Workspace instance.
- * @param clicked_id Clicked menu item ID.
- * @return None.
- */
 static void ui_dispatch_menu_action(UiMenuBar* menubar, Workspace* workspace, int clicked_id)
 {
     if (!menubar || !workspace || clicked_id == -1) {
@@ -401,13 +388,6 @@ static void ui_dispatch_menu_action(UiMenuBar* menubar, Workspace* workspace, in
     ui_menu_execute(workspace, (MenuId)clicked_id);
 }
 
-/**
- * @brief Builds the menu bar UI.
- * @param menubar Menu bar instance.
- * @param workspace Workspace instance.
- * @param window_width Window width.
- * @return None.
- */
 void ui_menubar_build(UiMenuBar* menubar, Workspace* workspace, int window_width)
 {
     struct nk_context* ctx;
@@ -461,7 +441,7 @@ void ui_menubar_build(UiMenuBar* menubar, Workspace* workspace, int window_width
         for (size_t i = 0; i < menu_count; i++) {
             int id;
             nk_layout_row_push(ctx, g_top_menus[i].item_width);
-            id = ui_render_top_menu(menubar, &g_top_menus[i]);
+            id = ui_render_top_menu(menubar, workspace, &g_top_menus[i]);
             if (id != -1) {
                 clicked_id = id;
             }
@@ -471,6 +451,8 @@ void ui_menubar_build(UiMenuBar* menubar, Workspace* workspace, int window_width
         nk_label(ctx, "", NK_TEXT_LEFT);
 
         for (size_t i = 0; i < quick_count; i++) {
+            char tooltip[96];
+            char shortcut[64];
             struct nk_rect widget_bounds;
             int enabled = ui_menu_is_action_available(g_quick_actions[i].menu_id);
             int hovered = 0;
@@ -483,10 +465,19 @@ void ui_menubar_build(UiMenuBar* menubar, Workspace* workspace, int window_width
                 clicked_id = g_quick_actions[i].menu_id;
             }
             hovered = nk_input_is_mouse_hovering_rect(&ctx->input, widget_bounds);
-            if (g_quick_actions[i].tooltip &&
-                g_quick_actions[i].tooltip[0] != '\0' &&
-                hovered) {
-                nk_tooltip(ctx, g_quick_actions[i].tooltip);
+            tooltip[0] = '\0';
+            shortcut[0] = '\0';
+            command_registry_format_menu_shortcut(workspace,
+                                                  g_quick_actions[i].menu_id,
+                                                  shortcut,
+                                                  sizeof(shortcut));
+            if (shortcut[0] != '\0') {
+                snprintf(tooltip, sizeof(tooltip), "%s (%s)", g_quick_actions[i].label, shortcut);
+            } else {
+                snprintf(tooltip, sizeof(tooltip), "%s", g_quick_actions[i].label);
+            }
+            if (hovered) {
+                nk_tooltip(ctx, tooltip);
             }
             if (!enabled) {
                 nk_widget_disable_end(ctx);
