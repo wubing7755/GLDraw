@@ -1,18 +1,18 @@
 # GLDraw
 
-A canvas-oriented OpenGL drawing editor written in C11.
+A canvas-centered OpenGL drawing editor built in C11.
 
 ## Quick Start
 
-Choose your platform:
+Use the repository build scripts when possible:
 
-| Platform | Script | Modes |
+| Platform | Recommended command | Modes |
 |---|---|---|
 | Linux / macOS | `./build.sh` | `release` (default), `debug`, `clean` |
 | Windows (MinGW/MSYS2) | `./build.bat` | `release` (default), `debug`, `clean` |
 
 <details>
-<summary>Linux / macOS</summary>
+<summary>Linux / macOS via build script</summary>
 
 ```sh
 ./build.sh           # release
@@ -28,7 +28,7 @@ Run:
 </details>
 
 <details>
-<summary>Windows (MinGW/MSYS2, CMD)</summary>
+<summary>Windows (MinGW/MSYS2, CMD) via build script</summary>
 
 ```bat
 build.bat            rem release
@@ -44,7 +44,22 @@ build\Release\bin\GLDraw.exe
 </details>
 
 <details>
-<summary>Windows (Visual Studio 2022 x64, manual CMake)</summary>
+<summary>Linux / macOS via manual CMake</summary>
+
+```sh
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build --parallel
+```
+
+Run:
+
+```sh
+./build/bin/GLDraw
+```
+</details>
+
+<details>
+<summary>Windows (Visual Studio 2022 x64) via manual CMake</summary>
 
 ```bat
 cmake -S . -B build -G "Visual Studio 17 2022" -A x64
@@ -58,9 +73,9 @@ build\bin\Release\GLDraw.exe
 ```
 </details>
 
-## Build Environment
+## Build Requirements
 
-Choose your platform:
+GLDraw is built with CMake and C11, and uses GLFW, GLAD, Nuklear, and an OpenGL 3.3 Core Profile context.
 
 | Platform | Environment |
 |---|---|
@@ -88,6 +103,13 @@ Choose your platform:
 - Git + network access on first configure (to fetch GLFW 3.3.9)
 </details>
 
+## Project Overview
+
+- Canvas-centered 2D drawing workflow with line, rectangle, and ellipse tools
+- OpenGL rendering pipeline with GLFW windowing, GLAD loading, and Nuklear UI
+- Snapshot-based undo/redo plus JSON document save/load
+- Tool-driven architecture organized around `Workspace`, `Document`, and `CanvasView`
+
 ## Core Controls
 
 `V` Select, `H` Pan, `L` Line, `R` Rectangle, `E` Ellipse  
@@ -96,6 +118,7 @@ Choose your platform:
 
 ## Documentation
 
+- Getting started: [doc/wiki/getting-started.md](doc/wiki/getting-started.md)
 - Wiki index: [doc/wiki](doc/wiki/)
 - Architecture: [doc/wiki/architecture.md](doc/wiki/architecture.md)
 - Extending guide: [doc/wiki/extending.md](doc/wiki/extending.md)

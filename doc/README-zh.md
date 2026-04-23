@@ -4,15 +4,15 @@
 
 ## 快速开始
 
-请选择平台：
+推荐优先使用项目自带构建脚本：
 
-| 平台 | 脚本 | 模式 |
+| 平台 | 推荐命令 | 模式 |
 |---|---|---|
 | Linux / macOS | `./build.sh` | `release`（默认）、`debug`、`clean` |
 | Windows（MinGW/MSYS2） | `./build.bat` | `release`（默认）、`debug`、`clean` |
 
 <details>
-<summary>Linux / macOS</summary>
+<summary>通过构建脚本在 Linux / macOS 上编译</summary>
 
 ```sh
 ./build.sh           # release
@@ -28,7 +28,7 @@
 </details>
 
 <details>
-<summary>Windows（MinGW/MSYS2，CMD）</summary>
+<summary>通过构建脚本在 Windows（MinGW/MSYS2，CMD）上编译</summary>
 
 ```bat
 build.bat            rem release
@@ -44,7 +44,22 @@ build\Release\bin\GLDraw.exe
 </details>
 
 <details>
-<summary>Windows（Visual Studio 2022 x64，手动 CMake）</summary>
+<summary>通过手动 CMake 在 Linux / macOS 上编译</summary>
+
+```sh
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build --parallel
+```
+
+运行：
+
+```sh
+./build/bin/GLDraw
+```
+</details>
+
+<details>
+<summary>通过手动 CMake 在 Windows（Visual Studio 2022 x64）上编译</summary>
 
 ```bat
 cmake -S . -B build -G "Visual Studio 17 2022" -A x64
@@ -58,9 +73,9 @@ build\bin\Release\GLDraw.exe
 ```
 </details>
 
-## 编译环境
+## 构建要求
 
-请选择平台：
+GLDraw 基于 CMake、C11、OpenGL、GLFW、GLAD 和 Nuklear。
 
 | 平台 | 环境 |
 |---|---|
@@ -88,6 +103,13 @@ build\bin\Release\GLDraw.exe
 - 首次配置需要 Git 与网络（用于拉取 GLFW 3.3.9）
 </details>
 
+## 项目概览
+
+- 以画布为核心的二维绘图流程，内置线段、矩形、椭圆工具
+- 基于 GLFW、GLAD 与 Nuklear 的 OpenGL 渲染和界面栈
+- 提供基于快照的撤销/重做，以及 JSON 文档读写
+- 以 `Workspace`、`Document`、`CanvasView` 为核心组织交互与状态
+
 ## 核心快捷键
 
 `V` 选择，`H` 平移，`L` 线段，`R` 矩形，`E` 椭圆  
@@ -96,6 +118,7 @@ build\bin\Release\GLDraw.exe
 
 ## 文档
 
+- 入门说明：[wiki/getting-started.md](wiki/getting-started.md)
 - Wiki 首页：[wiki](wiki/)
 - 架构说明：[wiki/architecture.md](wiki/architecture.md)
 - 扩展指南：[wiki/extending.md](wiki/extending.md)
