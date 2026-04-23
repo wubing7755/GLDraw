@@ -2,15 +2,12 @@
 
 ## Build
 
-### Linux / macOS
+Recommended path:
 
-```sh
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build --parallel
-./build/bin/GLDraw
-```
+- Linux / macOS: `./build.sh`
+- Windows (MinGW/MSYS2): `./build.bat`
 
-Or use the convenience script:
+### Linux / macOS via build script
 
 ```sh
 ./build.sh          # Release build
@@ -18,7 +15,53 @@ Or use the convenience script:
 ./build.sh clean    # Clean artifacts
 ```
 
-For other platforms, see the main [README.md](../../README.md).
+Run:
+
+```sh
+./build/Release/bin/GLDraw
+```
+
+### Linux / macOS via manual CMake
+
+```sh
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build --parallel
+```
+
+Run:
+
+```sh
+./build/bin/GLDraw
+```
+
+### Windows (MinGW/MSYS2, CMD) via build script
+
+```bat
+build.bat           rem Release build
+build.bat debug     rem Debug build
+build.bat clean     rem Clean artifacts
+```
+
+Run:
+
+```bat
+build\Release\bin\GLDraw.exe
+```
+
+### Windows (Visual Studio 2022 x64) via manual CMake
+
+```bat
+cmake -S . -B build -G "Visual Studio 17 2022" -A x64
+cmake --build build --config Release
+```
+
+Run:
+
+```bat
+build\bin\Release\GLDraw.exe
+```
+
+For platform requirements and related links, see the main [README.md](../../README.md).
 
 ## First Session
 
