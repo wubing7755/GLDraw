@@ -1,65 +1,105 @@
-GLDraw
-======================================
+# GLDraw
 
-A canvas-oriented OpenGL drawing editor in C11.
+A canvas-oriented OpenGL drawing editor written in C11.
 
-Build & Run
------------
+## Quick Start
 
-Linux / macOS:
+Choose your platform:
+
+| Platform | Script | Modes |
+|---|---|---|
+| Linux / macOS | `./build.sh` | `release` (default), `debug`, `clean` |
+| Windows (MinGW/MSYS2) | `./build.bat` | `release` (default), `debug`, `clean` |
+
+<details>
+<summary>Linux / macOS</summary>
 
 ```sh
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build --parallel
-./build/bin/GLDraw
+./build.sh           # release
+./build.sh debug     # debug
+./build.sh clean     # clean
 ```
 
-Windows (MinGW / MSYS2):
+Run:
 
 ```sh
-cmake -S . -B build-mingw -G "MinGW Makefiles"
-cmake --build build-mingw --parallel
-./build-mingw/bin/GLDraw.exe
+./build/Release/bin/GLDraw
+```
+</details>
+
+<details>
+<summary>Windows (MinGW/MSYS2, CMD)</summary>
+
+```bat
+build.bat            rem release
+build.bat debug      rem debug
+build.bat clean      rem clean
 ```
 
-Windows (Visual Studio 2022):
+Run:
 
-```sh
+```bat
+build\Release\bin\GLDraw.exe
+```
+</details>
+
+<details>
+<summary>Windows (Visual Studio 2022 x64, manual CMake)</summary>
+
+```bat
 cmake -S . -B build -G "Visual Studio 17 2022" -A x64
 cmake --build build --config Release
-./build/bin/Release/GLDraw.exe
 ```
 
-Or use the convenience script:
+Run:
 
-```sh
-./build.sh          # Release build
-./build.sh debug    # Debug build
-./build.sh clean    # Clean artifacts
+```bat
+build\bin\Release\GLDraw.exe
 ```
+</details>
 
-Controls
---------
+## Build Environment
 
-| Key | Action |
-|-----|--------|
-| V | Select tool |
-| H | Hand / pan tool |
-| L | Line tool |
-| R | Rectangle tool |
-| E | Ellipse tool |
-| Shift+Click | Toggle selection |
-| Ctrl+Z | Undo |
-| Ctrl+Y / Ctrl+Shift+Z | Redo |
-| Ctrl+S | Save document |
-| Ctrl+O | Load document |
-| Delete / Backspace | Delete selection |
-| Mouse Wheel | Zoom at cursor |
-| Esc | Clear tool state |
+Choose your platform:
 
-Documentation
--------------
+| Platform | Environment |
+|---|---|
+| Linux / macOS | CMake + C11 compiler + OpenGL dev environment |
+| Windows (MinGW/MSYS2) | CMake + MinGW-w64 + OpenGL dev environment |
 
-Full documentation: [doc/wiki/](doc/wiki/)
+<details>
+<summary>Linux / macOS</summary>
 
-License: MIT
+- CMake 3.15+
+- C11 compiler (`gcc` or `clang`)
+- OpenGL development environment (headers + runtime)
+- Build tools for Makefiles (`make`)
+- Git + network access on first configure (to fetch GLFW 3.3.9)
+- macOS: Xcode Command Line Tools
+</details>
+
+<details>
+<summary>Windows (MinGW/MSYS2)</summary>
+
+- CMake 3.15+
+- MinGW-w64 C11 toolchain (`gcc`)
+- `mingw32-make` in `PATH`
+- OpenGL development environment (headers + runtime)
+- Git + network access on first configure (to fetch GLFW 3.3.9)
+</details>
+
+## Core Controls
+
+`V` Select, `H` Pan, `L` Line, `R` Rectangle, `E` Ellipse  
+`Ctrl+Z` Undo, `Ctrl+Y`/`Ctrl+Shift+Z` Redo  
+`Ctrl+S` Save, `Ctrl+O` Open
+
+## Documentation
+
+- Wiki index: [doc/wiki](doc/wiki/)
+- Architecture: [doc/wiki/architecture.md](doc/wiki/architecture.md)
+- Extending guide: [doc/wiki/extending.md](doc/wiki/extending.md)
+
+## License
+
+MIT
