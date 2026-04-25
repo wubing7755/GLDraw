@@ -80,7 +80,6 @@ static int command_registry_copy_selection(Workspace* workspace)
 
     if (i != selection_count) {
         int j = 0;
-
         for (j = 0; j < selection_count; ++j) {
             object_destroy(clipboard_objects[j]);
         }
@@ -134,7 +133,6 @@ static int command_registry_paste_clipboard(Workspace* workspace)
 
     if (i != paste_count) {
         int j = 0;
-
         for (j = 0; j < paste_count; ++j) {
             object_destroy(pasted_objects[j]);
         }
@@ -260,7 +258,6 @@ static int command_registry_toggle_shortcuts_dialog(Workspace* workspace)
 
     return workspace_dialog_open_shortcuts(workspace, content);
 }
-
 static int command_registry_zoom_to_fit(Workspace* workspace)
 {
     const float padding_ratio = 0.10f;

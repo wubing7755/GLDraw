@@ -15,6 +15,7 @@
 #include <ui/ui_dialog.h>
 
 #include <app/workspace.h>
+#include <app/command_registry.h>
 #include <app/workspace_actions.h>
 #include <base/math2d.h>
 #include <canvas/canvas_view.h>
@@ -51,6 +52,12 @@
 #define UI_THEME_DIRECTORY_PATH "themes"
 #define UI_THEME_DESCRIPTOR_CACHE_MAX 64
 #define UI_THEME_WATCH_INTERVAL_SECONDS 0.35
+#define UI_CONTEXT_MENU_WIDTH 220.0f
+
+typedef enum UiContextMenuMode {
+  UI_CONTEXT_MENU_MODE_TOOLS = 0,
+  UI_CONTEXT_MENU_MODE_SELECTION
+} UiContextMenuMode;
 
 struct UiSystem {
   struct nk_glfw glfw;
@@ -75,6 +82,9 @@ struct UiSystem {
   int inspector_edit_active;
   DocumentSnapshot inspector_edit_before_snapshot;
   int modal_active;
+  int context_menu_visible;
+  int context_menu_close_requested;
+  UiContextMenuMode context_menu_mode;
   double last_frame_seconds;
 };
 
@@ -83,6 +93,8 @@ typedef enum UiThemeReloadReason {
   UI_THEME_RELOAD_REASON_AUTO,
   UI_THEME_RELOAD_REASON_MANUAL
 } UiThemeReloadReason;
+
+static ToolContext ui_tool_context(Workspace *workspace);
 
 /**
  * @brief Clamps a float value.
@@ -347,6 +359,183 @@ static RectF ui_clamp_rect_to_window(RectF rect, RectF window_bounds) {
   }
 
   return rect;
+}
+
+static void ui_format_command_label(const Workspace *workspace,
+                                    const char *label,
+                                    const char *command_id, KeyScope scope,
+                                    char *buffer, size_t buffer_size) {
+  char shortcut[64];
+
+  if (!buffer || buffer_size == 0u) {
+    return;
+  }
+
+  buffer[0] = '\0';
+  if (!label) {
+    return;
+  }
+
+  shortcut[0] = '\0';
+  if (workspace && command_id && command_id[0] != '\0') {
+    keymap_format_command_shortcut(&workspace->keymap, command_id, scope,
+                                   shortcut, sizeof(shortcut));
+  }
+
+  if (shortcut[0] != '\0') {
+    snprintf(buffer, buffer_size, "%-18s %s", label, shortcut);
+  } else {
+    snprintf(buffer, buffer_size, "%s", label);
+  }
+}
+
+static int ui_context_menu_item(UiSystem *ui, const char *label,
+                                const char *command_id, EditorCommand command,
+                                Workspace *workspace) {
+  char item_label[96];
+  ToolContext context;
+
+  if (!ui || !ui->ctx || !label || !workspace) {
+    return 0;
+  }
+
+  ui_format_command_label(workspace, label, command_id, KEY_SCOPE_GLOBAL,
+                          item_label, sizeof(item_label));
+  if (!nk_contextual_item_label(ui->ctx, item_label, NK_TEXT_LEFT)) {
+    return 0;
+  }
+
+  context = ui_tool_context(workspace);
+  command_registry_execute(workspace, &context, command);
+  return 1;
+}
+
+static void ui_context_menu_separator(UiSystem *ui) {
+  if (!ui || !ui->ctx) {
+    return;
+  }
+
+  nk_layout_row_dynamic(ui->ctx, 8.0f, 1);
+  nk_spacing(ui->ctx, 1);
+}
+
+static void ui_context_menu_build_tools(UiSystem *ui, Workspace *workspace) {
+  const ToolKind active_tool = workspace->tools.active_kind;
+
+  nk_layout_row_dynamic(ui->ctx, ui->theme.row_height, 1);
+  if (active_tool == TOOL_KIND_SELECT) {
+    nk_label(ui->ctx, "Select Tool (V)", NK_TEXT_LEFT);
+  } else if (ui_context_menu_item(ui, "Select Tool", "tool.select",
+                                  EDITOR_COMMAND_TOOL_SELECT, workspace)) {
+    return;
+  }
+
+  if (active_tool == TOOL_KIND_PAN) {
+    nk_label(ui->ctx, "Pan Tool (H)", NK_TEXT_LEFT);
+  } else if (ui_context_menu_item(ui, "Pan Tool", "tool.pan",
+                                  EDITOR_COMMAND_TOOL_PAN, workspace)) {
+    return;
+  }
+
+  if (active_tool == TOOL_KIND_LINE) {
+    nk_label(ui->ctx, "Line Tool (L)", NK_TEXT_LEFT);
+  } else if (ui_context_menu_item(ui, "Line Tool", "tool.line",
+                                  EDITOR_COMMAND_TOOL_LINE, workspace)) {
+    return;
+  }
+
+  if (active_tool == TOOL_KIND_RECT) {
+    nk_label(ui->ctx, "Rectangle Tool (R)", NK_TEXT_LEFT);
+  } else if (ui_context_menu_item(ui, "Rectangle Tool", "tool.rect",
+                                  EDITOR_COMMAND_TOOL_RECT, workspace)) {
+    return;
+  }
+
+  if (active_tool == TOOL_KIND_ELLIPSE) {
+    nk_label(ui->ctx, "Ellipse Tool (E)", NK_TEXT_LEFT);
+  } else if (ui_context_menu_item(ui, "Ellipse Tool", "tool.ellipse",
+                                  EDITOR_COMMAND_TOOL_ELLIPSE, workspace)) {
+    return;
+  }
+
+  ui_context_menu_separator(ui);
+  nk_layout_row_dynamic(ui->ctx, ui->theme.row_height, 1);
+  if (ui_context_menu_item(ui, "Zoom to Fit", "view.zoom_fit",
+                           EDITOR_COMMAND_VIEW_ZOOM_FIT, workspace)) {
+    return;
+  }
+
+  ui_context_menu_separator(ui);
+  nk_layout_row_dynamic(ui->ctx, ui->theme.row_height, 1);
+  if (workspace->canvas.show_grid) {
+    if (ui_context_menu_item(ui, "Hide Grid", "view.toggle_grid",
+                             EDITOR_COMMAND_VIEW_TOGGLE_GRID, workspace)) {
+      return;
+    }
+  } else if (ui_context_menu_item(ui, "Show Grid", "view.toggle_grid",
+                                  EDITOR_COMMAND_VIEW_TOGGLE_GRID,
+                                  workspace)) {
+    return;
+  }
+}
+
+static void ui_context_menu_build_selection(UiSystem *ui, Workspace *workspace) {
+  nk_layout_row_dynamic(ui->ctx, ui->theme.row_height, 1);
+  if (ui_context_menu_item(ui, "Copy", "edit.copy", EDITOR_COMMAND_EDIT_COPY,
+                           workspace)) {
+    return;
+  }
+  if (ui_context_menu_item(ui, "Paste", "edit.paste", EDITOR_COMMAND_EDIT_PASTE,
+                           workspace)) {
+    return;
+  }
+  if (ui_context_menu_item(ui, "Delete", "edit.delete",
+                           EDITOR_COMMAND_EDIT_DELETE, workspace)) {
+    return;
+  }
+}
+
+static void ui_canvas_context_menu(UiSystem *ui, Workspace *workspace,
+                                   RectF canvas_bounds) {
+  struct nk_rect trigger_bounds;
+  struct nk_vec2 popup_size;
+  int is_open = 0;
+
+  if (!ui || !ui->ctx || !workspace || canvas_bounds.w <= 0.0f ||
+      canvas_bounds.h <= 0.0f) {
+    return;
+  }
+
+  trigger_bounds =
+      nk_rect(canvas_bounds.x, canvas_bounds.y, canvas_bounds.w, canvas_bounds.h);
+  popup_size = nk_vec2(UI_CONTEXT_MENU_WIDTH, 240.0f);
+
+  if (nk_input_mouse_clicked(&ui->ctx->input, NK_BUTTON_RIGHT, trigger_bounds)) {
+    ui->context_menu_mode = workspace->document.selection.count > 0
+                                ? UI_CONTEXT_MENU_MODE_SELECTION
+                                : UI_CONTEXT_MENU_MODE_TOOLS;
+  }
+
+  if (nk_begin(ui->ctx, "Canvas Overlay", trigger_bounds,
+               NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_BACKGROUND |
+                   NK_WINDOW_NO_INPUT)) {
+    is_open = nk_contextual_begin(ui->ctx, 0, popup_size, trigger_bounds);
+    if (is_open) {
+      if (ui->context_menu_close_requested) {
+        nk_contextual_close(ui->ctx);
+      } else if (ui->context_menu_mode == UI_CONTEXT_MENU_MODE_SELECTION) {
+        ui_context_menu_build_selection(ui, workspace);
+      } else {
+        ui_context_menu_build_tools(ui, workspace);
+      }
+
+      nk_contextual_end(ui->ctx);
+    }
+  }
+  nk_end(ui->ctx);
+
+  ui->context_menu_visible = is_open && !ui->context_menu_close_requested;
+  ui->context_menu_close_requested = 0;
 }
 
 static void ui_publish_layout(UiSystem *ui, Workspace *workspace, int width,
@@ -897,6 +1086,10 @@ void ui_system_build(UiSystem *ui, Workspace *workspace) {
   }
 
   ui->modal_active = workspace_modal_is_active(workspace);
+  if (ui->modal_active) {
+    ui->context_menu_visible = 0;
+    ui->context_menu_close_requested = 0;
+  }
 
   if (ui->window_handle) {
     glfwGetWindowSize(ui->window_handle, &width, &height);
@@ -1033,11 +1226,28 @@ void ui_system_build(UiSystem *ui, Workspace *workspace) {
     ui->content_bounds.h = 1.0f;
   }
 
+  if (!ui->modal_active) {
+    ui_canvas_context_menu(ui, workspace, ui->content_bounds);
+  }
+
   ui_publish_layout(ui, workspace, width, height);
 
   if (ui->inspector_edit_active && !ui_system_has_active_interaction(ui)) {
     ui_finalize_inspector_edit_session(ui, workspace);
   }
+}
+
+int ui_system_handle_key(UiSystem *ui, int key, int action) {
+  if (!ui || action != GLFW_PRESS) {
+    return 0;
+  }
+
+  if (key == GLFW_KEY_ESCAPE && ui->context_menu_visible) {
+    ui->context_menu_close_requested = 1;
+    return 1;
+  }
+
+  return 0;
 }
 
 void ui_system_render(UiSystem *ui) {
@@ -1053,7 +1263,7 @@ int ui_system_has_active_interaction(const UiSystem *ui) {
     return 0;
   }
 
-  return nk_item_is_any_active(ui->ctx);
+  return ui->context_menu_visible || nk_item_is_any_active(ui->ctx);
 }
 
 int ui_system_blocks_pointer(const UiSystem *ui, Vec2 screen_pos) {

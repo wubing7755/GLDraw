@@ -580,6 +580,10 @@ static void key_callback(GLFWwindow *handle, int key, int scancode, int action,
     return;
   }
 
+  if (app->ui && ui_system_handle_key(app->ui, key, action)) {
+    return;
+  }
+
   context = app_tool_context(app);
   router_context.workspace = &app->workspace;
   router_context.tool_context = &context;
