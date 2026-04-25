@@ -468,13 +468,20 @@ static ToolEvent make_tool_event(Application *app, int button, int mods,
 static void framebuffer_size_callback(GLFWwindow *handle, int width,
                                       int height) {
   Application *app = (Application *)glfwGetWindowUserPointer(handle);
+  int window_width = 0;
+  int window_height = 0;
+
   if (!app) {
     return;
   }
-  app->window.width = width;
-  app->window.height = height;
+
+  glfwGetWindowSize(handle, &window_width, &window_height);
+  app->window.width = window_width;
+  app->window.height = window_height;
+  app->window.framebuffer_width = width;
+  app->window.framebuffer_height = height;
   update_canvas_viewport(app);
-  render_system_resize(app->renderer, width, height);
+  render_system_resize(app->renderer, window_width, window_height, width, height);
 }
 
 /**
@@ -678,7 +685,11 @@ static int app_init(Application *app) {
   glfwSetScrollCallback(app->window.handle, scroll_callback);
   glfwSetWindowCloseCallback(app->window.handle, window_close_callback);
 
-  render_system_resize(app->renderer, app->window.width, app->window.height);
+  render_system_resize(app->renderer,
+                       app->window.width,
+                       app->window.height,
+                       app->window.framebuffer_width,
+                       app->window.framebuffer_height);
   update_canvas_viewport(app);
   app->cursor_inside_canvas =
       app->ui ? ui_system_point_in_canvas(app->ui, app->cursor_screen) : 1;
