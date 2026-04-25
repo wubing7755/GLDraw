@@ -193,7 +193,7 @@ static void render_prepare_pass_state(const RenderSystem* renderer)
         return;
     }
 
-    glViewport(0, 0, renderer->width, renderer->height);
+    glViewport(0, 0, renderer->framebuffer_width, renderer->framebuffer_height);
     glUseProgram(renderer->program);
     glBindVertexArray(renderer->vao);
     glBindBuffer(GL_ARRAY_BUFFER, renderer->vbo);
