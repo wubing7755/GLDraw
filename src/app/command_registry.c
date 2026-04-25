@@ -44,12 +44,22 @@ static const CommandDescriptor g_commands[] = {
 
 static int command_registry_zoom_to_fit(Workspace* workspace)
 {
+    const float padding_ratio = 0.10f;
+    const float minimum_world_span = 32.0f;
     Document* doc = NULL;
     CanvasView* canvas = NULL;
+    RectF canvas_viewport = {0.0f, 0.0f, 0.0f, 0.0f};
     float min_x = 0.0f;
     float max_x = 0.0f;
     float min_y = 0.0f;
     float max_y = 0.0f;
+    float content_w = 0.0f;
+    float content_h = 0.0f;
+    float pad_x = 0.0f;
+    float pad_y = 0.0f;
+    float zoom_x = 1.0f;
+    float zoom_y = 1.0f;
+    float new_zoom = 1.0f;
     int first = 1;
     int i = 0;
 
@@ -59,6 +69,12 @@ static int command_registry_zoom_to_fit(Workspace* workspace)
 
     doc = &workspace->document;
     canvas = &workspace->canvas;
+    canvas_viewport = canvas_view_viewport(canvas);
+    if (canvas_viewport.w <= 1.0f || canvas_viewport.h <= 1.0f) {
+        canvas_view_set_center_zoom(canvas, vec2_make(0.0f, 0.0f), 1.0f);
+        return 1;
+    }
+
     if (doc->count == 0) {
         canvas_view_set_center_zoom(canvas, vec2_make(0.0f, 0.0f), 1.0f);
         return 1;
@@ -87,29 +103,42 @@ static int command_registry_zoom_to_fit(Workspace* workspace)
         }
     }
 
-    if (!first) {
-        float pad = 50.0f;
-        float content_w = 0.0f;
-        float content_h = 0.0f;
-        RectF canvas_viewport = canvas_view_viewport(canvas);
-        float zoom_x = 1.0f;
-        float zoom_y = 1.0f;
-        float new_zoom = 1.0f;
-
-        min_x -= pad;
-        min_y -= pad;
-        max_x += pad;
-        max_y += pad;
-        content_w = max_x - min_x;
-        content_h = max_y - min_y;
-        zoom_x = canvas_viewport.w / content_w;
-        zoom_y = canvas_viewport.h / content_h;
-        new_zoom = (zoom_x < zoom_y) ? zoom_x : zoom_y;
-        new_zoom = (new_zoom < 0.1f) ? 0.1f : (new_zoom > 12.0f) ? 12.0f : new_zoom;
-        canvas_view_set_center_zoom(canvas,
-                                    vec2_make((min_x + max_x) * 0.5f, (min_y + max_y) * 0.5f),
-                                    new_zoom);
+    if (first) {
+        canvas_view_set_center_zoom(canvas, vec2_make(0.0f, 0.0f), 1.0f);
+        return 1;
     }
+
+    content_w = max_x - min_x;
+    content_h = max_y - min_y;
+    if (content_w < minimum_world_span) {
+        float center_x = (min_x + max_x) * 0.5f;
+        content_w = minimum_world_span;
+        min_x = center_x - content_w * 0.5f;
+        max_x = center_x + content_w * 0.5f;
+    }
+    if (content_h < minimum_world_span) {
+        float center_y = (min_y + max_y) * 0.5f;
+        content_h = minimum_world_span;
+        min_y = center_y - content_h * 0.5f;
+        max_y = center_y + content_h * 0.5f;
+    }
+
+    pad_x = content_w * padding_ratio;
+    pad_y = content_h * padding_ratio;
+    min_x -= pad_x;
+    min_y -= pad_y;
+    max_x += pad_x;
+    max_y += pad_y;
+    content_w = max_x - min_x;
+    content_h = max_y - min_y;
+    zoom_x = canvas_viewport.w / content_w;
+    zoom_y = canvas_viewport.h / content_h;
+    new_zoom = (zoom_x < zoom_y) ? zoom_x : zoom_y;
+    new_zoom = clampf(new_zoom, 0.1f, 12.0f);
+    canvas_view_set_center_zoom(canvas,
+                                vec2_make((min_x + max_x) * 0.5f,
+                                          (min_y + max_y) * 0.5f),
+                                new_zoom);
 
     return 1;
 }
