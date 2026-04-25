@@ -48,7 +48,8 @@ typedef enum UiRequestType {
  */
 typedef enum UiDialogKind {
     UI_DIALOG_NONE = 0,
-    UI_DIALOG_CONFIRM_UNSAVED
+    UI_DIALOG_CONFIRM_UNSAVED,
+    UI_DIALOG_SHORTCUTS
 } UiDialogKind;
 
 /**
@@ -71,7 +72,7 @@ typedef enum UiDialogResult {
  */
 typedef struct UiDialogPayload {
     int int_values[4];
-    char text[128];
+    char text[1024];
 } UiDialogPayload;
 
 /**
@@ -105,7 +106,7 @@ typedef struct UiDialogButtonSpec {
 typedef struct UiDialogState {
     UiDialogKind kind;
     char title[64];
-    char message[256];
+    char message[1024];
     UiDialogPayload payload;
     UiDialogButtonSpec buttons[3];
     int button_count;

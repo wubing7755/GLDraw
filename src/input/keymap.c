@@ -31,6 +31,7 @@ static const struct {
     {"tool.rect", KEY_SCOPE_GLOBAL, "R", ""},
     {"tool.ellipse", KEY_SCOPE_GLOBAL, "E", ""},
     {"help.shortcuts", KEY_SCOPE_GLOBAL, "Shift+Slash", ""},
+    {"help.shortcuts", KEY_SCOPE_MODAL, "Shift+Slash", ""},
     {"modal.confirm", KEY_SCOPE_MODAL, "Enter", ""},
     {"modal.cancel", KEY_SCOPE_MODAL, "Esc", ""}
 };
