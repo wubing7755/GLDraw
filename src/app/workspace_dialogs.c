@@ -7,39 +7,15 @@
 #include <stdio.h>
 #include <string.h>
 
-static const UiDialogButtonDefinition UI_DIALOG_BUTTON_CONFIRM_UNSAVED_SAVE = {
-    "Save",
-    UI_DIALOG_RESULT_PRIMARY,
-    1
-};
-
-static const UiDialogButtonDefinition UI_DIALOG_BUTTON_CONFIRM_UNSAVED_DISCARD = {
-    "Don't Save",
-    UI_DIALOG_RESULT_SECONDARY,
-    0
-};
-
-static const UiDialogButtonDefinition UI_DIALOG_BUTTON_CONFIRM_UNSAVED_CANCEL = {
-    "Cancel",
-    UI_DIALOG_RESULT_CANCEL,
-    0
-};
-
-static const UiDialogButtonDefinition UI_DIALOG_BUTTON_INFO_OK = {
-    "OK",
-    UI_DIALOG_RESULT_PRIMARY,
-    1
-};
-
 static int workspace_dialog_resolve_confirm_unsaved(Workspace* workspace,
                                                     UiDialogResult result);
 static int workspace_dialog_resolve_info(Workspace* workspace,
                                          UiDialogResult result);
 
 static const UiDialogButtonDefinition UI_DIALOG_BUTTONS_CONFIRM_UNSAVED[] = {
-    UI_DIALOG_BUTTON_CONFIRM_UNSAVED_SAVE,
-    UI_DIALOG_BUTTON_CONFIRM_UNSAVED_DISCARD,
-    UI_DIALOG_BUTTON_CONFIRM_UNSAVED_CANCEL
+    {"Save", UI_DIALOG_RESULT_PRIMARY, 1},
+    {"Don't Save", UI_DIALOG_RESULT_SECONDARY, 0},
+    {"Cancel", UI_DIALOG_RESULT_CANCEL, 0}
 };
 
 static const UiDialogDefinition UI_DIALOG_DEFINITION_CONFIRM_UNSAVED = {
@@ -57,7 +33,7 @@ static const UiDialogDefinition UI_DIALOG_DEFINITION_CONFIRM_UNSAVED = {
 };
 
 static const UiDialogButtonDefinition UI_DIALOG_BUTTONS_INFO[] = {
-    UI_DIALOG_BUTTON_INFO_OK
+    {"OK", UI_DIALOG_RESULT_PRIMARY, 1}
 };
 
 static const UiDialogDefinition UI_DIALOG_DEFINITION_INFO = {
@@ -311,6 +287,6 @@ int workspace_dialog_open_info(Workspace* workspace,
                                     &UI_DIALOG_DEFINITION_INFO.dialog_template);
     snprintf(dialog.title, sizeof(dialog.title), "%s", title);
     snprintf(dialog.message, sizeof(dialog.message), "%s", message);
-    return workspace_dialog_add_button(&dialog, &UI_DIALOG_BUTTON_INFO_OK) &&
+    return workspace_dialog_add_button(&dialog, &UI_DIALOG_BUTTONS_INFO[0]) &&
            workspace_dialog_open(workspace, &dialog);
 }

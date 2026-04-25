@@ -28,11 +28,17 @@ void render_system_destroy(RenderSystem* renderer);
 /**
  * @brief Handle window resize events.
  * @param renderer Renderer instance.
- * @param width New width in pixels.
- * @param height New height in pixels.
+ * @param logical_width New logical window width in screen coordinates.
+ * @param logical_height New logical window height in screen coordinates.
+ * @param framebuffer_width New framebuffer width in pixels.
+ * @param framebuffer_height New framebuffer height in pixels.
  * @return No return value.
  */
-void render_system_resize(RenderSystem* renderer, int width, int height);
+void render_system_resize(RenderSystem* renderer,
+                          int logical_width,
+                          int logical_height,
+                          int framebuffer_width,
+                          int framebuffer_height);
 
 /**
  * @brief Draw one frame of canvas content.
