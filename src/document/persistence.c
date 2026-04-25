@@ -252,11 +252,6 @@ static int write_document_json(FILE* file, const Document* document)
     fprintf(file, "  \"format\": \"gldraw-document\",\n");
     fprintf(file, "  \"version\": 1,\n");
     fprintf(file, "  \"next_id\": %u,\n", document->next_id);
-    fprintf(file, "  \"selection\": [");
-    for (i = 0; i < document->selection.count; ++i) {
-        fprintf(file, "%s%u", (i == 0) ? "" : ", ", document->selection.ids[i]);
-    }
-    fprintf(file, "],\n");
     fprintf(file, "  \"objects\": [\n");
 
     for (i = 0; i < document->count; ++i) {
@@ -1022,50 +1017,6 @@ static int parse_object_entry(JsonParser* parser, Document* document)
 }
 
 /**
- * @brief Parses a selection array.
- * @param parser JSON parser.
- * @param selection_ids Output array for selection IDs.
- * @param selection_count Output count pointer.
- * @return 1 on success, 0 on failure.
- */
-static int parse_selection_array(JsonParser* parser, ObjectId* selection_ids, int* selection_count)
-{
-    if (!json_expect(parser, JSON_TOKEN_LBRACKET)) {
-        return 0;
-    }
-
-    json_parser_next(parser);
-    *selection_count = 0;
-
-    if (parser->type == JSON_TOKEN_RBRACKET) {
-        json_parser_next(parser);
-        return 1;
-    }
-
-    while (1) {
-        unsigned int value = 0;
-
-        if (!json_parse_u32(parser, &value)) {
-            return 0;
-        }
-
-        if (*selection_count < DOCUMENT_MAX_SELECTION) {
-            selection_ids[(*selection_count)++] = value;
-        }
-
-        if (parser->type == JSON_TOKEN_COMMA) {
-            json_parser_next(parser);
-            continue;
-        }
-        if (parser->type == JSON_TOKEN_RBRACKET) {
-            json_parser_next(parser);
-            return 1;
-        }
-        return 0;
-    }
-}
-
-/**
  * @brief Parses an objects array.
  * @param parser JSON parser.
  * @param document Target document.
@@ -1116,11 +1067,6 @@ static int parse_document_root(JsonParser* parser, Document* document)
     int got_next_id = 0;
     unsigned int version = 0;
     unsigned int next_id = 0;
-    ObjectId selection_ids[DOCUMENT_MAX_SELECTION];
-    int selection_count = 0;
-    int i = 0;
-
-    memset(selection_ids, 0, sizeof(selection_ids));
 
     if (!json_expect(parser, JSON_TOKEN_LBRACE)) {
         LOG_ERROR("%s", "[persistence][parse][top-level] expected root object");
@@ -1161,11 +1107,6 @@ static int parse_document_root(JsonParser* parser, Document* document)
             json_parser_next(parser);
             if (!json_parse_u32(parser, &next_id)) return 0;
             got_next_id = 1;
-        } else if (json_token_is_string(parser, "selection")) {
-            json_parser_next(parser);
-            if (!json_expect(parser, JSON_TOKEN_COLON)) return 0;
-            json_parser_next(parser);
-            if (!parse_selection_array(parser, selection_ids, &selection_count)) return 0;
         } else if (json_token_is_string(parser, "objects")) {
             json_parser_next(parser);
             if (!json_expect(parser, JSON_TOKEN_COLON)) return 0;
@@ -1195,13 +1136,8 @@ static int parse_document_root(JsonParser* parser, Document* document)
         return 0;
     }
 
+    /* Selection is editor-session state and intentionally not serialized. */
     document_clear_selection(document);
-    for (i = 0; i < selection_count; ++i) {
-        if (document_find_object(document, selection_ids[i])) {
-            document_selection_add(document, selection_ids[i]);
-        }
-    }
-
     if (got_next_id && next_id > document_max_id(document)) {
         document->next_id = next_id;
     } else {
