@@ -42,6 +42,15 @@ void ui_system_begin_frame(UiSystem* ui);
 void ui_system_build(UiSystem* ui, struct Workspace* workspace);
 
 /**
+ * @brief Offer one key event to the UI before routing it elsewhere.
+ * @param ui UI system instance.
+ * @param key GLFW key code.
+ * @param action GLFW action code.
+ * @return Non-zero if the UI consumed the event, zero otherwise.
+ */
+int ui_system_handle_key(UiSystem* ui, int key, int action);
+
+/**
  * @brief Commit UI draw commands.
  * @param ui UI system instance.
  * @return No return value.
