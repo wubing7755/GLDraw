@@ -49,8 +49,12 @@ struct RenderSystem {
     GLuint vao;
     GLuint vbo;
     GLint screen_size_loc;
-    int width;
-    int height;
+    int logical_width;
+    int logical_height;
+    int framebuffer_width;
+    int framebuffer_height;
+    float framebuffer_scale_x;
+    float framebuffer_scale_y;
     float* vertex_buffer;
     size_t vertex_buffer_capacity;
     size_t gpu_vertex_buffer_capacity;
@@ -64,6 +68,25 @@ struct RenderSystem {
     int debug_callback_enabled;
     unsigned int debug_frame_counter;
 };
+
+/**
+ * @brief GL state touched by the custom canvas renderer and restored on exit.
+ */
+typedef struct RenderPassState {
+    GLint viewport[4];
+    GLint scissor_box[4];
+    GLfloat clear_color[4];
+    GLint current_program;
+    GLint vertex_array_binding;
+    GLint array_buffer_binding;
+    GLint blend_src_rgb;
+    GLint blend_dst_rgb;
+    GLint blend_src_alpha;
+    GLint blend_dst_alpha;
+    GLfloat line_width;
+    GLboolean scissor_enabled;
+    GLboolean blend_enabled;
+} RenderPassState;
 
 /**
  * @brief Log any pending GL errors.
@@ -86,6 +109,96 @@ static void log_gl_error_if_any(const char* stage)
     if (!has_error) {
         return;
     }
+}
+
+/**
+ * @brief Capture GL state that this renderer mutates during one draw pass.
+ * @param state [out] Snapshot of the current GL state.
+ * @return No return value.
+ */
+static void render_capture_pass_state(RenderPassState* state)
+{
+    if (!state) {
+        return;
+    }
+
+    glGetIntegerv(GL_VIEWPORT, state->viewport);
+    glGetIntegerv(GL_SCISSOR_BOX, state->scissor_box);
+    glGetFloatv(GL_COLOR_CLEAR_VALUE, state->clear_color);
+    glGetIntegerv(GL_CURRENT_PROGRAM, &state->current_program);
+    glGetIntegerv(GL_VERTEX_ARRAY_BINDING, &state->vertex_array_binding);
+    glGetIntegerv(GL_ARRAY_BUFFER_BINDING, &state->array_buffer_binding);
+    glGetIntegerv(GL_BLEND_SRC_RGB, &state->blend_src_rgb);
+    glGetIntegerv(GL_BLEND_DST_RGB, &state->blend_dst_rgb);
+    glGetIntegerv(GL_BLEND_SRC_ALPHA, &state->blend_src_alpha);
+    glGetIntegerv(GL_BLEND_DST_ALPHA, &state->blend_dst_alpha);
+    glGetFloatv(GL_LINE_WIDTH, &state->line_width);
+    state->scissor_enabled = glIsEnabled(GL_SCISSOR_TEST);
+    state->blend_enabled = glIsEnabled(GL_BLEND);
+}
+
+/**
+ * @brief Restore GL state captured before the render pass.
+ * @param state Previously captured GL state.
+ * @return No return value.
+ */
+static void render_restore_pass_state(const RenderPassState* state)
+{
+    if (!state) {
+        return;
+    }
+
+    glViewport(state->viewport[0],
+               state->viewport[1],
+               state->viewport[2],
+               state->viewport[3]);
+    glScissor(state->scissor_box[0],
+              state->scissor_box[1],
+              state->scissor_box[2],
+              state->scissor_box[3]);
+    glClearColor(state->clear_color[0],
+                 state->clear_color[1],
+                 state->clear_color[2],
+                 state->clear_color[3]);
+    glUseProgram((GLuint)state->current_program);
+    glBindVertexArray((GLuint)state->vertex_array_binding);
+    glBindBuffer(GL_ARRAY_BUFFER, (GLuint)state->array_buffer_binding);
+    glBlendFuncSeparate((GLenum)state->blend_src_rgb,
+                        (GLenum)state->blend_dst_rgb,
+                        (GLenum)state->blend_src_alpha,
+                        (GLenum)state->blend_dst_alpha);
+    glLineWidth(state->line_width);
+
+    if (state->scissor_enabled) {
+        glEnable(GL_SCISSOR_TEST);
+    } else {
+        glDisable(GL_SCISSOR_TEST);
+    }
+
+    if (state->blend_enabled) {
+        glEnable(GL_BLEND);
+    } else {
+        glDisable(GL_BLEND);
+    }
+}
+
+/**
+ * @brief Apply the explicit GL state contract required by the canvas renderer.
+ * @param renderer Renderer instance.
+ * @return No return value.
+ */
+static void render_prepare_pass_state(const RenderSystem* renderer)
+{
+    if (!renderer) {
+        return;
+    }
+
+    glViewport(0, 0, renderer->framebuffer_width, renderer->framebuffer_height);
+    glUseProgram(renderer->program);
+    glBindVertexArray(renderer->vao);
+    glBindBuffer(GL_ARRAY_BUFFER, renderer->vbo);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 }
 
 /**
@@ -369,6 +482,25 @@ static void write_screen_vertex(float** cursor, Vec2 screen, Color color)
 }
 
 /**
+ * @brief Convert logical screen coordinates to framebuffer coordinates.
+ * @param renderer Renderer instance.
+ * @param logical_screen Screen coordinate in logical window space.
+ * @return Screen coordinate in framebuffer space.
+ */
+static Vec2 render_framebuffer_point(const RenderSystem* renderer, Vec2 logical_screen)
+{
+    Vec2 framebuffer_screen = logical_screen;
+
+    if (!renderer) {
+        return framebuffer_screen;
+    }
+
+    framebuffer_screen.x *= renderer->framebuffer_scale_x;
+    framebuffer_screen.y *= renderer->framebuffer_scale_y;
+    return framebuffer_screen;
+}
+
+/**
  * @brief Normalize primitive type for batching.
  * @param primitive GL primitive type.
  * @return GL primitive type suitable for batching.
@@ -536,12 +668,21 @@ static int append_line_vertices(RenderSystem* renderer,
 
     if (primitive == GL_LINE_STRIP) {
         for (i = 0; i < count - 1; ++i) {
-            write_screen_vertex(&cursor, canvas_view_world_to_screen(canvas, points[i]), color);
-            write_screen_vertex(&cursor, canvas_view_world_to_screen(canvas, points[i + 1]), color);
+            write_screen_vertex(&cursor,
+                                render_framebuffer_point(renderer,
+                                                         canvas_view_world_to_screen(canvas, points[i])),
+                                color);
+            write_screen_vertex(&cursor,
+                                render_framebuffer_point(renderer,
+                                                         canvas_view_world_to_screen(canvas, points[i + 1])),
+                                color);
         }
     } else {
         for (i = 0; i < count; ++i) {
-            write_screen_vertex(&cursor, canvas_view_world_to_screen(canvas, points[i]), color);
+            write_screen_vertex(&cursor,
+                                render_framebuffer_point(renderer,
+                                                         canvas_view_world_to_screen(canvas, points[i])),
+                                color);
         }
     }
 
@@ -721,7 +862,12 @@ static void draw_object(RenderSystem* renderer,
  * @param out_scissor [out] Output scissor box (x, y, w, h).
  * @return `1` when resulting scissor area is valid and non-empty, else `0`.
  */
-static int render_canvas_scissor_box(const RectF* viewport, int framebuffer_width, int framebuffer_height, GLint out_scissor[4])
+static int render_canvas_scissor_box(const RectF* viewport,
+                                     float framebuffer_scale_x,
+                                     float framebuffer_scale_y,
+                                     int framebuffer_width,
+                                     int framebuffer_height,
+                                     GLint out_scissor[4])
 {
     int x = 0;
     int y_top = 0;
@@ -737,10 +883,14 @@ static int render_canvas_scissor_box(const RectF* viewport, int framebuffer_widt
         return 0;
     }
 
-    x = (int)floorf(viewport->x);
-    y_top = (int)floorf(viewport->y);
-    w = (int)ceilf(viewport->w);
-    h = (int)ceilf(viewport->h);
+    if (framebuffer_scale_x <= 0.0f || framebuffer_scale_y <= 0.0f) {
+        return 0;
+    }
+
+    x = (int)floorf(viewport->x * framebuffer_scale_x);
+    y_top = (int)floorf(viewport->y * framebuffer_scale_y);
+    w = (int)ceilf(viewport->w * framebuffer_scale_x);
+    h = (int)ceilf(viewport->h * framebuffer_scale_y);
     y = framebuffer_height - y_top - h;
 
     if (x < 0) {
@@ -817,8 +967,14 @@ RenderSystem* render_system_create(PlatformWindow* window)
     }
 #endif
 
-    renderer->width = window->width;
-    renderer->height = window->height;
+    renderer->logical_width = window->width;
+    renderer->logical_height = window->height;
+    renderer->framebuffer_width = window->framebuffer_width;
+    renderer->framebuffer_height = window->framebuffer_height;
+    renderer->framebuffer_scale_x =
+        (window->width > 0) ? ((float)window->framebuffer_width / (float)window->width) : 1.0f;
+    renderer->framebuffer_scale_y =
+        (window->height > 0) ? ((float)window->framebuffer_height / (float)window->height) : 1.0f;
     renderer->program = load_program("shaders/basic.vert", "shaders/basic.frag");
     if (!renderer->program) {
         free(renderer);
@@ -838,7 +994,9 @@ RenderSystem* render_system_create(PlatformWindow* window)
     glUseProgram(renderer->program);
     renderer->screen_size_loc = glGetUniformLocation(renderer->program, "uScreenSize");
     if (renderer->screen_size_loc >= 0) {
-        glUniform2f(renderer->screen_size_loc, (float)renderer->width, (float)renderer->height);
+        glUniform2f(renderer->screen_size_loc,
+                    (float)renderer->framebuffer_width,
+                    (float)renderer->framebuffer_height);
     }
     glUseProgram(0);
     glEnable(GL_BLEND);
@@ -872,18 +1030,30 @@ void render_system_destroy(RenderSystem* renderer)
  * @param height New height in pixels.
  * @return No return value.
  */
-void render_system_resize(RenderSystem* renderer, int width, int height)
+void render_system_resize(RenderSystem* renderer,
+                          int logical_width,
+                          int logical_height,
+                          int framebuffer_width,
+                          int framebuffer_height)
 {
     if (!renderer) {
         return;
     }
 
-    renderer->width = width;
-    renderer->height = height;
-    glViewport(0, 0, width, height);
+    renderer->logical_width = logical_width;
+    renderer->logical_height = logical_height;
+    renderer->framebuffer_width = framebuffer_width;
+    renderer->framebuffer_height = framebuffer_height;
+    renderer->framebuffer_scale_x =
+        (logical_width > 0) ? ((float)framebuffer_width / (float)logical_width) : 1.0f;
+    renderer->framebuffer_scale_y =
+        (logical_height > 0) ? ((float)framebuffer_height / (float)logical_height) : 1.0f;
+    glViewport(0, 0, framebuffer_width, framebuffer_height);
     glUseProgram(renderer->program);
     if (renderer->screen_size_loc >= 0) {
-        glUniform2f(renderer->screen_size_loc, (float)width, (float)height);
+        glUniform2f(renderer->screen_size_loc,
+                    (float)framebuffer_width,
+                    (float)framebuffer_height);
     }
     glUseProgram(0);
 }
@@ -906,8 +1076,7 @@ void render_system_draw(RenderSystem* renderer,
                         const GraphicObject* overlay_object)
 {
     int i = 0;
-    GLboolean scissor_was_enabled = GL_FALSE;
-    GLint previous_scissor_box[4] = {0, 0, 0, 0};
+    RenderPassState pass_state;
     GLint canvas_scissor_box[4] = {0, 0, 0, 0};
     RectF viewport;
     int has_canvas_area = 0;
@@ -918,18 +1087,17 @@ void render_system_draw(RenderSystem* renderer,
 
     viewport = canvas_view_viewport(canvas);
     has_canvas_area = render_canvas_scissor_box(&viewport,
-                                                renderer->width,
-                                                renderer->height,
+                                                renderer->framebuffer_scale_x,
+                                                renderer->framebuffer_scale_y,
+                                                renderer->framebuffer_width,
+                                                renderer->framebuffer_height,
                                                 canvas_scissor_box);
 
-    glViewport(0, 0, renderer->width, renderer->height);
-    scissor_was_enabled = glIsEnabled(GL_SCISSOR_TEST);
-    glGetIntegerv(GL_SCISSOR_BOX, previous_scissor_box);
+    render_capture_pass_state(&pass_state);
+    render_prepare_pass_state(renderer);
 
     if (!has_canvas_area) {
-        if (!scissor_was_enabled) {
-            glDisable(GL_SCISSOR_TEST);
-        }
+        render_restore_pass_state(&pass_state);
         return;
     }
 
@@ -959,20 +1127,10 @@ void render_system_draw(RenderSystem* renderer,
 
     end_frame_batch(renderer);
     log_gl_error_if_any("render_system_draw:after_batch_flush");
-    glLineWidth(1.0f);
-    glBindVertexArray(0);
-    glUseProgram(0);
     log_gl_error_if_any("render_system_draw:before_finalize");
 
     renderer->debug_frame_counter++;
     render_log_frame_stats(renderer);
 
-    if (scissor_was_enabled) {
-        glScissor(previous_scissor_box[0],
-                  previous_scissor_box[1],
-                  previous_scissor_box[2],
-                  previous_scissor_box[3]);
-    } else {
-        glDisable(GL_SCISSOR_TEST);
-    }
+    render_restore_pass_state(&pass_state);
 }

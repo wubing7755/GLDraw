@@ -24,7 +24,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-/** Runtime state for select tool drag/selection/history behavior. */
+/** Runtime state for select tool drag/document-edit history behavior. */
 typedef struct {
     int dragging;
     int moved;
@@ -109,6 +109,7 @@ static GraphicObject* build_shape_object(ToolKind kind, Vec2 anchor, Vec2 curren
     return NULL;
 }
 
+/**
 /**
  * @brief Update an existing preview shape object in place.
  * @param object Preview object to update.
@@ -235,19 +236,15 @@ static void select_tool_deactivate(Tool* tool, ToolContext* context)
  * @param context [in,out] Tool context.
  * @param event [in] Pointer event.
  * @return None.
- *
- * Why snapshot first:
- * - Captures "before" state before selection/drag mutations so history entry
- *   can represent either move edits or selection-only edits consistently.
  */
-static void select_tool_pointer_down(Tool* tool, ToolContext* context, const ToolEvent* event)
+static int select_tool_pointer_down(Tool* tool, ToolContext* context, const ToolEvent* event)
 {
     SelectToolState* state = (SelectToolState*)tool->state;
     GraphicObject* hit = NULL;
     int i = 0;
 
     if (event->button != GLFW_MOUSE_BUTTON_LEFT) {
-        return;
+        return 0;
     }
 
     state->dragging = 0;
@@ -258,53 +255,24 @@ static void select_tool_pointer_down(Tool* tool, ToolContext* context, const Too
     hit = canvas_view_pick_object(context->canvas, event->screen_pos, 8.0f);
     if (!hit) {
         if ((event->mods & GLFW_MOD_SHIFT) == 0) {
-            if (context->document->selection.count > 0) {
-                DocumentSnapshot before_snapshot;
-                document_snapshot_init(&before_snapshot);
-                if (document_snapshot_capture(&before_snapshot, context->document)) {
-                    document_clear_selection(context->document);
-                    document_touch(context->document);
-                    tool_commit_document_change(context, &before_snapshot);
-                }
-            }
+            document_clear_selection(context->document);
         }
-        return;
+        return 0;
     }
 
     if ((event->mods & GLFW_MOD_SHIFT) != 0) {
-        DocumentSnapshot before_snapshot;
-        document_snapshot_init(&before_snapshot);
-        if (document_snapshot_capture(&before_snapshot, context->document)) {
-            document_selection_toggle(context->document, hit->id);
-            if (!selection_matches_snapshot(context->document, &before_snapshot)) {
-                document_touch(context->document);
-                tool_commit_document_change(context, &before_snapshot);
-            } else {
-                document_snapshot_free(&before_snapshot);
-            }
-        } else {
-            document_selection_toggle(context->document, hit->id);
-        }
+        document_selection_toggle(context->document, hit->id);
         state->dragging = document_selection_contains(context->document, hit->id);
     } else {
         if (!document_selection_contains(context->document, hit->id) || context->document->selection.count != 1) {
-            DocumentSnapshot before_snapshot;
-            document_snapshot_init(&before_snapshot);
-            if (document_snapshot_capture(&before_snapshot, context->document)) {
-                document_clear_selection(context->document);
-                document_selection_add(context->document, hit->id);
-                document_touch(context->document);
-                tool_commit_document_change(context, &before_snapshot);
-            } else {
-                document_clear_selection(context->document);
-                document_selection_add(context->document, hit->id);
-            }
+            document_clear_selection(context->document);
+            document_selection_add(context->document, hit->id);
         }
         state->dragging = document_selection_contains(context->document, hit->id);
     }
 
     if (!state->dragging || context->document->selection.count <= 0) {
-        return;
+        return 0;
     }
 
     state->drag_object_count = context->document->selection.count;
@@ -316,6 +284,7 @@ static void select_tool_pointer_down(Tool* tool, ToolContext* context, const Too
     }
     state->last_world = event->world_pos;
     state->drag_revision_before = context->document->revision;
+    return 1;
 }
 
 /**
@@ -401,16 +370,6 @@ static void select_tool_key_down(Tool* tool, ToolContext* context, int key, int 
     (void)tool;
     (void)mods;
     if (key == GLFW_KEY_ESCAPE) {
-        if (context->document->selection.count > 0) {
-            DocumentSnapshot before_snapshot;
-            document_snapshot_init(&before_snapshot);
-            if (document_snapshot_capture(&before_snapshot, context->document)) {
-                document_clear_selection(context->document);
-                document_touch(context->document);
-                tool_commit_document_change(context, &before_snapshot);
-                return;
-            }
-        }
         document_clear_selection(context->document);
     }
 }
@@ -454,17 +413,18 @@ static void pan_tool_deactivate(Tool* tool, ToolContext* context)
  * @param tool Tool instance.
  * @param context Tool context.
  * @param event Pointer event.
- * @return None.
+ * @return Non-zero when the pan tool accepted the interaction.
  */
-static void pan_tool_pointer_down(Tool* tool, ToolContext* context, const ToolEvent* event)
+static int pan_tool_pointer_down(Tool* tool, ToolContext* context, const ToolEvent* event)
 {
     PanToolState* state = (PanToolState*)tool->state;
     (void)tool;
     (void)context;
     if (event->button != GLFW_MOUSE_BUTTON_LEFT) {
-        return;
+        return 0;
     }
     state->panning = 1;
+    return 1;
 }
 
 /**
@@ -554,14 +514,14 @@ static void shape_tool_deactivate(Tool* tool, ToolContext* context)
 }
 
 /** Start shape draw interaction and create translucent overlay preview. */
-static void shape_tool_pointer_down(Tool* tool, ToolContext* context, const ToolEvent* event)
+static int shape_tool_pointer_down(Tool* tool, ToolContext* context, const ToolEvent* event)
 {
     ShapeToolState* state = (ShapeToolState*)tool->state;
     GraphicStyle style = object_default_style();
 
     (void)context;
     if (event->button != GLFW_MOUSE_BUTTON_LEFT) {
-        return;
+        return 0;
     }
 
     state->drawing = 1;
@@ -571,6 +531,7 @@ static void shape_tool_pointer_down(Tool* tool, ToolContext* context, const Tool
     style.stroke_color.a = 0.75f;
     destroy_overlay(tool);
     tool->overlay_object = build_shape_object(tool->kind, state->anchor, state->current, style);
+    return (tool->overlay_object != NULL);
 }
 
 /** Update shape overlay as pointer moves. */
@@ -747,13 +708,16 @@ void tool_controller_set_active(ToolController* controller, ToolContext* context
 void tool_controller_pointer_down(ToolController* controller, ToolContext* context, const ToolEvent* event)
 {
     Tool* tool = tool_controller_get_active(controller);
+    int accepted = 0;
+
     if (!controller || !tool || !tool->vtable || !tool->vtable->pointer_down) {
         return;
     }
-    controller->pointer_captured = 1;
+
     controller->last_screen = event->screen_pos;
     controller->last_world = event->world_pos;
-    tool->vtable->pointer_down(tool, context, event);
+    accepted = tool->vtable->pointer_down(tool, context, event);
+    controller->pointer_captured = accepted ? 1 : 0;
 }
 
 /** Dispatch pointer-move to active tool. */

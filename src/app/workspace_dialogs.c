@@ -7,31 +7,13 @@
 #include <stdio.h>
 #include <string.h>
 
-static const UiDialogButtonDefinition UI_DIALOG_BUTTON_CONFIRM_UNSAVED_SAVE = {
-    "Save",
-    UI_DIALOG_RESULT_PRIMARY,
-    1
-};
-
-static const UiDialogButtonDefinition UI_DIALOG_BUTTON_CONFIRM_UNSAVED_DISCARD = {
-    "Don't Save",
-    UI_DIALOG_RESULT_SECONDARY,
-    0
-};
-
-static const UiDialogButtonDefinition UI_DIALOG_BUTTON_CONFIRM_UNSAVED_CANCEL = {
-    "Cancel",
-    UI_DIALOG_RESULT_CANCEL,
-    0
-};
-
 static int workspace_dialog_resolve_confirm_unsaved(Workspace* workspace,
                                                     UiDialogResult result);
 
 static const UiDialogButtonDefinition UI_DIALOG_BUTTONS_CONFIRM_UNSAVED[] = {
-    UI_DIALOG_BUTTON_CONFIRM_UNSAVED_SAVE,
-    UI_DIALOG_BUTTON_CONFIRM_UNSAVED_DISCARD,
-    UI_DIALOG_BUTTON_CONFIRM_UNSAVED_CANCEL
+    {"Save", UI_DIALOG_RESULT_PRIMARY, 1},
+    {"Don't Save", UI_DIALOG_RESULT_SECONDARY, 0},
+    {"Cancel", UI_DIALOG_RESULT_CANCEL, 0}
 };
 
 static const UiDialogDefinition UI_DIALOG_DEFINITION_CONFIRM_UNSAVED = {
