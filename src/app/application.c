@@ -49,6 +49,14 @@ static int app_workspace_execute_action(Workspace *workspace,
                                         WorkspaceActionType action,
                                         void *user_data);
 
+static void app_clear_clipboard(Application *app) {
+  if (!app) {
+    return;
+  }
+
+  workspace_clear_clipboard(&app->workspace);
+}
+
 /**
  * @brief Write formatted status text into workspace status buffer.
  * @param app [in,out] Application state.
@@ -157,6 +165,7 @@ static int app_new_document(Application *app) {
   }
 
   document_reset(&app->workspace.document);
+  app_clear_clipboard(app);
   document_history_shutdown(&app->workspace.history);
   if (!document_history_init(&app->workspace.history)) {
     LOG_ERROR("%s", "Failed to reinitialize history");
@@ -228,6 +237,7 @@ static int app_load_document(Application *app) {
 
   /* Rebuild history against the newly loaded object graph.
      Reusing old snapshots would leave dangling object pointers. */
+  app_clear_clipboard(app);
   document_history_shutdown(&app->workspace.history);
   if (!document_history_init(&app->workspace.history)) {
     LOG_ERROR("%s", "Failed to reinitialize history after document load");
@@ -706,6 +716,7 @@ static void app_shutdown(Application *app) {
   render_system_destroy(app->renderer);
   tool_controller_shutdown(&app->workspace.tools);
   keymap_shutdown(&app->workspace.keymap);
+  app_clear_clipboard(app);
   document_history_shutdown(&app->workspace.history);
   document_shutdown(&app->workspace.document);
   platform_window_shutdown(&app->window);

@@ -15,6 +15,7 @@
 #include <app/command_registry.h>
 #include <app/workspace.h>
 #include <base/log.h>
+
 /**
  * @brief Checks if menu action is currently available.
  * @param workspace [in] Workspace instance used for command-backed items.
@@ -25,9 +26,6 @@ int ui_menu_is_action_available(const Workspace* workspace, MenuId id)
 {
     switch (id) {
     case MENU_ID_FILE_EXPORT_PNG:
-    case MENU_ID_EDIT_CUT:
-    case MENU_ID_EDIT_COPY:
-    case MENU_ID_EDIT_PASTE:
     case MENU_ID_FILE_RECENT:
         return 0;
     default:
