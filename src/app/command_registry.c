@@ -6,7 +6,7 @@
 
 #include <app/workspace.h>
 #include <app/workspace_actions.h>
-#include <base/log.h>
+#include <app/workspace_dialogs.h>
 #include <base/math2d.h>
 #include <canvas/canvas_view.h>
 #include <document/document.h>
@@ -14,6 +14,7 @@
 #include <tools/tool_controller.h>
 #include <ui/ui_menu_def.h>
 
+#include <stdio.h>
 #include <string.h>
 
 #define CLIPBOARD_PASTE_OFFSET_PIXELS 10.0f
@@ -169,14 +170,112 @@ static int command_registry_paste_clipboard(Workspace* workspace)
     return 1;
 }
 
+static void command_registry_append_shortcut_line(char* buffer,
+                                                  size_t buffer_size,
+                                                  const Workspace* workspace,
+                                                  const char* command_id,
+                                                  KeyScope scope,
+                                                  const char* label)
+{
+    char shortcut[64];
+
+    if (!buffer || buffer_size == 0u || !workspace || !command_id || !label) {
+        return;
+    }
+
+    shortcut[0] = '\0';
+    keymap_format_command_shortcut(&workspace->keymap,
+                                   command_id,
+                                   scope,
+                                   shortcut,
+                                   sizeof(shortcut));
+    if (shortcut[0] == '\0') {
+        return;
+    }
+
+    snprintf(buffer + strlen(buffer),
+             buffer_size - strlen(buffer),
+             "  %-16s %s\n",
+             shortcut,
+             label);
+}
+
+static int command_registry_toggle_shortcuts_dialog(Workspace* workspace)
+{
+    char content[1024];
+
+    if (!workspace) {
+        return 0;
+    }
+
+    if (workspace_active_dialog_kind(workspace) == UI_DIALOG_SHORTCUTS) {
+        workspace_confirm_pending_action_cancel(workspace);
+        return 1;
+    }
+    if (workspace_modal_is_active(workspace)) {
+        return 0;
+    }
+
+    content[0] = '\0';
+    snprintf(content + strlen(content),
+             sizeof(content) - strlen(content),
+             "Tools\n");
+    command_registry_append_shortcut_line(content, sizeof(content), workspace, "tool.select", KEY_SCOPE_GLOBAL, "Select Tool");
+    command_registry_append_shortcut_line(content, sizeof(content), workspace, "tool.pan", KEY_SCOPE_GLOBAL, "Pan/Hand Tool");
+    command_registry_append_shortcut_line(content, sizeof(content), workspace, "tool.line", KEY_SCOPE_GLOBAL, "Line Tool");
+    command_registry_append_shortcut_line(content, sizeof(content), workspace, "tool.rect", KEY_SCOPE_GLOBAL, "Rectangle Tool");
+    command_registry_append_shortcut_line(content, sizeof(content), workspace, "tool.ellipse", KEY_SCOPE_GLOBAL, "Ellipse Tool");
+
+    snprintf(content + strlen(content),
+             sizeof(content) - strlen(content),
+             "\nFile\n");
+    command_registry_append_shortcut_line(content, sizeof(content), workspace, "file.new", KEY_SCOPE_GLOBAL, "New Document");
+    command_registry_append_shortcut_line(content, sizeof(content), workspace, "file.open", KEY_SCOPE_GLOBAL, "Open Document");
+    command_registry_append_shortcut_line(content, sizeof(content), workspace, "file.save", KEY_SCOPE_GLOBAL, "Save Document");
+
+    snprintf(content + strlen(content),
+             sizeof(content) - strlen(content),
+             "\nEdit\n");
+    command_registry_append_shortcut_line(content, sizeof(content), workspace, "edit.undo", KEY_SCOPE_GLOBAL, "Undo");
+    command_registry_append_shortcut_line(content, sizeof(content), workspace, "edit.redo", KEY_SCOPE_GLOBAL, "Redo");
+    command_registry_append_shortcut_line(content, sizeof(content), workspace, "edit.cut", KEY_SCOPE_GLOBAL, "Cut");
+    command_registry_append_shortcut_line(content, sizeof(content), workspace, "edit.copy", KEY_SCOPE_GLOBAL, "Copy");
+    command_registry_append_shortcut_line(content, sizeof(content), workspace, "edit.paste", KEY_SCOPE_GLOBAL, "Paste");
+    command_registry_append_shortcut_line(content, sizeof(content), workspace, "edit.delete", KEY_SCOPE_GLOBAL, "Delete Selection");
+    command_registry_append_shortcut_line(content, sizeof(content), workspace, "edit.select_all", KEY_SCOPE_GLOBAL, "Select All");
+
+    snprintf(content + strlen(content),
+             sizeof(content) - strlen(content),
+             "\nView\n");
+    command_registry_append_shortcut_line(content, sizeof(content), workspace, "view.zoom_fit", KEY_SCOPE_GLOBAL, "Zoom to Fit");
+    command_registry_append_shortcut_line(content, sizeof(content), workspace, "view.zoom_in", KEY_SCOPE_GLOBAL, "Zoom In");
+    command_registry_append_shortcut_line(content, sizeof(content), workspace, "view.zoom_out", KEY_SCOPE_GLOBAL, "Zoom Out");
+
+    snprintf(content + strlen(content),
+             sizeof(content) - strlen(content),
+             "\nHelp\n");
+    command_registry_append_shortcut_line(content, sizeof(content), workspace, "help.shortcuts", KEY_SCOPE_GLOBAL, "Toggle This Dialog");
+
+    return workspace_dialog_open_shortcuts(workspace, content);
+}
 static int command_registry_zoom_to_fit(Workspace* workspace)
 {
+    const float padding_ratio = 0.10f;
+    const float minimum_world_span = 32.0f;
     Document* doc = NULL;
     CanvasView* canvas = NULL;
+    RectF canvas_viewport = {0.0f, 0.0f, 0.0f, 0.0f};
     float min_x = 0.0f;
     float max_x = 0.0f;
     float min_y = 0.0f;
     float max_y = 0.0f;
+    float content_w = 0.0f;
+    float content_h = 0.0f;
+    float pad_x = 0.0f;
+    float pad_y = 0.0f;
+    float zoom_x = 1.0f;
+    float zoom_y = 1.0f;
+    float new_zoom = 1.0f;
     int first = 1;
     int i = 0;
 
@@ -186,6 +285,12 @@ static int command_registry_zoom_to_fit(Workspace* workspace)
 
     doc = &workspace->document;
     canvas = &workspace->canvas;
+    canvas_viewport = canvas_view_viewport(canvas);
+    if (canvas_viewport.w <= 1.0f || canvas_viewport.h <= 1.0f) {
+        canvas_view_set_center_zoom(canvas, vec2_make(0.0f, 0.0f), 1.0f);
+        return 1;
+    }
+
     if (doc->count == 0) {
         canvas_view_set_center_zoom(canvas, vec2_make(0.0f, 0.0f), 1.0f);
         return 1;
@@ -214,29 +319,42 @@ static int command_registry_zoom_to_fit(Workspace* workspace)
         }
     }
 
-    if (!first) {
-        float pad = 50.0f;
-        float content_w = 0.0f;
-        float content_h = 0.0f;
-        RectF canvas_viewport = canvas_view_viewport(canvas);
-        float zoom_x = 1.0f;
-        float zoom_y = 1.0f;
-        float new_zoom = 1.0f;
-
-        min_x -= pad;
-        min_y -= pad;
-        max_x += pad;
-        max_y += pad;
-        content_w = max_x - min_x;
-        content_h = max_y - min_y;
-        zoom_x = canvas_viewport.w / content_w;
-        zoom_y = canvas_viewport.h / content_h;
-        new_zoom = (zoom_x < zoom_y) ? zoom_x : zoom_y;
-        new_zoom = (new_zoom < 0.1f) ? 0.1f : (new_zoom > 12.0f) ? 12.0f : new_zoom;
-        canvas_view_set_center_zoom(canvas,
-                                    vec2_make((min_x + max_x) * 0.5f, (min_y + max_y) * 0.5f),
-                                    new_zoom);
+    if (first) {
+        canvas_view_set_center_zoom(canvas, vec2_make(0.0f, 0.0f), 1.0f);
+        return 1;
     }
+
+    content_w = max_x - min_x;
+    content_h = max_y - min_y;
+    if (content_w < minimum_world_span) {
+        float center_x = (min_x + max_x) * 0.5f;
+        content_w = minimum_world_span;
+        min_x = center_x - content_w * 0.5f;
+        max_x = center_x + content_w * 0.5f;
+    }
+    if (content_h < minimum_world_span) {
+        float center_y = (min_y + max_y) * 0.5f;
+        content_h = minimum_world_span;
+        min_y = center_y - content_h * 0.5f;
+        max_y = center_y + content_h * 0.5f;
+    }
+
+    pad_x = content_w * padding_ratio;
+    pad_y = content_h * padding_ratio;
+    min_x -= pad_x;
+    min_y -= pad_y;
+    max_x += pad_x;
+    max_y += pad_y;
+    content_w = max_x - min_x;
+    content_h = max_y - min_y;
+    zoom_x = canvas_viewport.w / content_w;
+    zoom_y = canvas_viewport.h / content_h;
+    new_zoom = (zoom_x < zoom_y) ? zoom_x : zoom_y;
+    new_zoom = clampf(new_zoom, 0.1f, 12.0f);
+    canvas_view_set_center_zoom(canvas,
+                                vec2_make((min_x + max_x) * 0.5f,
+                                          (min_y + max_y) * 0.5f),
+                                new_zoom);
 
     return 1;
 }
@@ -317,11 +435,67 @@ const CommandDescriptor* command_registry_find_by_menu_id(int id)
     return NULL;
 }
 
+int command_registry_is_available(const Workspace* workspace,
+                                  EditorCommand command)
+{
+    switch (command) {
+    case EDITOR_COMMAND_FILE_SAVE:
+        return workspace && workspace->save_document;
+    case EDITOR_COMMAND_FILE_SAVE_AS:
+        return 0;
+    case EDITOR_COMMAND_HELP_SHORTCUTS:
+        return 1;
+    case EDITOR_COMMAND_EDIT_CUT:
+    case EDITOR_COMMAND_EDIT_COPY:
+    case EDITOR_COMMAND_EDIT_DELETE:
+        return workspace && workspace->document.selection.count > 0;
+    case EDITOR_COMMAND_EDIT_PASTE:
+        return workspace && workspace->clipboard_count > 0;
+    case EDITOR_COMMAND_FILE_NEW:
+    case EDITOR_COMMAND_FILE_OPEN:
+    case EDITOR_COMMAND_FILE_EXIT:
+    case EDITOR_COMMAND_EDIT_UNDO:
+    case EDITOR_COMMAND_EDIT_REDO:
+    case EDITOR_COMMAND_EDIT_SELECT_ALL:
+    case EDITOR_COMMAND_VIEW_ZOOM_IN:
+    case EDITOR_COMMAND_VIEW_ZOOM_OUT:
+    case EDITOR_COMMAND_VIEW_ZOOM_FIT:
+    case EDITOR_COMMAND_VIEW_TOGGLE_GRID:
+    case EDITOR_COMMAND_VIEW_TOGGLE_INSPECTOR:
+    case EDITOR_COMMAND_TOOL_SELECT:
+    case EDITOR_COMMAND_TOOL_PAN:
+    case EDITOR_COMMAND_TOOL_LINE:
+    case EDITOR_COMMAND_TOOL_RECT:
+    case EDITOR_COMMAND_TOOL_ELLIPSE:
+    case EDITOR_COMMAND_HELP_ABOUT:
+    case EDITOR_COMMAND_MODAL_CONFIRM:
+    case EDITOR_COMMAND_MODAL_CANCEL:
+        return 1;
+    case EDITOR_COMMAND_NONE:
+    default:
+        return 0;
+    }
+}
+
+int command_registry_is_menu_action_available(const Workspace* workspace, int id)
+{
+    const CommandDescriptor* descriptor = command_registry_find_by_menu_id(id);
+
+    if (!descriptor) {
+        return 0;
+    }
+
+    return command_registry_is_available(workspace, descriptor->command);
+}
+
 int command_registry_execute(Workspace* workspace,
                              ToolContext* tool_context,
                              EditorCommand command)
 {
     if (!workspace) {
+        return 0;
+    }
+    if (!command_registry_is_available(workspace, command)) {
         return 0;
     }
 
@@ -397,11 +571,11 @@ int command_registry_execute(Workspace* workspace,
         if (tool_context) tool_controller_set_active(&workspace->tools, tool_context, TOOL_KIND_ELLIPSE);
         return 1;
     case EDITOR_COMMAND_HELP_SHORTCUTS:
-        LOG_INFO("%s", "Keyboard shortcuts dialog requested");
-        return 1;
+        return command_registry_toggle_shortcuts_dialog(workspace);
     case EDITOR_COMMAND_HELP_ABOUT:
-        LOG_INFO("%s", "About dialog requested");
-        return 1;
+        return workspace_dialog_open_info(workspace,
+                                          "About GLDraw",
+                                          "GLDraw\nCanvas-oriented OpenGL drawing editor.\n\nCurrent build includes core document editing, undo/redo, persistence, and themeable UI.");
     case EDITOR_COMMAND_MODAL_CONFIRM:
         return workspace_confirm_pending_action_save(workspace);
     case EDITOR_COMMAND_MODAL_CANCEL:

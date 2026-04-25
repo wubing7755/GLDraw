@@ -79,6 +79,8 @@ struct UiSystem {
   float inspector_anim_t;
   int inspector_target_visible;
   int inspector_anim_initialized;
+  int inspector_edit_active;
+  DocumentSnapshot inspector_edit_before_snapshot;
   int modal_active;
   int context_menu_visible;
   int context_menu_close_requested;
@@ -594,70 +596,120 @@ static ToolContext ui_tool_context(Workspace *workspace) {
   return context;
 }
 
-static void ui_commit_scalar_edit(Workspace *workspace, GraphicObject *object,
-                                  const char *key, float before_value,
-                                  float after_value) {
-  unsigned int revision_before = 0;
+static void ui_reset_inspector_edit_session(UiSystem *ui) {
+  if (!ui) {
+    return;
+  }
 
-  if (!workspace || !object || !key || key[0] == '\0') {
+  document_snapshot_free(&ui->inspector_edit_before_snapshot);
+  document_snapshot_init(&ui->inspector_edit_before_snapshot);
+  ui->inspector_edit_active = 0;
+}
+
+static int ui_begin_inspector_edit_session(UiSystem *ui, Workspace *workspace) {
+  if (!ui || !workspace) {
+    return 0;
+  }
+
+  if (ui->inspector_edit_active) {
+    return 1;
+  }
+
+  document_snapshot_init(&ui->inspector_edit_before_snapshot);
+  if (!document_snapshot_capture(&ui->inspector_edit_before_snapshot,
+                                 &workspace->document)) {
+    ui_reset_inspector_edit_session(ui);
+    return 0;
+  }
+
+  ui->inspector_edit_active = 1;
+  return 1;
+}
+
+static void ui_finalize_inspector_edit_session(UiSystem *ui,
+                                               Workspace *workspace) {
+  if (!ui || !workspace || !ui->inspector_edit_active) {
+    return;
+  }
+
+  if (workspace->document.revision !=
+      ui->inspector_edit_before_snapshot.revision) {
+    if (!document_history_push(&workspace->history,
+                               &ui->inspector_edit_before_snapshot,
+                               &workspace->document)) {
+      ui_reset_inspector_edit_session(ui);
+      workspace_sync_document_dirty(workspace);
+      return;
+    }
+  } else {
+    document_snapshot_free(&ui->inspector_edit_before_snapshot);
+    document_snapshot_init(&ui->inspector_edit_before_snapshot);
+  }
+
+  ui->inspector_edit_active = 0;
+  workspace_sync_document_dirty(workspace);
+}
+
+static void ui_apply_scalar_edit(UiSystem *ui, Workspace *workspace,
+                                 GraphicObject *object, const char *key,
+                                 float before_value, float after_value) {
+
+  if (!ui || !workspace || !object || !key || key[0] == '\0') {
     return;
   }
   if (fabsf(after_value - before_value) <= 1e-6f) {
     return;
   }
 
-  revision_before = workspace->document.revision;
-  if (!object_set_scalar(object, key, after_value)) {
+  if (!ui_begin_inspector_edit_session(ui, workspace)) {
     return;
   }
-  if (!document_history_push_scalar_edit(
-          &workspace->history, &workspace->document, object->id, key,
-          before_value, after_value, revision_before,
-          workspace->document.revision)) {
-    /* Keep the edit even if history push fails; avoid rolling back UI
-     * interaction state. */
+
+  if (!object_set_scalar(object, key, after_value)) {
+    return;
   }
 
   workspace_sync_document_dirty(workspace);
 }
 
-static void ui_apply_stroke_color(Workspace *workspace, GraphicObject *object,
+static void ui_apply_stroke_color(UiSystem *ui, Workspace *workspace,
+                                  GraphicObject *object,
                                   Color color) {
   Color before;
 
-  if (!workspace || !object) {
+  if (!ui || !workspace || !object) {
     return;
   }
 
   before = object->style.stroke_color;
   if (fabsf(color.r - before.r) > 1e-6f) {
-    ui_commit_scalar_edit(workspace, object, "stroke_r", before.r, color.r);
+    ui_apply_scalar_edit(ui, workspace, object, "stroke_r", before.r, color.r);
   }
   if (fabsf(color.g - before.g) > 1e-6f) {
-    ui_commit_scalar_edit(workspace, object, "stroke_g", before.g, color.g);
+    ui_apply_scalar_edit(ui, workspace, object, "stroke_g", before.g, color.g);
   }
   if (fabsf(color.b - before.b) > 1e-6f) {
-    ui_commit_scalar_edit(workspace, object, "stroke_b", before.b, color.b);
+    ui_apply_scalar_edit(ui, workspace, object, "stroke_b", before.b, color.b);
   }
   if (fabsf(color.a - before.a) > 1e-6f) {
-    ui_commit_scalar_edit(workspace, object, "stroke_a", before.a, color.a);
+    ui_apply_scalar_edit(ui, workspace, object, "stroke_a", before.a, color.a);
   }
 }
 
-static void ui_apply_stroke_width(Workspace *workspace, GraphicObject *object,
-                                  float stroke_width) {
+static void ui_apply_stroke_width(UiSystem *ui, Workspace *workspace,
+                                  GraphicObject *object, float stroke_width) {
   float before = 0.0f;
 
-  if (!workspace || !object) {
+  if (!ui || !workspace || !object) {
     return;
   }
 
   before = object->style.stroke_width;
-  ui_commit_scalar_edit(workspace, object, "stroke_width", before,
-                        stroke_width);
+  ui_apply_scalar_edit(ui, workspace, object, "stroke_width", before,
+                       stroke_width);
 }
 
-static void ui_property_apply_float(struct nk_context *ctx,
+static void ui_property_apply_float(UiSystem *ui, struct nk_context *ctx,
                                     Workspace *workspace, GraphicObject *object,
                                     const char *label, const char *key,
                                     float min_value, float *value,
@@ -668,7 +720,7 @@ static void ui_property_apply_float(struct nk_context *ctx,
   nk_property_float(ctx, label, min_value, value, max_value, step,
                     inc_per_pixel);
   if (fabsf(*value - before) > 1e-6f) {
-    ui_commit_scalar_edit(workspace, object, key, before, *value);
+    ui_apply_scalar_edit(ui, workspace, object, key, before, *value);
   }
 }
 
@@ -780,7 +832,8 @@ static void ui_inspector_overview(struct nk_context *ctx,
   nk_labelf(ctx, NK_TEXT_LEFT, "Selected: %d", document->selection.count);
 }
 
-static void ui_inspector_style(struct nk_context *ctx, Workspace *workspace,
+static void ui_inspector_style(UiSystem *ui, struct nk_context *ctx,
+                               Workspace *workspace,
                                GraphicObject *object) {
   Color stroke;
   float stroke_width;
@@ -797,22 +850,23 @@ static void ui_inspector_style(struct nk_context *ctx, Workspace *workspace,
   nk_layout_row_dynamic(ctx, 22.0f, 2);
   nk_label(ctx, "Stroke R", NK_TEXT_LEFT);
   if (nk_slider_float(ctx, 0.0f, &stroke.r, 1.0f, 0.01f))
-    ui_apply_stroke_color(workspace, object, stroke);
+    ui_apply_stroke_color(ui, workspace, object, stroke);
   nk_label(ctx, "Stroke G", NK_TEXT_LEFT);
   if (nk_slider_float(ctx, 0.0f, &stroke.g, 1.0f, 0.01f))
-    ui_apply_stroke_color(workspace, object, stroke);
+    ui_apply_stroke_color(ui, workspace, object, stroke);
   nk_label(ctx, "Stroke B", NK_TEXT_LEFT);
   if (nk_slider_float(ctx, 0.0f, &stroke.b, 1.0f, 0.01f))
-    ui_apply_stroke_color(workspace, object, stroke);
+    ui_apply_stroke_color(ui, workspace, object, stroke);
   nk_label(ctx, "Stroke A", NK_TEXT_LEFT);
   if (nk_slider_float(ctx, 0.1f, &stroke.a, 1.0f, 0.01f))
-    ui_apply_stroke_color(workspace, object, stroke);
+    ui_apply_stroke_color(ui, workspace, object, stroke);
   nk_label(ctx, "Line Width", NK_TEXT_LEFT);
   if (nk_slider_float(ctx, 1.0f, &stroke_width, 12.0f, 0.1f))
-    ui_apply_stroke_width(workspace, object, stroke_width);
+    ui_apply_stroke_width(ui, workspace, object, stroke_width);
 }
 
-static void ui_inspector_geometry(struct nk_context *ctx, Workspace *workspace,
+static void ui_inspector_geometry(UiSystem *ui, struct nk_context *ctx,
+                                  Workspace *workspace,
                                   GraphicObject *object) {
   if (!ctx || !workspace || !object) {
     return;
@@ -827,13 +881,13 @@ static void ui_inspector_geometry(struct nk_context *ctx, Workspace *workspace,
     nk_layout_row_dynamic(ctx, 20.0f, 1);
     nk_label(ctx, "Geometry", NK_TEXT_LEFT);
     nk_layout_row_dynamic(ctx, 24.0f, 1);
-    ui_property_apply_float(ctx, workspace, object, "#X1", "x1", -5000.0f, &x1,
+    ui_property_apply_float(ui, ctx, workspace, object, "#X1", "x1", -5000.0f, &x1,
                             5000.0f, 1.0f, 0.5f);
-    ui_property_apply_float(ctx, workspace, object, "#Y1", "y1", -5000.0f, &y1,
+    ui_property_apply_float(ui, ctx, workspace, object, "#Y1", "y1", -5000.0f, &y1,
                             5000.0f, 1.0f, 0.5f);
-    ui_property_apply_float(ctx, workspace, object, "#X2", "x2", -5000.0f, &x2,
+    ui_property_apply_float(ui, ctx, workspace, object, "#X2", "x2", -5000.0f, &x2,
                             5000.0f, 1.0f, 0.5f);
-    ui_property_apply_float(ctx, workspace, object, "#Y2", "y2", -5000.0f, &y2,
+    ui_property_apply_float(ui, ctx, workspace, object, "#Y2", "y2", -5000.0f, &y2,
                             5000.0f, 1.0f, 0.5f);
   } else {
     float x = 0.0f, y = 0.0f, width = 0.0f, height = 0.0f;
@@ -844,13 +898,13 @@ static void ui_inspector_geometry(struct nk_context *ctx, Workspace *workspace,
     nk_layout_row_dynamic(ctx, 20.0f, 1);
     nk_label(ctx, "Bounds", NK_TEXT_LEFT);
     nk_layout_row_dynamic(ctx, 24.0f, 1);
-    ui_property_apply_float(ctx, workspace, object, "#X", "x", -5000.0f, &x,
+    ui_property_apply_float(ui, ctx, workspace, object, "#X", "x", -5000.0f, &x,
                             5000.0f, 1.0f, 0.5f);
-    ui_property_apply_float(ctx, workspace, object, "#Y", "y", -5000.0f, &y,
+    ui_property_apply_float(ui, ctx, workspace, object, "#Y", "y", -5000.0f, &y,
                             5000.0f, 1.0f, 0.5f);
-    ui_property_apply_float(ctx, workspace, object, "#W", "width", 1.0f, &width,
+    ui_property_apply_float(ui, ctx, workspace, object, "#W", "width", 1.0f, &width,
                             5000.0f, 1.0f, 0.5f);
-    ui_property_apply_float(ctx, workspace, object, "#H", "height", 1.0f,
+    ui_property_apply_float(ui, ctx, workspace, object, "#H", "height", 1.0f,
                             &height, 5000.0f, 1.0f, 0.5f);
   }
 }
@@ -874,8 +928,8 @@ static void ui_selection_panel(UiSystem *ui, Workspace *workspace,
       ui_inspector_empty_hint(ctx);
     } else {
       ui_inspector_overview(ctx, document, object);
-      ui_inspector_style(ctx, workspace, object);
-      ui_inspector_geometry(ctx, workspace, object);
+      ui_inspector_style(ui, ctx, workspace, object);
+      ui_inspector_geometry(ui, ctx, workspace, object);
     }
   }
   nk_end(ctx);
@@ -982,6 +1036,7 @@ UiSystem *ui_system_create(PlatformWindow *window) {
   ui->inspector_anim_t = 1.0f;
   ui->inspector_target_visible = 1;
   ui->inspector_anim_initialized = 0;
+  document_snapshot_init(&ui->inspector_edit_before_snapshot);
   ui->last_frame_seconds = glfwGetTime();
   ui->window_handle = window->handle;
 
@@ -996,6 +1051,7 @@ void ui_system_destroy(UiSystem *ui) {
     ui_menubar_destroy(ui->menu_bar);
     ui->menu_bar = NULL;
   }
+  document_snapshot_free(&ui->inspector_edit_before_snapshot);
   nk_glfw3_shutdown(&ui->glfw);
   free(ui);
 }
@@ -1175,6 +1231,10 @@ void ui_system_build(UiSystem *ui, Workspace *workspace) {
   }
 
   ui_publish_layout(ui, workspace, width, height);
+
+  if (ui->inspector_edit_active && !ui_system_has_active_interaction(ui)) {
+    ui_finalize_inspector_edit_session(ui, workspace);
+  }
 }
 
 int ui_system_handle_key(UiSystem *ui, int key, int action) {

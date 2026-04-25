@@ -74,7 +74,8 @@ typedef struct ToolVTable ToolVTable;
  * @member label Returns the tool display name.
  * @member activate Tool activate callback.
  * @member deactivate Tool deactivate callback.
- * @member pointer_down Mouse pointer down callback.
+ * @member pointer_down Mouse pointer down callback. Returns non-zero only when
+ * the tool accepts the interaction and expects captured follow-up events.
  * @member pointer_move Mouse pointer move callback.
  * @member pointer_up Mouse pointer up callback.
  * @member key_down Key down callback.
@@ -83,7 +84,7 @@ struct ToolVTable {
     const char* (*label)(const Tool* tool);
     void (*activate)(Tool* tool, ToolContext* context);
     void (*deactivate)(Tool* tool, ToolContext* context);
-    void (*pointer_down)(Tool* tool, ToolContext* context, const ToolEvent* event);
+    int (*pointer_down)(Tool* tool, ToolContext* context, const ToolEvent* event);
     void (*pointer_move)(Tool* tool, ToolContext* context, const ToolEvent* event);
     void (*pointer_up)(Tool* tool, ToolContext* context, const ToolEvent* event);
     void (*key_down)(Tool* tool, ToolContext* context, int key, int mods);

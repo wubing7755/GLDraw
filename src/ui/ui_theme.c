@@ -11,8 +11,9 @@
  * - Uses file-system helpers and lightweight parsing utilities.
  */
 #include <nuklear/nuklear.h>
-#include <ui/ui_theme.h>
+#include <base/file_utils.h>
 #include <base/log.h>
+#include <ui/ui_theme.h>
 
 #include <ctype.h>
 #include <stddef.h>
@@ -381,54 +382,6 @@ UiThemeTokens ui_theme_tokens_for_id(const char* theme_id)
         return ui_theme_builtin_tokens_at(theme_index);
     }
     return g_custom_theme_entries[theme_index - builtin_count].tokens;
-}
-
-/**
- * @brief Reads a text file.
- * @param path File path.
- * @return File contents or NULL.
- */
-static char* ui_read_text_file(const char* path)
-{
-    FILE* file = NULL;
-    char* buffer = NULL;
-    long size = 0;
-    size_t read_size = 0;
-
-    if (!path || path[0] == '\0') {
-        return NULL;
-    }
-
-    file = fopen(path, "rb");
-    if (!file) {
-        return NULL;
-    }
-
-    if (fseek(file, 0, SEEK_END) != 0) {
-        fclose(file);
-        return NULL;
-    }
-    size = ftell(file);
-    if (size < 0 || fseek(file, 0, SEEK_SET) != 0) {
-        fclose(file);
-        return NULL;
-    }
-
-    buffer = (char*)malloc((size_t)size + 1u);
-    if (!buffer) {
-        fclose(file);
-        return NULL;
-    }
-
-    read_size = fread(buffer, 1u, (size_t)size, file);
-    if (read_size != (size_t)size && ferror(file)) {
-        free(buffer);
-        fclose(file);
-        return NULL;
-    }
-    buffer[read_size] = '\0';
-    fclose(file);
-    return buffer;
 }
 
 /**
@@ -1102,7 +1055,7 @@ static int ui_theme_load_external_file(const char* path)
         return 0;
     }
 
-    text = ui_read_text_file(path);
+    text = file_utils_read_text_file(path);
     if (!text) {
         return 0;
     }
@@ -1207,7 +1160,7 @@ int ui_theme_reload_external(const char* directory_path)
                 if (g_last_reload_error[0] == '\0') {
                     snprintf(g_last_reload_error,
                              sizeof(g_last_reload_error),
-                             "Failed parsing theme file: %s",
+                             "Failed parsing theme file: %.200s",
                              file_path);
                 }
             }
@@ -1244,7 +1197,7 @@ int ui_theme_reload_external(const char* directory_path)
                 if (g_last_reload_error[0] == '\0') {
                     snprintf(g_last_reload_error,
                              sizeof(g_last_reload_error),
-                             "Failed parsing theme file: %s",
+                             "Failed parsing theme file: %.200s",
                              file_path);
                 }
             }
@@ -1395,7 +1348,7 @@ int ui_theme_load_selected_id(const char* path, char* out_theme_id, size_t out_t
     }
 
     out_theme_id[0] = '\0';
-    text = ui_read_text_file(path);
+    text = file_utils_read_text_file(path);
     if (!text) {
         return 0;
     }
@@ -1413,64 +1366,6 @@ int ui_theme_load_selected_id(const char* path, char* out_theme_id, size_t out_t
 
     free(text);
     return loaded && out_theme_id[0] != '\0';
-}
-
-/**
- * @brief Duplicates path with suffix appended.
- * @param path Original path.
- * @param suffix Suffix to append.
- * @return Duplicated path or NULL.
- */
-static char* ui_duplicate_path_with_suffix(const char* path, const char* suffix)
-{
-    size_t path_length = 0u;
-    size_t suffix_length = 0u;
-    char* result = NULL;
-
-    if (!path || !suffix) {
-        return NULL;
-    }
-
-    path_length = strlen(path);
-    suffix_length = strlen(suffix);
-    result = (char*)malloc(path_length + suffix_length + 1u);
-    if (!result) {
-        return NULL;
-    }
-
-    memcpy(result, path, path_length);
-    memcpy(result + path_length, suffix, suffix_length);
-    result[path_length + suffix_length] = '\0';
-    return result;
-}
-
-/**
- * @brief Replaces target file with temp file atomically.
- * @param temp_path Temp file path.
- * @param target_path Target file path.
- * @return 1 on success, 0 on failure.
- */
-static int ui_replace_file_with_temp(const char* temp_path, const char* target_path)
-{
-    if (!temp_path || !target_path) {
-        return 0;
-    }
-
-#ifdef _WIN32
-    if (MoveFileExA(temp_path,
-                    target_path,
-                    MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH)) {
-        return 1;
-    }
-    remove(temp_path);
-    return 0;
-#else
-    if (rename(temp_path, target_path) == 0) {
-        return 1;
-    }
-    remove(temp_path);
-    return 0;
-#endif
 }
 
 /**
@@ -1495,7 +1390,7 @@ int ui_theme_save_selected_id(const char* path, const char* theme_id)
         return 0;
     }
 
-    temp_path = ui_duplicate_path_with_suffix(path, ".tmp");
+    temp_path = file_utils_duplicate_path_with_suffix(path, ".tmp");
     if (!temp_path) {
         return 0;
     }
@@ -1523,7 +1418,7 @@ int ui_theme_save_selected_id(const char* path, const char* theme_id)
         return 0;
     }
 
-    if (!ui_replace_file_with_temp(temp_path, path)) {
+    if (!file_utils_replace_file_with_temp(temp_path, path)) {
         free(temp_path);
         return 0;
     }
