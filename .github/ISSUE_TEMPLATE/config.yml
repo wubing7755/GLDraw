@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: GLDraw Collaboration Guide
+    url: https://github.com/wubing7755/GLDraw/blob/master/doc/github-collaboration-guidelines.md
+    about: Read the repository's GitHub workflow, issue, commit, and PR conventions before opening new work.
+  - name: GLDraw Architecture Docs
+    url: https://github.com/wubing7755/GLDraw/blob/master/doc/wiki/Home.md
+    about: Review the architecture, data flow, and extension docs before filing design or implementation issues.

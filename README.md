@@ -122,6 +122,7 @@ GLDraw is built with CMake and C11, and uses GLFW, GLAD, Nuklear, and an OpenGL 
 - Wiki index: [doc/wiki](doc/wiki/)
 - Architecture: [doc/wiki/architecture.md](doc/wiki/architecture.md)
 - Extending guide: [doc/wiki/extending.md](doc/wiki/extending.md)
+- GitHub collaboration guide: [doc/github-collaboration-guidelines.md](doc/github-collaboration-guidelines.md)
 
 ## License
 
