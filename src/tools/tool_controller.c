@@ -24,7 +24,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-/** Runtime state for select tool drag/selection/history behavior. */
+/** Runtime state for select tool drag/document-edit history behavior. */
 typedef struct {
     int dragging;
     int moved;
@@ -110,33 +110,6 @@ static GraphicObject* build_shape_object(ToolKind kind, Vec2 anchor, Vec2 curren
 }
 
 /**
- * @brief Checks if selection matches a snapshot.
- * @param document Document instance.
- * @param snapshot Snapshot to compare.
- * @return 1 if matches, 0 otherwise.
- */
-static int selection_matches_snapshot(const Document* document, const DocumentSnapshot* snapshot)
-{
-    int i = 0;
-
-    if (!document || !snapshot) {
-        return 0;
-    }
-
-    if (document->selection.count != snapshot->selection.count) {
-        return 0;
-    }
-
-    for (i = 0; i < document->selection.count; ++i) {
-        if (document->selection.ids[i] != snapshot->selection.ids[i]) {
-            return 0;
-        }
-    }
-
-    return 1;
-}
-
-/**
  * @brief Pushes document edit to history and syncs dirty flag.
  * @param context [in,out] Tool context.
  * @param before_snapshot [in,out] Before snapshot (consumed and reset by this function).
@@ -195,10 +168,6 @@ static void select_tool_deactivate(Tool* tool, ToolContext* context)
  * @param context [in,out] Tool context.
  * @param event [in] Pointer event.
  * @return None.
- *
- * Why snapshot first:
- * - Captures "before" state before selection/drag mutations so history entry
- *   can represent either move edits or selection-only edits consistently.
  */
 static void select_tool_pointer_down(Tool* tool, ToolContext* context, const ToolEvent* event)
 {
@@ -218,47 +187,18 @@ static void select_tool_pointer_down(Tool* tool, ToolContext* context, const Too
     hit = canvas_view_pick_object(context->canvas, event->screen_pos, 8.0f);
     if (!hit) {
         if ((event->mods & GLFW_MOD_SHIFT) == 0) {
-            if (context->document->selection.count > 0) {
-                DocumentSnapshot before_snapshot;
-                document_snapshot_init(&before_snapshot);
-                if (document_snapshot_capture(&before_snapshot, context->document)) {
-                    document_clear_selection(context->document);
-                    document_touch(context->document);
-                    tool_commit_document_change(context, &before_snapshot);
-                }
-            }
+            document_clear_selection(context->document);
         }
         return;
     }
 
     if ((event->mods & GLFW_MOD_SHIFT) != 0) {
-        DocumentSnapshot before_snapshot;
-        document_snapshot_init(&before_snapshot);
-        if (document_snapshot_capture(&before_snapshot, context->document)) {
-            document_selection_toggle(context->document, hit->id);
-            if (!selection_matches_snapshot(context->document, &before_snapshot)) {
-                document_touch(context->document);
-                tool_commit_document_change(context, &before_snapshot);
-            } else {
-                document_snapshot_free(&before_snapshot);
-            }
-        } else {
-            document_selection_toggle(context->document, hit->id);
-        }
+        document_selection_toggle(context->document, hit->id);
         state->dragging = document_selection_contains(context->document, hit->id);
     } else {
         if (!document_selection_contains(context->document, hit->id) || context->document->selection.count != 1) {
-            DocumentSnapshot before_snapshot;
-            document_snapshot_init(&before_snapshot);
-            if (document_snapshot_capture(&before_snapshot, context->document)) {
-                document_clear_selection(context->document);
-                document_selection_add(context->document, hit->id);
-                document_touch(context->document);
-                tool_commit_document_change(context, &before_snapshot);
-            } else {
-                document_clear_selection(context->document);
-                document_selection_add(context->document, hit->id);
-            }
+            document_clear_selection(context->document);
+            document_selection_add(context->document, hit->id);
         }
         state->dragging = document_selection_contains(context->document, hit->id);
     }
@@ -361,16 +301,6 @@ static void select_tool_key_down(Tool* tool, ToolContext* context, int key, int 
     (void)tool;
     (void)mods;
     if (key == GLFW_KEY_ESCAPE) {
-        if (context->document->selection.count > 0) {
-            DocumentSnapshot before_snapshot;
-            document_snapshot_init(&before_snapshot);
-            if (document_snapshot_capture(&before_snapshot, context->document)) {
-                document_clear_selection(context->document);
-                document_touch(context->document);
-                tool_commit_document_change(context, &before_snapshot);
-                return;
-            }
-        }
         document_clear_selection(context->document);
     }
 }

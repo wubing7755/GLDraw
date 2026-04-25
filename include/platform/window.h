@@ -13,14 +13,18 @@
  * @brief Platform window state.
  *
  * @member handle GLFW native window handle.
- * @member width Desired window width.
- * @member height Desired window height.
+ * @member width Current logical window width.
+ * @member height Current logical window height.
+ * @member framebuffer_width Current framebuffer width.
+ * @member framebuffer_height Current framebuffer height.
  * @member title Window title string.
  */
 typedef struct {
     GLFWwindow* handle;
     int width;
     int height;
+    int framebuffer_width;
+    int framebuffer_height;
     const char* title;
 } PlatformWindow;
 
