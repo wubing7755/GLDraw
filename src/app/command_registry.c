@@ -132,12 +132,22 @@ static int command_registry_toggle_shortcuts_dialog(Workspace* workspace)
 
 static int command_registry_zoom_to_fit(Workspace* workspace)
 {
+    const float padding_ratio = 0.10f;
+    const float minimum_world_span = 32.0f;
     Document* doc = NULL;
     CanvasView* canvas = NULL;
+    RectF canvas_viewport = {0.0f, 0.0f, 0.0f, 0.0f};
     float min_x = 0.0f;
     float max_x = 0.0f;
     float min_y = 0.0f;
     float max_y = 0.0f;
+    float content_w = 0.0f;
+    float content_h = 0.0f;
+    float pad_x = 0.0f;
+    float pad_y = 0.0f;
+    float zoom_x = 1.0f;
+    float zoom_y = 1.0f;
+    float new_zoom = 1.0f;
     int first = 1;
     int i = 0;
 
@@ -147,6 +157,12 @@ static int command_registry_zoom_to_fit(Workspace* workspace)
 
     doc = &workspace->document;
     canvas = &workspace->canvas;
+    canvas_viewport = canvas_view_viewport(canvas);
+    if (canvas_viewport.w <= 1.0f || canvas_viewport.h <= 1.0f) {
+        canvas_view_set_center_zoom(canvas, vec2_make(0.0f, 0.0f), 1.0f);
+        return 1;
+    }
+
     if (doc->count == 0) {
         canvas_view_set_center_zoom(canvas, vec2_make(0.0f, 0.0f), 1.0f);
         return 1;
@@ -175,29 +191,42 @@ static int command_registry_zoom_to_fit(Workspace* workspace)
         }
     }
 
-    if (!first) {
-        float pad = 50.0f;
-        float content_w = 0.0f;
-        float content_h = 0.0f;
-        RectF canvas_viewport = canvas_view_viewport(canvas);
-        float zoom_x = 1.0f;
-        float zoom_y = 1.0f;
-        float new_zoom = 1.0f;
-
-        min_x -= pad;
-        min_y -= pad;
-        max_x += pad;
-        max_y += pad;
-        content_w = max_x - min_x;
-        content_h = max_y - min_y;
-        zoom_x = canvas_viewport.w / content_w;
-        zoom_y = canvas_viewport.h / content_h;
-        new_zoom = (zoom_x < zoom_y) ? zoom_x : zoom_y;
-        new_zoom = (new_zoom < 0.1f) ? 0.1f : (new_zoom > 12.0f) ? 12.0f : new_zoom;
-        canvas_view_set_center_zoom(canvas,
-                                    vec2_make((min_x + max_x) * 0.5f, (min_y + max_y) * 0.5f),
-                                    new_zoom);
+    if (first) {
+        canvas_view_set_center_zoom(canvas, vec2_make(0.0f, 0.0f), 1.0f);
+        return 1;
     }
+
+    content_w = max_x - min_x;
+    content_h = max_y - min_y;
+    if (content_w < minimum_world_span) {
+        float center_x = (min_x + max_x) * 0.5f;
+        content_w = minimum_world_span;
+        min_x = center_x - content_w * 0.5f;
+        max_x = center_x + content_w * 0.5f;
+    }
+    if (content_h < minimum_world_span) {
+        float center_y = (min_y + max_y) * 0.5f;
+        content_h = minimum_world_span;
+        min_y = center_y - content_h * 0.5f;
+        max_y = center_y + content_h * 0.5f;
+    }
+
+    pad_x = content_w * padding_ratio;
+    pad_y = content_h * padding_ratio;
+    min_x -= pad_x;
+    min_y -= pad_y;
+    max_x += pad_x;
+    max_y += pad_y;
+    content_w = max_x - min_x;
+    content_h = max_y - min_y;
+    zoom_x = canvas_viewport.w / content_w;
+    zoom_y = canvas_viewport.h / content_h;
+    new_zoom = (zoom_x < zoom_y) ? zoom_x : zoom_y;
+    new_zoom = clampf(new_zoom, 0.1f, 12.0f);
+    canvas_view_set_center_zoom(canvas,
+                                vec2_make((min_x + max_x) * 0.5f,
+                                          (min_y + max_y) * 0.5f),
+                                new_zoom);
 
     return 1;
 }
@@ -264,11 +293,62 @@ const CommandDescriptor* command_registry_find_by_menu_id(int id)
     return NULL;
 }
 
+int command_registry_is_available(const Workspace* workspace,
+                                  EditorCommand command)
+{
+    switch (command) {
+    case EDITOR_COMMAND_FILE_SAVE:
+        return workspace && workspace->save_document;
+    case EDITOR_COMMAND_FILE_SAVE_AS:
+        return 0;
+    case EDITOR_COMMAND_HELP_SHORTCUTS:
+        return 1;
+    case EDITOR_COMMAND_FILE_NEW:
+    case EDITOR_COMMAND_FILE_OPEN:
+    case EDITOR_COMMAND_FILE_EXIT:
+    case EDITOR_COMMAND_EDIT_UNDO:
+    case EDITOR_COMMAND_EDIT_REDO:
+    case EDITOR_COMMAND_EDIT_DELETE:
+    case EDITOR_COMMAND_EDIT_SELECT_ALL:
+    case EDITOR_COMMAND_VIEW_ZOOM_IN:
+    case EDITOR_COMMAND_VIEW_ZOOM_OUT:
+    case EDITOR_COMMAND_VIEW_ZOOM_FIT:
+    case EDITOR_COMMAND_VIEW_TOGGLE_GRID:
+    case EDITOR_COMMAND_VIEW_TOGGLE_INSPECTOR:
+    case EDITOR_COMMAND_TOOL_SELECT:
+    case EDITOR_COMMAND_TOOL_PAN:
+    case EDITOR_COMMAND_TOOL_LINE:
+    case EDITOR_COMMAND_TOOL_RECT:
+    case EDITOR_COMMAND_TOOL_ELLIPSE:
+    case EDITOR_COMMAND_HELP_ABOUT:
+    case EDITOR_COMMAND_MODAL_CONFIRM:
+    case EDITOR_COMMAND_MODAL_CANCEL:
+        return 1;
+    case EDITOR_COMMAND_NONE:
+    default:
+        return 0;
+    }
+}
+
+int command_registry_is_menu_action_available(const Workspace* workspace, int id)
+{
+    const CommandDescriptor* descriptor = command_registry_find_by_menu_id(id);
+
+    if (!descriptor) {
+        return 0;
+    }
+
+    return command_registry_is_available(workspace, descriptor->command);
+}
+
 int command_registry_execute(Workspace* workspace,
                              ToolContext* tool_context,
                              EditorCommand command)
 {
     if (!workspace) {
+        return 0;
+    }
+    if (!command_registry_is_available(workspace, command)) {
         return 0;
     }
 
@@ -340,8 +420,9 @@ int command_registry_execute(Workspace* workspace,
     case EDITOR_COMMAND_HELP_SHORTCUTS:
         return command_registry_toggle_shortcuts_dialog(workspace);
     case EDITOR_COMMAND_HELP_ABOUT:
-        LOG_INFO("%s", "About dialog requested");
-        return 1;
+        return workspace_dialog_open_info(workspace,
+                                          "About GLDraw",
+                                          "GLDraw\nCanvas-oriented OpenGL drawing editor.\n\nCurrent build includes core document editing, undo/redo, persistence, and themeable UI.");
     case EDITOR_COMMAND_MODAL_CONFIRM:
         return workspace_confirm_pending_action_save(workspace);
     case EDITOR_COMMAND_MODAL_CANCEL:

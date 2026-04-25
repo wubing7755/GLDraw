@@ -49,6 +49,12 @@ typedef struct CommandDescriptor {
 const CommandDescriptor* command_registry_find_by_id(const char* command_id);
 /** Look up a command descriptor by menu action ID. */
 const CommandDescriptor* command_registry_find_by_menu_id(int id);
+/** Check whether a command is intentionally exposed and executable in the current build/runtime. */
+int command_registry_is_available(const struct Workspace* workspace,
+                                  EditorCommand command);
+/** Check whether a menu-backed command is available in the current build/runtime. */
+int command_registry_is_menu_action_available(const struct Workspace* workspace,
+                                              int id);
 /** Execute one command against the current editor state. */
 int command_registry_execute(struct Workspace* workspace,
                              ToolContext* tool_context,

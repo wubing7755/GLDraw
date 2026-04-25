@@ -12,6 +12,7 @@
  */
 #include <document/persistence.h>
 
+#include <base/file_utils.h>
 #include <base/log.h>
 
 #include <ctype.h>
@@ -19,10 +20,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
-#ifdef _WIN32
-#include <windows.h>
-#endif
 
 typedef enum {
     JSON_TOKEN_EOF = 0,
@@ -86,101 +83,6 @@ typedef struct {
 } LoadedObjectData;
 
 /**
- * @brief Reads a text file.
- * @param path File path.
- * @return File contents or NULL.
- */
-static char* read_text_file(const char* path)
-{
-    FILE* file = NULL;
-    char* buffer = NULL;
-    long size = 0;
-    size_t read_size = 0;
-
-    file = fopen(path, "rb");
-    if (!file) {
-        return NULL;
-    }
-
-    if (fseek(file, 0, SEEK_END) != 0) {
-        fclose(file);
-        return NULL;
-    }
-    size = ftell(file);
-    if (size < 0 || fseek(file, 0, SEEK_SET) != 0) {
-        fclose(file);
-        return NULL;
-    }
-
-    buffer = (char*)malloc((size_t)size + 1u);
-    if (!buffer) {
-        fclose(file);
-        return NULL;
-    }
-
-    read_size = fread(buffer, 1u, (size_t)size, file);
-    if (read_size != (size_t)size && ferror(file)) {
-        free(buffer);
-        fclose(file);
-        return NULL;
-    }
-    buffer[read_size] = '\0';
-    fclose(file);
-    return buffer;
-}
-
-/**
- * @brief Duplicates a path with a suffix appended.
- * @param path Original path.
- * @param suffix Suffix to append.
- * @return Duplicated path or NULL.
- */
-static char* duplicate_path_with_suffix(const char* path, const char* suffix)
-{
-    size_t path_length = 0;
-    size_t suffix_length = 0;
-    char* result = NULL;
-
-    if (!path || !suffix) {
-        return NULL;
-    }
-
-    path_length = strlen(path);
-    suffix_length = strlen(suffix);
-    result = (char*)malloc(path_length + suffix_length + 1u);
-    if (!result) {
-        return NULL;
-    }
-
-    memcpy(result, path, path_length);
-    memcpy(result + path_length, suffix, suffix_length);
-    result[path_length + suffix_length] = '\0';
-    return result;
-}
-
-/**
- * @brief Checks if a file exists at path.
- * @param path File path.
- * @return 1 if exists, 0 otherwise.
- */
-static int file_exists_at_path(const char* path)
-{
-    FILE* file = NULL;
-
-    if (!path) {
-        return 0;
-    }
-
-    file = fopen(path, "rb");
-    if (!file) {
-        return 0;
-    }
-
-    fclose(file);
-    return 1;
-}
-
-/**
  * @brief Gets the type tag string for an object.
  * @param type Object type.
  * @return Type tag string.
@@ -197,39 +99,6 @@ static const char* object_type_tag(GraphicObjectType type)
     default:
         return "unknown";
     }
-}
-
-/**
- * @brief Replaces target file with temp file atomically.
- * @param temp_path Temp file path.
- * @param target_path Target file path.
- * @return 1 on success, 0 on failure.
- */
-static int replace_file_with_temp(const char* temp_path, const char* target_path)
-{
-    if (!temp_path || !target_path) {
-        return 0;
-    }
-
-#ifdef _WIN32
-    if (MoveFileExA(temp_path,
-                    target_path,
-                    MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH)) {
-        return 1;
-    }
-
-    LOG_ERROR("Failed to replace document file: %s", target_path);
-    remove(temp_path);
-    return 0;
-#else
-    if (rename(temp_path, target_path) == 0) {
-        return 1;
-    }
-
-    LOG_ERROR("Failed to replace document file: %s", target_path);
-    remove(temp_path);
-    return 0;
-#endif
 }
 
 /**
@@ -252,11 +121,6 @@ static int write_document_json(FILE* file, const Document* document)
     fprintf(file, "  \"format\": \"gldraw-document\",\n");
     fprintf(file, "  \"version\": 1,\n");
     fprintf(file, "  \"next_id\": %u,\n", document->next_id);
-    fprintf(file, "  \"selection\": [");
-    for (i = 0; i < document->selection.count; ++i) {
-        fprintf(file, "%s%u", (i == 0) ? "" : ", ", document->selection.ids[i]);
-    }
-    fprintf(file, "],\n");
     fprintf(file, "  \"objects\": [\n");
 
     for (i = 0; i < document->count; ++i) {
@@ -1022,50 +886,6 @@ static int parse_object_entry(JsonParser* parser, Document* document)
 }
 
 /**
- * @brief Parses a selection array.
- * @param parser JSON parser.
- * @param selection_ids Output array for selection IDs.
- * @param selection_count Output count pointer.
- * @return 1 on success, 0 on failure.
- */
-static int parse_selection_array(JsonParser* parser, ObjectId* selection_ids, int* selection_count)
-{
-    if (!json_expect(parser, JSON_TOKEN_LBRACKET)) {
-        return 0;
-    }
-
-    json_parser_next(parser);
-    *selection_count = 0;
-
-    if (parser->type == JSON_TOKEN_RBRACKET) {
-        json_parser_next(parser);
-        return 1;
-    }
-
-    while (1) {
-        unsigned int value = 0;
-
-        if (!json_parse_u32(parser, &value)) {
-            return 0;
-        }
-
-        if (*selection_count < DOCUMENT_MAX_SELECTION) {
-            selection_ids[(*selection_count)++] = value;
-        }
-
-        if (parser->type == JSON_TOKEN_COMMA) {
-            json_parser_next(parser);
-            continue;
-        }
-        if (parser->type == JSON_TOKEN_RBRACKET) {
-            json_parser_next(parser);
-            return 1;
-        }
-        return 0;
-    }
-}
-
-/**
  * @brief Parses an objects array.
  * @param parser JSON parser.
  * @param document Target document.
@@ -1116,11 +936,6 @@ static int parse_document_root(JsonParser* parser, Document* document)
     int got_next_id = 0;
     unsigned int version = 0;
     unsigned int next_id = 0;
-    ObjectId selection_ids[DOCUMENT_MAX_SELECTION];
-    int selection_count = 0;
-    int i = 0;
-
-    memset(selection_ids, 0, sizeof(selection_ids));
 
     if (!json_expect(parser, JSON_TOKEN_LBRACE)) {
         LOG_ERROR("%s", "[persistence][parse][top-level] expected root object");
@@ -1161,11 +976,6 @@ static int parse_document_root(JsonParser* parser, Document* document)
             json_parser_next(parser);
             if (!json_parse_u32(parser, &next_id)) return 0;
             got_next_id = 1;
-        } else if (json_token_is_string(parser, "selection")) {
-            json_parser_next(parser);
-            if (!json_expect(parser, JSON_TOKEN_COLON)) return 0;
-            json_parser_next(parser);
-            if (!parse_selection_array(parser, selection_ids, &selection_count)) return 0;
         } else if (json_token_is_string(parser, "objects")) {
             json_parser_next(parser);
             if (!json_expect(parser, JSON_TOKEN_COLON)) return 0;
@@ -1195,13 +1005,8 @@ static int parse_document_root(JsonParser* parser, Document* document)
         return 0;
     }
 
+    /* Selection is editor-session state and intentionally not serialized. */
     document_clear_selection(document);
-    for (i = 0; i < selection_count; ++i) {
-        if (document_find_object(document, selection_ids[i])) {
-            document_selection_add(document, selection_ids[i]);
-        }
-    }
-
     if (got_next_id && next_id > document_max_id(document)) {
         document->next_id = next_id;
     } else {
@@ -1233,13 +1038,13 @@ int document_save_json(const Document* document, const char* path)
         return 0;
     }
 
-    temp_path = duplicate_path_with_suffix(path, ".tmp");
+    temp_path = file_utils_duplicate_path_with_suffix(path, ".tmp");
     if (!temp_path) {
         LOG_ERROR("Failed to allocate temp path for document: %s", path);
         return 0;
     }
 
-    target_exists = file_exists_at_path(path);
+    target_exists = file_utils_path_exists(path);
     file = fopen(temp_path, "wb");
     if (!file) {
         LOG_ERROR("Failed to open temp document for writing: %s", temp_path);
@@ -1263,7 +1068,8 @@ int document_save_json(const Document* document, const char* path)
         return 0;
     }
 
-    if (!replace_file_with_temp(temp_path, path)) {
+    if (!file_utils_replace_file_with_temp(temp_path, path)) {
+        LOG_ERROR("Failed to replace document file: %s", path);
         if (target_exists) {
             LOG_ERROR("Preserved existing document after failed replace: %s", path);
         }
@@ -1295,7 +1101,7 @@ int document_load_json(Document* document, const char* path)
         return 0;
     }
 
-    text = read_text_file(path);
+    text = file_utils_read_text_file(path);
     if (!text) {
         LOG_ERROR("Failed to open document for reading: %s", path);
         return 0;

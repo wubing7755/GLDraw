@@ -31,11 +31,6 @@ static MenuItemDef g_menu_items[] = {
     /* Separator */
     { MENU_ITEM_SEPARATOR, "", "", -1, MENU_ID_FILE },
 
-    { MENU_ITEM_SUBMENU, "Recent Files", "", MENU_ID_FILE_RECENT, MENU_ID_FILE },
-
-    /* Separator */
-    { MENU_ITEM_SEPARATOR, "", "", -1, MENU_ID_FILE },
-
     { MENU_ITEM_ACTION, "Exit", "Alt+F4", MENU_ID_FILE_EXIT, MENU_ID_FILE },
 
     { MENU_ITEM_SUBMENU, "Edit", "", MENU_ID_EDIT, -1 },

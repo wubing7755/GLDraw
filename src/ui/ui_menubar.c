@@ -295,7 +295,7 @@ static int ui_render_dropdown(struct nk_context* ctx, Workspace* workspace, int 
 
         case MENU_ITEM_ACTION: {
             char menu_text[96];
-            int enabled = ui_menu_is_action_available((MenuId)item->id);
+            int enabled = ui_menu_is_action_available(workspace, (MenuId)item->id);
 
             ui_build_menu_item_text(workspace, menu_text, sizeof(menu_text), item);
 
@@ -482,7 +482,7 @@ void ui_menubar_build(UiMenuBar* menubar, Workspace* workspace, int window_width
             char tooltip[96];
             char shortcut[64];
             struct nk_rect widget_bounds;
-            int enabled = ui_menu_is_action_available(g_quick_actions[i].menu_id);
+            int enabled = ui_menu_is_action_available(workspace, g_quick_actions[i].menu_id);
             int hovered = 0;
             nk_layout_row_push(ctx, g_quick_actions[i].width);
             if (!enabled) {

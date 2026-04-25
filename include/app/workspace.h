@@ -49,7 +49,8 @@ typedef enum UiRequestType {
 typedef enum UiDialogKind {
     UI_DIALOG_NONE = 0,
     UI_DIALOG_CONFIRM_UNSAVED,
-    UI_DIALOG_SHORTCUTS
+    UI_DIALOG_SHORTCUTS,
+    UI_DIALOG_INFO
 } UiDialogKind;
 
 /**

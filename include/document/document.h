@@ -30,7 +30,7 @@ typedef struct {
  * @member count Current object count.
  * @member revision Document revision number (incremented after edits).
  * @member next_id Auto-assigned ID for new objects.
- * @member selection Current selection set.
+ * @member selection Current editor-session selection set (not serialized).
  */
 typedef struct Document {
   GraphicObject *objects[DOCUMENT_MAX_OBJECTS];

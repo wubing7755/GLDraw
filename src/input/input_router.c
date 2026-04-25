@@ -35,7 +35,9 @@ int input_router_handle_key(const InputRouterContext* context, const KeyEvent* e
     command_id = keymap_lookup_command(&context->workspace->keymap, scope, chord);
     if (command_id) {
         descriptor = command_registry_find_by_id(command_id);
-        if (descriptor) {
+        if (descriptor &&
+            command_registry_is_available(context->workspace,
+                                          descriptor->command)) {
             return command_registry_execute(context->workspace,
                                             context->tool_context,
                                             descriptor->command);
