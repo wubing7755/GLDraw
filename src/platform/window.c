@@ -65,6 +65,9 @@ int platform_window_init(PlatformWindow* window, int width, int height, const ch
 
     window->width = width;
     window->height = height;
+    glfwGetFramebufferSize(window->handle,
+                           &window->framebuffer_width,
+                           &window->framebuffer_height);
     window->title = title;
 
     glfwMakeContextCurrent(window->handle);
