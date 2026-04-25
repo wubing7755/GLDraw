@@ -15,34 +15,23 @@
 #include <app/command_registry.h>
 #include <app/workspace.h>
 #include <base/log.h>
-
-/**
- * @brief Executes PNG export command (not yet implemented).
- * @param workspace [in,out] Workspace instance (currently unused).
- * @return Currently always returns 0.
- */
-static int app_export_png(Workspace* workspace)
-{
-    (void)workspace;
-    LOG_INFO("%s", "Export PNG requested");
-    return 0;
-}
-
 /**
  * @brief Checks if menu action is currently available.
+ * @param workspace [in] Workspace instance used for command-backed items.
  * @param id [in] Menu action ID.
  * @return Non-zero if available, 0 if unavailable.
  */
-int ui_menu_is_action_available(MenuId id)
+int ui_menu_is_action_available(const Workspace* workspace, MenuId id)
 {
     switch (id) {
     case MENU_ID_FILE_EXPORT_PNG:
     case MENU_ID_EDIT_CUT:
     case MENU_ID_EDIT_COPY:
     case MENU_ID_EDIT_PASTE:
+    case MENU_ID_FILE_RECENT:
         return 0;
     default:
-        return 1;
+        return command_registry_is_menu_action_available(workspace, (int)id);
     }
 }
 
@@ -60,12 +49,7 @@ void ui_menu_execute(Workspace* workspace, MenuId id)
         return;
     }
 
-    if (id == MENU_ID_FILE_EXPORT_PNG) {
-        app_export_png(workspace);
-        return;
-    }
-    if (id == MENU_ID_EDIT_CUT || id == MENU_ID_EDIT_COPY || id == MENU_ID_EDIT_PASTE) {
-        LOG_INFO("Menu action %d not yet implemented", id);
+    if (!ui_menu_is_action_available(workspace, id)) {
         return;
     }
 

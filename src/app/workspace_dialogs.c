@@ -25,8 +25,16 @@ static const UiDialogButtonDefinition UI_DIALOG_BUTTON_CONFIRM_UNSAVED_CANCEL = 
     0
 };
 
+static const UiDialogButtonDefinition UI_DIALOG_BUTTON_INFO_OK = {
+    "OK",
+    UI_DIALOG_RESULT_PRIMARY,
+    1
+};
+
 static int workspace_dialog_resolve_confirm_unsaved(Workspace* workspace,
                                                     UiDialogResult result);
+static int workspace_dialog_resolve_info(Workspace* workspace,
+                                         UiDialogResult result);
 
 static const UiDialogButtonDefinition UI_DIALOG_BUTTONS_CONFIRM_UNSAVED[] = {
     UI_DIALOG_BUTTON_CONFIRM_UNSAVED_SAVE,
@@ -46,6 +54,24 @@ static const UiDialogDefinition UI_DIALOG_DEFINITION_CONFIRM_UNSAVED = {
     UI_DIALOG_BUTTONS_CONFIRM_UNSAVED,
     (int)(sizeof(UI_DIALOG_BUTTONS_CONFIRM_UNSAVED) / sizeof(UI_DIALOG_BUTTONS_CONFIRM_UNSAVED[0])),
     workspace_dialog_resolve_confirm_unsaved
+};
+
+static const UiDialogButtonDefinition UI_DIALOG_BUTTONS_INFO[] = {
+    UI_DIALOG_BUTTON_INFO_OK
+};
+
+static const UiDialogDefinition UI_DIALOG_DEFINITION_INFO = {
+    {
+        UI_DIALOG_INFO,
+        "Information",
+        "",
+        420.0f,
+        190.0f,
+        1
+    },
+    UI_DIALOG_BUTTONS_INFO,
+    (int)(sizeof(UI_DIALOG_BUTTONS_INFO) / sizeof(UI_DIALOG_BUTTONS_INFO[0])),
+    workspace_dialog_resolve_info
 };
 
 static int workspace_dialog_execute_action_now(Workspace* workspace,
@@ -92,11 +118,32 @@ static int workspace_dialog_resolve_confirm_unsaved(Workspace* workspace,
     }
 }
 
+static int workspace_dialog_resolve_info(Workspace* workspace,
+                                         UiDialogResult result)
+{
+    if (!workspace) {
+        return 0;
+    }
+
+    switch (result) {
+    case UI_DIALOG_RESULT_PRIMARY:
+    case UI_DIALOG_RESULT_CANCEL:
+        workspace_dialog_close(workspace);
+        return 1;
+    case UI_DIALOG_RESULT_NONE:
+    case UI_DIALOG_RESULT_SECONDARY:
+    default:
+        return 0;
+    }
+}
+
 const UiDialogDefinition* workspace_dialog_definition(UiDialogKind kind)
 {
     switch (kind) {
     case UI_DIALOG_CONFIRM_UNSAVED:
         return &UI_DIALOG_DEFINITION_CONFIRM_UNSAVED;
+    case UI_DIALOG_INFO:
+        return &UI_DIALOG_DEFINITION_INFO;
     case UI_DIALOG_NONE:
     default:
         return NULL;
@@ -248,4 +295,22 @@ int workspace_dialog_open_confirm_unsaved(Workspace* workspace, WorkspaceActionT
     return workspace_dialog_open_definition(workspace,
                                             &UI_DIALOG_DEFINITION_CONFIRM_UNSAVED,
                                             &payload);
+}
+
+int workspace_dialog_open_info(Workspace* workspace,
+                               const char* title,
+                               const char* message)
+{
+    UiDialogState dialog;
+
+    if (!workspace || !title || !message) {
+        return 0;
+    }
+
+    workspace_dialog_apply_template(&dialog,
+                                    &UI_DIALOG_DEFINITION_INFO.dialog_template);
+    snprintf(dialog.title, sizeof(dialog.title), "%s", title);
+    snprintf(dialog.message, sizeof(dialog.message), "%s", message);
+    return workspace_dialog_add_button(&dialog, &UI_DIALOG_BUTTON_INFO_OK) &&
+           workspace_dialog_open(workspace, &dialog);
 }

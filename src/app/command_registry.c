@@ -6,6 +6,7 @@
 
 #include <app/workspace.h>
 #include <app/workspace_actions.h>
+#include <app/workspace_dialogs.h>
 #include <base/log.h>
 #include <base/math2d.h>
 #include <canvas/canvas_view.h>
@@ -176,11 +177,61 @@ const CommandDescriptor* command_registry_find_by_menu_id(int id)
     return NULL;
 }
 
+int command_registry_is_available(const Workspace* workspace,
+                                  EditorCommand command)
+{
+    switch (command) {
+    case EDITOR_COMMAND_FILE_SAVE:
+        return workspace && workspace->save_document;
+    case EDITOR_COMMAND_FILE_SAVE_AS:
+    case EDITOR_COMMAND_HELP_SHORTCUTS:
+        return 0;
+    case EDITOR_COMMAND_FILE_NEW:
+    case EDITOR_COMMAND_FILE_OPEN:
+    case EDITOR_COMMAND_FILE_EXIT:
+    case EDITOR_COMMAND_EDIT_UNDO:
+    case EDITOR_COMMAND_EDIT_REDO:
+    case EDITOR_COMMAND_EDIT_DELETE:
+    case EDITOR_COMMAND_EDIT_SELECT_ALL:
+    case EDITOR_COMMAND_VIEW_ZOOM_IN:
+    case EDITOR_COMMAND_VIEW_ZOOM_OUT:
+    case EDITOR_COMMAND_VIEW_ZOOM_FIT:
+    case EDITOR_COMMAND_VIEW_TOGGLE_GRID:
+    case EDITOR_COMMAND_VIEW_TOGGLE_INSPECTOR:
+    case EDITOR_COMMAND_TOOL_SELECT:
+    case EDITOR_COMMAND_TOOL_PAN:
+    case EDITOR_COMMAND_TOOL_LINE:
+    case EDITOR_COMMAND_TOOL_RECT:
+    case EDITOR_COMMAND_TOOL_ELLIPSE:
+    case EDITOR_COMMAND_HELP_ABOUT:
+    case EDITOR_COMMAND_MODAL_CONFIRM:
+    case EDITOR_COMMAND_MODAL_CANCEL:
+        return 1;
+    case EDITOR_COMMAND_NONE:
+    default:
+        return 0;
+    }
+}
+
+int command_registry_is_menu_action_available(const Workspace* workspace, int id)
+{
+    const CommandDescriptor* descriptor = command_registry_find_by_menu_id(id);
+
+    if (!descriptor) {
+        return 0;
+    }
+
+    return command_registry_is_available(workspace, descriptor->command);
+}
+
 int command_registry_execute(Workspace* workspace,
                              ToolContext* tool_context,
                              EditorCommand command)
 {
     if (!workspace) {
+        return 0;
+    }
+    if (!command_registry_is_available(workspace, command)) {
         return 0;
     }
 
@@ -250,11 +301,11 @@ int command_registry_execute(Workspace* workspace,
         if (tool_context) tool_controller_set_active(&workspace->tools, tool_context, TOOL_KIND_ELLIPSE);
         return 1;
     case EDITOR_COMMAND_HELP_SHORTCUTS:
-        LOG_INFO("%s", "Keyboard shortcuts dialog requested");
-        return 1;
+        return 0;
     case EDITOR_COMMAND_HELP_ABOUT:
-        LOG_INFO("%s", "About dialog requested");
-        return 1;
+        return workspace_dialog_open_info(workspace,
+                                          "About GLDraw",
+                                          "GLDraw\nCanvas-oriented OpenGL drawing editor.\n\nCurrent build includes core document editing, undo/redo, persistence, and themeable UI.");
     case EDITOR_COMMAND_MODAL_CONFIRM:
         return workspace_confirm_pending_action_save(workspace);
     case EDITOR_COMMAND_MODAL_CANCEL:
