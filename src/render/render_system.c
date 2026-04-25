@@ -12,6 +12,7 @@
  */
 #include <render/render_system.h>
 
+#include <base/file_utils.h>
 #include <base/log.h>
 #include <base/math2d.h>
 
@@ -268,38 +269,6 @@ static void render_log_frame_stats(const RenderSystem* renderer)
 }
 
 /**
- * @brief Read a text file into a heap-allocated buffer.
- * @param path File path.
- * @return Newly allocated buffer on success, `NULL` on failure.
- */
-static char* read_text_file(const char* path)
-{
-    FILE* file = fopen(path, "rb");
-    char* buffer = NULL;
-    long length = 0;
-    size_t read_count = 0;
-
-    if (!file) {
-        return NULL;
-    }
-
-    fseek(file, 0, SEEK_END);
-    length = ftell(file);
-    fseek(file, 0, SEEK_SET);
-
-    buffer = (char*)malloc((size_t)length + 1u);
-    if (!buffer) {
-        fclose(file);
-        return NULL;
-    }
-
-    read_count = fread(buffer, 1u, (size_t)length, file);
-    buffer[read_count] = '\0';
-    fclose(file);
-    return buffer;
-}
-
-/**
  * @brief Compile a shader from source string.
  * @param type Shader type (GL_VERTEX_SHADER or GL_FRAGMENT_SHADER).
  * @param source Shader source code.
@@ -335,8 +304,8 @@ static GLuint compile_shader(GLenum type, const char* source, const char* label)
  */
 static GLuint load_program(const char* vertex_path, const char* fragment_path)
 {
-    char* vertex_source = read_text_file(vertex_path);
-    char* fragment_source = read_text_file(fragment_path);
+    char* vertex_source = file_utils_read_text_file(vertex_path);
+    char* fragment_source = file_utils_read_text_file(fragment_path);
     GLuint vertex_shader = 0;
     GLuint fragment_shader = 0;
     GLuint program = 0;
