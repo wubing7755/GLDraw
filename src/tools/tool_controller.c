@@ -110,6 +110,74 @@ static GraphicObject* build_shape_object(ToolKind kind, Vec2 anchor, Vec2 curren
 }
 
 /**
+/**
+ * @brief Update an existing preview shape object in place.
+ * @param object Preview object to update.
+ * @param kind Shape tool kind associated with the preview.
+ * @param anchor Drag anchor point.
+ * @param current Current drag point.
+ * @return 1 on success, 0 if the object is missing or does not match the tool kind.
+ */
+static int update_shape_object(GraphicObject* object, ToolKind kind, Vec2 anchor, Vec2 current)
+{
+    RectF rect = rect_from_points(anchor, current);
+
+    if (!object) {
+        return 0;
+    }
+
+    if (kind == TOOL_KIND_LINE && object->type == GRAPHIC_OBJECT_LINE) {
+        return object_set_scalar(object, "x1", anchor.x) &&
+               object_set_scalar(object, "y1", anchor.y) &&
+               object_set_scalar(object, "x2", current.x) &&
+               object_set_scalar(object, "y2", current.y);
+    }
+
+    if (kind == TOOL_KIND_RECT && object->type == GRAPHIC_OBJECT_RECT) {
+        return object_set_scalar(object, "x", rect.x) &&
+               object_set_scalar(object, "y", rect.y) &&
+               object_set_scalar(object, "width", rect.w) &&
+               object_set_scalar(object, "height", rect.h);
+    }
+
+    if (kind == TOOL_KIND_ELLIPSE && object->type == GRAPHIC_OBJECT_ELLIPSE) {
+        return object_set_scalar(object, "x", rect.x) &&
+               object_set_scalar(object, "y", rect.y) &&
+               object_set_scalar(object, "width", rect.w) &&
+               object_set_scalar(object, "height", rect.h);
+    }
+
+    return 0;
+}
+
+/**
+ * @brief Checks if selection matches a snapshot.
+ * @param document Document instance.
+ * @param snapshot Snapshot to compare.
+ * @return 1 if matches, 0 otherwise.
+ */
+static int selection_matches_snapshot(const Document* document, const DocumentSnapshot* snapshot)
+{
+    int i = 0;
+
+    if (!document || !snapshot) {
+        return 0;
+    }
+
+    if (document->selection.count != snapshot->selection.count) {
+        return 0;
+    }
+
+    for (i = 0; i < document->selection.count; ++i) {
+        if (document->selection.ids[i] != snapshot->selection.ids[i]) {
+            return 0;
+        }
+    }
+
+    return 1;
+}
+
+/**
  * @brief Pushes document edit to history and syncs dirty flag.
  * @param context [in,out] Tool context.
  * @param before_snapshot [in,out] Before snapshot (consumed and reset by this function).
@@ -470,7 +538,6 @@ static int shape_tool_pointer_down(Tool* tool, ToolContext* context, const ToolE
 static void shape_tool_pointer_move(Tool* tool, ToolContext* context, const ToolEvent* event)
 {
     ShapeToolState* state = (ShapeToolState*)tool->state;
-    GraphicStyle style = object_default_style();
 
     (void)context;
     if (!state->drawing) {
@@ -478,9 +545,10 @@ static void shape_tool_pointer_move(Tool* tool, ToolContext* context, const Tool
     }
 
     state->current = event->world_pos;
-    style.stroke_color.a = 0.75f;
-    destroy_overlay(tool);
-    tool->overlay_object = build_shape_object(tool->kind, state->anchor, state->current, style);
+    if (!update_shape_object(tool->overlay_object, tool->kind, state->anchor, state->current)) {
+        destroy_overlay(tool);
+        state->drawing = 0;
+    }
 }
 
 /**
