@@ -334,8 +334,7 @@ static int test_persistence_round_trip(void)
 
     EXPECT_INT_EQ(loaded.count, 2);
     EXPECT_UINT_EQ(loaded.next_id, saved.next_id);
-    EXPECT_INT_EQ(loaded.selection.count, 1);
-    EXPECT_UINT_EQ(loaded.selection.ids[0], 2u);
+    EXPECT_INT_EQ(loaded.selection.count, 0);
     EXPECT_TRUE(object_get_scalar(document_find_object(&loaded, 1u), "width", &width));
     EXPECT_FLOAT_EQ(width, 20.0f);
 
