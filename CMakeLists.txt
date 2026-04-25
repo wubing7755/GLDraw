@@ -42,6 +42,7 @@ endif()
 find_package(OpenGL REQUIRED)
 
 set(GLDRAW_CORE_SOURCES
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/base/file_utils.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/document/object.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/document/document.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/document/history.c
@@ -50,7 +51,6 @@ set(GLDRAW_CORE_SOURCES
 
 set(GLDRAW_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/main.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/base/file_utils.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/app/application.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/app/command_registry.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/app/workspace_actions.c

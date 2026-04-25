@@ -71,6 +71,8 @@ int workspace_dialog_resolve(Workspace* workspace, UiDialogResult result);
 
 /** Open the standard unsaved-changes confirmation dialog. */
 int workspace_dialog_open_confirm_unsaved(Workspace* workspace, WorkspaceActionType pending_action);
+/** Open the keyboard shortcuts help dialog using preformatted content text. */
+int workspace_dialog_open_shortcuts(Workspace* workspace, const char* content_text);
 /** Open a simple informational dialog with a single dismiss action. */
 int workspace_dialog_open_info(Workspace* workspace,
                                const char* title,

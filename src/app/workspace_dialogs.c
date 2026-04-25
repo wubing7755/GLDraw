@@ -9,6 +9,8 @@
 
 static int workspace_dialog_resolve_confirm_unsaved(Workspace* workspace,
                                                     UiDialogResult result);
+static int workspace_dialog_resolve_shortcuts(Workspace* workspace,
+                                              UiDialogResult result);
 static int workspace_dialog_resolve_info(Workspace* workspace,
                                          UiDialogResult result);
 
@@ -30,6 +32,24 @@ static const UiDialogDefinition UI_DIALOG_DEFINITION_CONFIRM_UNSAVED = {
     UI_DIALOG_BUTTONS_CONFIRM_UNSAVED,
     (int)(sizeof(UI_DIALOG_BUTTONS_CONFIRM_UNSAVED) / sizeof(UI_DIALOG_BUTTONS_CONFIRM_UNSAVED[0])),
     workspace_dialog_resolve_confirm_unsaved
+};
+
+static const UiDialogButtonDefinition UI_DIALOG_BUTTONS_SHORTCUTS[] = {
+    {"Close", UI_DIALOG_RESULT_CANCEL, 1}
+};
+
+static const UiDialogDefinition UI_DIALOG_DEFINITION_SHORTCUTS = {
+    {
+        UI_DIALOG_SHORTCUTS,
+        "Keyboard Shortcuts",
+        "",
+        520.0f,
+        420.0f,
+        1
+    },
+    UI_DIALOG_BUTTONS_SHORTCUTS,
+    (int)(sizeof(UI_DIALOG_BUTTONS_SHORTCUTS) / sizeof(UI_DIALOG_BUTTONS_SHORTCUTS[0])),
+    workspace_dialog_resolve_shortcuts
 };
 
 static const UiDialogButtonDefinition UI_DIALOG_BUTTONS_INFO[] = {
@@ -94,6 +114,25 @@ static int workspace_dialog_resolve_confirm_unsaved(Workspace* workspace,
     }
 }
 
+static int workspace_dialog_resolve_shortcuts(Workspace* workspace,
+                                              UiDialogResult result)
+{
+    if (!workspace) {
+        return 0;
+    }
+
+    switch (result) {
+    case UI_DIALOG_RESULT_PRIMARY:
+    case UI_DIALOG_RESULT_CANCEL:
+        workspace_dialog_close(workspace);
+        return 1;
+    case UI_DIALOG_RESULT_NONE:
+    case UI_DIALOG_RESULT_SECONDARY:
+    default:
+        return 0;
+    }
+}
+
 static int workspace_dialog_resolve_info(Workspace* workspace,
                                          UiDialogResult result)
 {
@@ -118,6 +157,8 @@ const UiDialogDefinition* workspace_dialog_definition(UiDialogKind kind)
     switch (kind) {
     case UI_DIALOG_CONFIRM_UNSAVED:
         return &UI_DIALOG_DEFINITION_CONFIRM_UNSAVED;
+    case UI_DIALOG_SHORTCUTS:
+        return &UI_DIALOG_DEFINITION_SHORTCUTS;
     case UI_DIALOG_INFO:
         return &UI_DIALOG_DEFINITION_INFO;
     case UI_DIALOG_NONE:
@@ -271,6 +312,21 @@ int workspace_dialog_open_confirm_unsaved(Workspace* workspace, WorkspaceActionT
     return workspace_dialog_open_definition(workspace,
                                             &UI_DIALOG_DEFINITION_CONFIRM_UNSAVED,
                                             &payload);
+}
+
+int workspace_dialog_open_shortcuts(Workspace* workspace, const char* content_text)
+{
+    UiDialogState dialog;
+
+    if (!workspace || !content_text) {
+        return 0;
+    }
+
+    workspace_dialog_apply_template(&dialog,
+                                    &UI_DIALOG_DEFINITION_SHORTCUTS.dialog_template);
+    snprintf(dialog.message, sizeof(dialog.message), "%s", content_text);
+    return workspace_dialog_add_button(&dialog, &UI_DIALOG_BUTTONS_SHORTCUTS[0]) &&
+           workspace_dialog_open(workspace, &dialog);
 }
 
 int workspace_dialog_open_info(Workspace* workspace,
