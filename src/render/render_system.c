@@ -66,6 +66,25 @@ struct RenderSystem {
 };
 
 /**
+ * @brief GL state touched by the custom canvas renderer and restored on exit.
+ */
+typedef struct RenderPassState {
+    GLint viewport[4];
+    GLint scissor_box[4];
+    GLfloat clear_color[4];
+    GLint current_program;
+    GLint vertex_array_binding;
+    GLint array_buffer_binding;
+    GLint blend_src_rgb;
+    GLint blend_dst_rgb;
+    GLint blend_src_alpha;
+    GLint blend_dst_alpha;
+    GLfloat line_width;
+    GLboolean scissor_enabled;
+    GLboolean blend_enabled;
+} RenderPassState;
+
+/**
  * @brief Log any pending GL errors.
  * @param stage Label describing the stage where the error check occurs.
  * @return No return value.
@@ -86,6 +105,96 @@ static void log_gl_error_if_any(const char* stage)
     if (!has_error) {
         return;
     }
+}
+
+/**
+ * @brief Capture GL state that this renderer mutates during one draw pass.
+ * @param state [out] Snapshot of the current GL state.
+ * @return No return value.
+ */
+static void render_capture_pass_state(RenderPassState* state)
+{
+    if (!state) {
+        return;
+    }
+
+    glGetIntegerv(GL_VIEWPORT, state->viewport);
+    glGetIntegerv(GL_SCISSOR_BOX, state->scissor_box);
+    glGetFloatv(GL_COLOR_CLEAR_VALUE, state->clear_color);
+    glGetIntegerv(GL_CURRENT_PROGRAM, &state->current_program);
+    glGetIntegerv(GL_VERTEX_ARRAY_BINDING, &state->vertex_array_binding);
+    glGetIntegerv(GL_ARRAY_BUFFER_BINDING, &state->array_buffer_binding);
+    glGetIntegerv(GL_BLEND_SRC_RGB, &state->blend_src_rgb);
+    glGetIntegerv(GL_BLEND_DST_RGB, &state->blend_dst_rgb);
+    glGetIntegerv(GL_BLEND_SRC_ALPHA, &state->blend_src_alpha);
+    glGetIntegerv(GL_BLEND_DST_ALPHA, &state->blend_dst_alpha);
+    glGetFloatv(GL_LINE_WIDTH, &state->line_width);
+    state->scissor_enabled = glIsEnabled(GL_SCISSOR_TEST);
+    state->blend_enabled = glIsEnabled(GL_BLEND);
+}
+
+/**
+ * @brief Restore GL state captured before the render pass.
+ * @param state Previously captured GL state.
+ * @return No return value.
+ */
+static void render_restore_pass_state(const RenderPassState* state)
+{
+    if (!state) {
+        return;
+    }
+
+    glViewport(state->viewport[0],
+               state->viewport[1],
+               state->viewport[2],
+               state->viewport[3]);
+    glScissor(state->scissor_box[0],
+              state->scissor_box[1],
+              state->scissor_box[2],
+              state->scissor_box[3]);
+    glClearColor(state->clear_color[0],
+                 state->clear_color[1],
+                 state->clear_color[2],
+                 state->clear_color[3]);
+    glUseProgram((GLuint)state->current_program);
+    glBindVertexArray((GLuint)state->vertex_array_binding);
+    glBindBuffer(GL_ARRAY_BUFFER, (GLuint)state->array_buffer_binding);
+    glBlendFuncSeparate((GLenum)state->blend_src_rgb,
+                        (GLenum)state->blend_dst_rgb,
+                        (GLenum)state->blend_src_alpha,
+                        (GLenum)state->blend_dst_alpha);
+    glLineWidth(state->line_width);
+
+    if (state->scissor_enabled) {
+        glEnable(GL_SCISSOR_TEST);
+    } else {
+        glDisable(GL_SCISSOR_TEST);
+    }
+
+    if (state->blend_enabled) {
+        glEnable(GL_BLEND);
+    } else {
+        glDisable(GL_BLEND);
+    }
+}
+
+/**
+ * @brief Apply the explicit GL state contract required by the canvas renderer.
+ * @param renderer Renderer instance.
+ * @return No return value.
+ */
+static void render_prepare_pass_state(const RenderSystem* renderer)
+{
+    if (!renderer) {
+        return;
+    }
+
+    glViewport(0, 0, renderer->width, renderer->height);
+    glUseProgram(renderer->program);
+    glBindVertexArray(renderer->vao);
+    glBindBuffer(GL_ARRAY_BUFFER, renderer->vbo);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 }
 
 /**
@@ -906,8 +1015,7 @@ void render_system_draw(RenderSystem* renderer,
                         const GraphicObject* overlay_object)
 {
     int i = 0;
-    GLboolean scissor_was_enabled = GL_FALSE;
-    GLint previous_scissor_box[4] = {0, 0, 0, 0};
+    RenderPassState pass_state;
     GLint canvas_scissor_box[4] = {0, 0, 0, 0};
     RectF viewport;
     int has_canvas_area = 0;
@@ -922,14 +1030,11 @@ void render_system_draw(RenderSystem* renderer,
                                                 renderer->height,
                                                 canvas_scissor_box);
 
-    glViewport(0, 0, renderer->width, renderer->height);
-    scissor_was_enabled = glIsEnabled(GL_SCISSOR_TEST);
-    glGetIntegerv(GL_SCISSOR_BOX, previous_scissor_box);
+    render_capture_pass_state(&pass_state);
+    render_prepare_pass_state(renderer);
 
     if (!has_canvas_area) {
-        if (!scissor_was_enabled) {
-            glDisable(GL_SCISSOR_TEST);
-        }
+        render_restore_pass_state(&pass_state);
         return;
     }
 
@@ -959,20 +1064,10 @@ void render_system_draw(RenderSystem* renderer,
 
     end_frame_batch(renderer);
     log_gl_error_if_any("render_system_draw:after_batch_flush");
-    glLineWidth(1.0f);
-    glBindVertexArray(0);
-    glUseProgram(0);
     log_gl_error_if_any("render_system_draw:before_finalize");
 
     renderer->debug_frame_counter++;
     render_log_frame_stats(renderer);
 
-    if (scissor_was_enabled) {
-        glScissor(previous_scissor_box[0],
-                  previous_scissor_box[1],
-                  previous_scissor_box[2],
-                  previous_scissor_box[3]);
-    } else {
-        glDisable(GL_SCISSOR_TEST);
-    }
+    render_restore_pass_state(&pass_state);
 }
