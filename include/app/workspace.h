@@ -158,6 +158,9 @@ typedef struct WorkspaceLayout {
  * @member tools Tool controller.
  * @member keymap Effective keyboard mapping state.
  * @member layout UI layout information.
+ * @member clipboard_objects Internal clipboard object clones.
+ * @member clipboard_count Number of objects currently stored in the internal clipboard.
+ * @member clipboard_paste_serial Repeated paste counter used to offset pasted content.
  * @member current_document_path Current document path (empty string means unnamed).
  * @member status_message Status bar message.
  * @member saved_revision Document revision corresponding to the last save.
@@ -176,6 +179,9 @@ typedef struct Workspace {
     ToolController tools;
     EditorKeymap keymap;
     WorkspaceLayout layout;
+    GraphicObject* clipboard_objects[DOCUMENT_MAX_SELECTION];
+    int clipboard_count;
+    unsigned int clipboard_paste_serial;
     char current_document_path[260];
     char status_message[256];
     unsigned int saved_revision;
@@ -215,6 +221,28 @@ static inline void workspace_sync_document_dirty(Workspace* workspace)
     }
 
     workspace->document_dirty = (workspace->saved_revision != workspace->document.revision);
+}
+
+/**
+ * @brief Clear all objects stored in the internal clipboard.
+ * @param workspace Target workspace; no-op if `NULL`.
+ * @return No return value.
+ */
+static inline void workspace_clear_clipboard(Workspace* workspace)
+{
+    int i = 0;
+
+    if (!workspace) {
+        return;
+    }
+
+    for (i = 0; i < workspace->clipboard_count; ++i) {
+        object_destroy(workspace->clipboard_objects[i]);
+        workspace->clipboard_objects[i] = NULL;
+    }
+
+    workspace->clipboard_count = 0;
+    workspace->clipboard_paste_serial = 0;
 }
 
 #endif /* GLDRAW_APP_WORKSPACE_H */

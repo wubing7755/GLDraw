@@ -16,6 +16,8 @@
 
 #include <string.h>
 
+#define CLIPBOARD_PASTE_OFFSET_PIXELS 10.0f
+
 static const CommandDescriptor g_commands[] = {
     {EDITOR_COMMAND_FILE_NEW, "file.new", "New", KEY_SCOPE_GLOBAL, MENU_ID_FILE_NEW},
     {EDITOR_COMMAND_FILE_OPEN, "file.open", "Open", KEY_SCOPE_GLOBAL, MENU_ID_FILE_OPEN},
@@ -24,6 +26,9 @@ static const CommandDescriptor g_commands[] = {
     {EDITOR_COMMAND_FILE_EXIT, "file.exit", "Exit", KEY_SCOPE_GLOBAL, MENU_ID_FILE_EXIT},
     {EDITOR_COMMAND_EDIT_UNDO, "edit.undo", "Undo", KEY_SCOPE_GLOBAL, MENU_ID_EDIT_UNDO},
     {EDITOR_COMMAND_EDIT_REDO, "edit.redo", "Redo", KEY_SCOPE_GLOBAL, MENU_ID_EDIT_REDO},
+    {EDITOR_COMMAND_EDIT_CUT, "edit.cut", "Cut", KEY_SCOPE_GLOBAL, MENU_ID_EDIT_CUT},
+    {EDITOR_COMMAND_EDIT_COPY, "edit.copy", "Copy", KEY_SCOPE_GLOBAL, MENU_ID_EDIT_COPY},
+    {EDITOR_COMMAND_EDIT_PASTE, "edit.paste", "Paste", KEY_SCOPE_GLOBAL, MENU_ID_EDIT_PASTE},
     {EDITOR_COMMAND_EDIT_DELETE, "edit.delete", "Delete", KEY_SCOPE_GLOBAL, MENU_ID_EDIT_DELETE},
     {EDITOR_COMMAND_EDIT_SELECT_ALL, "edit.select_all", "Select All", KEY_SCOPE_GLOBAL, MENU_ID_EDIT_SELECT_ALL},
     {EDITOR_COMMAND_VIEW_ZOOM_IN, "view.zoom_in", "Zoom In", KEY_SCOPE_GLOBAL, MENU_ID_VIEW_ZOOM_IN},
@@ -41,6 +46,128 @@ static const CommandDescriptor g_commands[] = {
     {EDITOR_COMMAND_MODAL_CONFIRM, "modal.confirm", "Confirm", KEY_SCOPE_MODAL, MENU_ID_HELP},
     {EDITOR_COMMAND_MODAL_CANCEL, "modal.cancel", "Cancel", KEY_SCOPE_MODAL, MENU_ID_HELP}
 };
+
+static int command_registry_copy_selection(Workspace* workspace)
+{
+    GraphicObject* clipboard_objects[DOCUMENT_MAX_SELECTION];
+    int selection_count = 0;
+    int i = 0;
+
+    if (!workspace) {
+        return 0;
+    }
+
+    selection_count = workspace->document.selection.count;
+    if (selection_count <= 0) {
+        return 0;
+    }
+
+    memset(clipboard_objects, 0, sizeof(clipboard_objects));
+    for (i = 0; i < selection_count; ++i) {
+        GraphicObject* source = document_find_object(&workspace->document,
+                                                     workspace->document.selection.ids[i]);
+
+        if (!source) {
+            break;
+        }
+
+        clipboard_objects[i] = object_clone(source);
+        if (!clipboard_objects[i]) {
+            break;
+        }
+    }
+
+    if (i != selection_count) {
+        int j = 0;
+        for (j = 0; j < selection_count; ++j) {
+            object_destroy(clipboard_objects[j]);
+        }
+        return 0;
+    }
+
+    workspace_clear_clipboard(workspace);
+    for (i = 0; i < selection_count; ++i) {
+        workspace->clipboard_objects[i] = clipboard_objects[i];
+    }
+    workspace->clipboard_count = selection_count;
+    workspace->clipboard_paste_serial = 0;
+    return 1;
+}
+
+static int command_registry_paste_clipboard(Workspace* workspace)
+{
+    DocumentSnapshot before_snapshot;
+    GraphicObject* pasted_objects[DOCUMENT_MAX_SELECTION];
+    Vec2 paste_delta = vec2_make(0.0f, 0.0f);
+    float world_offset = 0.0f;
+    int paste_count = 0;
+    int i = 0;
+
+    if (!workspace) {
+        return 0;
+    }
+
+    paste_count = workspace->clipboard_count;
+    if (paste_count <= 0) {
+        return 0;
+    }
+    if (workspace->document.count + paste_count > DOCUMENT_MAX_OBJECTS) {
+        return 0;
+    }
+
+    memset(pasted_objects, 0, sizeof(pasted_objects));
+    world_offset = canvas_view_world_tolerance_for_pixels(&workspace->canvas,
+                                                          CLIPBOARD_PASTE_OFFSET_PIXELS);
+    paste_delta = vec2_make(world_offset * (float)(workspace->clipboard_paste_serial + 1u),
+                            -world_offset * (float)(workspace->clipboard_paste_serial + 1u));
+
+    for (i = 0; i < paste_count; ++i) {
+        pasted_objects[i] = object_clone(workspace->clipboard_objects[i]);
+        if (!pasted_objects[i]) {
+            break;
+        }
+
+        object_translate(pasted_objects[i], paste_delta);
+    }
+
+    if (i != paste_count) {
+        int j = 0;
+        for (j = 0; j < paste_count; ++j) {
+            object_destroy(pasted_objects[j]);
+        }
+        return 0;
+    }
+
+    document_snapshot_init(&before_snapshot);
+    if (!document_snapshot_capture(&before_snapshot, &workspace->document)) {
+        for (i = 0; i < paste_count; ++i) {
+            object_destroy(pasted_objects[i]);
+        }
+        return 0;
+    }
+
+    document_clear_selection(&workspace->document);
+    for (i = 0; i < paste_count; ++i) {
+        if (!document_add_object(&workspace->document, pasted_objects[i])) {
+            break;
+        }
+
+        document_selection_add(&workspace->document, pasted_objects[i]->id);
+    }
+
+    if (i != paste_count) {
+        document_snapshot_free(&before_snapshot);
+        return 0;
+    }
+
+    if (!document_history_push(&workspace->history, &before_snapshot, &workspace->document)) {
+        document_snapshot_free(&before_snapshot);
+    }
+
+    workspace->clipboard_paste_serial++;
+    workspace_sync_document_dirty(workspace);
+    return 1;
+}
 
 static int command_registry_zoom_to_fit(Workspace* workspace)
 {
@@ -131,6 +258,20 @@ static void command_registry_delete_selection(Workspace* workspace)
     workspace_sync_document_dirty(workspace);
 }
 
+static int command_registry_cut_selection(Workspace* workspace)
+{
+    if (!workspace || workspace->document.selection.count <= 0) {
+        return 0;
+    }
+
+    if (!command_registry_copy_selection(workspace)) {
+        return 0;
+    }
+
+    command_registry_delete_selection(workspace);
+    return 1;
+}
+
 static void command_registry_select_all(Workspace* workspace)
 {
     int i = 0;
@@ -207,6 +348,12 @@ int command_registry_execute(Workspace* workspace,
             return 1;
         }
         return 0;
+    case EDITOR_COMMAND_EDIT_CUT:
+        return command_registry_cut_selection(workspace);
+    case EDITOR_COMMAND_EDIT_COPY:
+        return command_registry_copy_selection(workspace);
+    case EDITOR_COMMAND_EDIT_PASTE:
+        return command_registry_paste_clipboard(workspace);
     case EDITOR_COMMAND_EDIT_DELETE:
         command_registry_delete_selection(workspace);
         return 1;

@@ -37,9 +37,6 @@ int ui_menu_is_action_available(MenuId id)
 {
     switch (id) {
     case MENU_ID_FILE_EXPORT_PNG:
-    case MENU_ID_EDIT_CUT:
-    case MENU_ID_EDIT_COPY:
-    case MENU_ID_EDIT_PASTE:
         return 0;
     default:
         return 1;
@@ -62,10 +59,6 @@ void ui_menu_execute(Workspace* workspace, MenuId id)
 
     if (id == MENU_ID_FILE_EXPORT_PNG) {
         app_export_png(workspace);
-        return;
-    }
-    if (id == MENU_ID_EDIT_CUT || id == MENU_ID_EDIT_COPY || id == MENU_ID_EDIT_PASTE) {
-        LOG_INFO("Menu action %d not yet implemented", id);
         return;
     }
 
