@@ -19,9 +19,10 @@ void ui_menu_execute(struct Workspace* workspace, MenuId id);
 
 /**
  * @brief Checks if menu action is currently available.
+ * @param workspace Workspace instance used to evaluate runtime-backed command availability.
  * @param id Menu action ID.
  * @return Non-zero if available, 0 if unavailable.
  */
-int ui_menu_is_action_available(MenuId id);
+int ui_menu_is_action_available(const struct Workspace* workspace, MenuId id);
 
 #endif /* GLDRAW_UI_UI_MENU_ACTIONS_H */

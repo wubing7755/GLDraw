@@ -71,5 +71,9 @@ int workspace_dialog_resolve(Workspace* workspace, UiDialogResult result);
 
 /** Open the standard unsaved-changes confirmation dialog. */
 int workspace_dialog_open_confirm_unsaved(Workspace* workspace, WorkspaceActionType pending_action);
+/** Open a simple informational dialog with a single dismiss action. */
+int workspace_dialog_open_info(Workspace* workspace,
+                               const char* title,
+                               const char* message);
 
 #endif /* GLDRAW_APP_WORKSPACE_DIALOGS_H */
