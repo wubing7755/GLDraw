@@ -51,6 +51,21 @@ void ui_system_build(UiSystem* ui, struct Workspace* workspace);
 int ui_system_handle_key(UiSystem* ui, int key, int action);
 
 /**
+ * @brief Offer one mouse button event to the UI before routing it elsewhere.
+ * @param ui UI system instance.
+ * @param workspace Workspace instance used to derive menu state.
+ * @param screen_pos Pointer position in screen coordinates.
+ * @param button GLFW mouse button code.
+ * @param action GLFW action code.
+ * @return Non-zero if the UI consumed the event, zero otherwise.
+ */
+int ui_system_handle_mouse_button(UiSystem* ui,
+                                  struct Workspace* workspace,
+                                  Vec2 screen_pos,
+                                  int button,
+                                  int action);
+
+/**
  * @brief Commit UI draw commands.
  * @param ui UI system instance.
  * @return No return value.
