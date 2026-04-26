@@ -53,11 +53,22 @@
 #define UI_THEME_DESCRIPTOR_CACHE_MAX 64
 #define UI_THEME_WATCH_INTERVAL_SECONDS 0.35
 #define UI_CONTEXT_MENU_WIDTH 220.0f
+#define UI_CONTEXT_MENU_HEIGHT 240.0f
+#define UI_CONTEXT_MENU_ANCHOR_SIZE 1.0f
 
 typedef enum UiContextMenuMode {
   UI_CONTEXT_MENU_MODE_TOOLS = 0,
   UI_CONTEXT_MENU_MODE_SELECTION
 } UiContextMenuMode;
+
+typedef struct UiContextMenuState {
+  int open;
+  int close_requested;
+  UiContextMenuMode mode;
+  Vec2 anchor_screen;
+  RectF canvas_bounds;
+  RectF popup_bounds;
+} UiContextMenuState;
 
 struct UiSystem {
   struct nk_glfw glfw;
@@ -82,9 +93,7 @@ struct UiSystem {
   int inspector_edit_active;
   DocumentSnapshot inspector_edit_before_snapshot;
   int modal_active;
-  int context_menu_visible;
-  int context_menu_close_requested;
-  UiContextMenuMode context_menu_mode;
+  UiContextMenuState context_menu;
   double last_frame_seconds;
 };
 
@@ -95,6 +104,10 @@ typedef enum UiThemeReloadReason {
 } UiThemeReloadReason;
 
 static ToolContext ui_tool_context(Workspace *workspace);
+static void ui_context_menu_reset(UiSystem *ui);
+static RectF ui_context_menu_popup_bounds(const UiContextMenuState *menu);
+static void ui_context_menu_open(UiSystem *ui, Workspace *workspace,
+                                 Vec2 screen_pos);
 
 /**
  * @brief Clamps a float value.
@@ -361,6 +374,63 @@ static RectF ui_clamp_rect_to_window(RectF rect, RectF window_bounds) {
   return rect;
 }
 
+static void ui_context_menu_reset(UiSystem *ui) {
+  if (!ui) {
+    return;
+  }
+
+  ui->context_menu.open = 0;
+  ui->context_menu.close_requested = 0;
+  ui->context_menu.mode = UI_CONTEXT_MENU_MODE_TOOLS;
+  ui->context_menu.anchor_screen = vec2_make(0.0f, 0.0f);
+  ui->context_menu.canvas_bounds = (RectF){0.0f, 0.0f, 0.0f, 0.0f};
+  ui->context_menu.popup_bounds = (RectF){0.0f, 0.0f, 0.0f, 0.0f};
+}
+
+static RectF ui_context_menu_popup_bounds(const UiContextMenuState *menu) {
+  RectF bounds = {0.0f, 0.0f, UI_CONTEXT_MENU_WIDTH, UI_CONTEXT_MENU_HEIGHT};
+
+  if (!menu) {
+    return bounds;
+  }
+
+  bounds.x = ui_clampf(menu->anchor_screen.x, menu->canvas_bounds.x,
+                       menu->canvas_bounds.x + menu->canvas_bounds.w -
+                           UI_CONTEXT_MENU_WIDTH);
+  bounds.y = ui_clampf(menu->anchor_screen.y, menu->canvas_bounds.y,
+                       menu->canvas_bounds.y + menu->canvas_bounds.h -
+                           UI_CONTEXT_MENU_HEIGHT);
+  return bounds;
+}
+
+static void ui_context_menu_open(UiSystem *ui, Workspace *workspace,
+                                 Vec2 screen_pos) {
+  RectF canvas_bounds;
+
+  if (!ui || !workspace) {
+    return;
+  }
+
+  canvas_bounds = ui->layout_snapshot.canvas_content_bounds;
+  if (canvas_bounds.w <= 1.0f || canvas_bounds.h <= 1.0f) {
+    canvas_bounds = ui->content_bounds;
+  }
+
+  if (canvas_bounds.w <= 0.0f || canvas_bounds.h <= 0.0f ||
+      !rectf_contains_point(&canvas_bounds, screen_pos)) {
+    return;
+  }
+
+  ui->context_menu.open = 1;
+  ui->context_menu.close_requested = 0;
+  ui->context_menu.mode = workspace->document.selection.count > 0
+                              ? UI_CONTEXT_MENU_MODE_SELECTION
+                              : UI_CONTEXT_MENU_MODE_TOOLS;
+  ui->context_menu.anchor_screen = screen_pos;
+  ui->context_menu.canvas_bounds = canvas_bounds;
+  ui->context_menu.popup_bounds = ui_context_menu_popup_bounds(&ui->context_menu);
+}
+
 static void ui_format_command_label(const Workspace *workspace,
                                     const char *label,
                                     const char *command_id, KeyScope scope,
@@ -401,7 +471,7 @@ static int ui_context_menu_item(UiSystem *ui, const char *label,
 
   ui_format_command_label(workspace, label, command_id, KEY_SCOPE_GLOBAL,
                           item_label, sizeof(item_label));
-  if (!nk_contextual_item_label(ui->ctx, item_label, NK_TEXT_LEFT)) {
+  if (!nk_button_label(ui->ctx, item_label)) {
     return 0;
   }
 
@@ -419,7 +489,7 @@ static void ui_context_menu_separator(UiSystem *ui) {
   nk_spacing(ui->ctx, 1);
 }
 
-static void ui_context_menu_build_tools(UiSystem *ui, Workspace *workspace) {
+static int ui_context_menu_build_tools(UiSystem *ui, Workspace *workspace) {
   const ToolKind active_tool = workspace->tools.active_kind;
 
   nk_layout_row_dynamic(ui->ctx, ui->theme.row_height, 1);
@@ -427,42 +497,42 @@ static void ui_context_menu_build_tools(UiSystem *ui, Workspace *workspace) {
     nk_label(ui->ctx, "Select Tool (V)", NK_TEXT_LEFT);
   } else if (ui_context_menu_item(ui, "Select Tool", "tool.select",
                                   EDITOR_COMMAND_TOOL_SELECT, workspace)) {
-    return;
+    return 1;
   }
 
   if (active_tool == TOOL_KIND_PAN) {
     nk_label(ui->ctx, "Pan Tool (H)", NK_TEXT_LEFT);
   } else if (ui_context_menu_item(ui, "Pan Tool", "tool.pan",
                                   EDITOR_COMMAND_TOOL_PAN, workspace)) {
-    return;
+    return 1;
   }
 
   if (active_tool == TOOL_KIND_LINE) {
     nk_label(ui->ctx, "Line Tool (L)", NK_TEXT_LEFT);
   } else if (ui_context_menu_item(ui, "Line Tool", "tool.line",
                                   EDITOR_COMMAND_TOOL_LINE, workspace)) {
-    return;
+    return 1;
   }
 
   if (active_tool == TOOL_KIND_RECT) {
     nk_label(ui->ctx, "Rectangle Tool (R)", NK_TEXT_LEFT);
   } else if (ui_context_menu_item(ui, "Rectangle Tool", "tool.rect",
                                   EDITOR_COMMAND_TOOL_RECT, workspace)) {
-    return;
+    return 1;
   }
 
   if (active_tool == TOOL_KIND_ELLIPSE) {
     nk_label(ui->ctx, "Ellipse Tool (E)", NK_TEXT_LEFT);
   } else if (ui_context_menu_item(ui, "Ellipse Tool", "tool.ellipse",
                                   EDITOR_COMMAND_TOOL_ELLIPSE, workspace)) {
-    return;
+    return 1;
   }
 
   ui_context_menu_separator(ui);
   nk_layout_row_dynamic(ui->ctx, ui->theme.row_height, 1);
   if (ui_context_menu_item(ui, "Zoom to Fit", "view.zoom_fit",
                            EDITOR_COMMAND_VIEW_ZOOM_FIT, workspace)) {
-    return;
+    return 1;
   }
 
   ui_context_menu_separator(ui);
@@ -470,72 +540,94 @@ static void ui_context_menu_build_tools(UiSystem *ui, Workspace *workspace) {
   if (workspace->canvas.show_grid) {
     if (ui_context_menu_item(ui, "Hide Grid", "view.toggle_grid",
                              EDITOR_COMMAND_VIEW_TOGGLE_GRID, workspace)) {
-      return;
+      return 1;
     }
   } else if (ui_context_menu_item(ui, "Show Grid", "view.toggle_grid",
                                   EDITOR_COMMAND_VIEW_TOGGLE_GRID,
                                   workspace)) {
-    return;
+    return 1;
   }
+
+  return 0;
 }
 
-static void ui_context_menu_build_selection(UiSystem *ui, Workspace *workspace) {
+static int ui_context_menu_build_selection(UiSystem *ui, Workspace *workspace) {
   nk_layout_row_dynamic(ui->ctx, ui->theme.row_height, 1);
   if (ui_context_menu_item(ui, "Copy", "edit.copy", EDITOR_COMMAND_EDIT_COPY,
                            workspace)) {
-    return;
+    return 1;
   }
   if (ui_context_menu_item(ui, "Paste", "edit.paste", EDITOR_COMMAND_EDIT_PASTE,
                            workspace)) {
-    return;
+    return 1;
   }
   if (ui_context_menu_item(ui, "Delete", "edit.delete",
                            EDITOR_COMMAND_EDIT_DELETE, workspace)) {
-    return;
+    return 1;
   }
+
+  return 0;
 }
 
-static void ui_canvas_context_menu(UiSystem *ui, Workspace *workspace,
-                                   RectF canvas_bounds) {
-  struct nk_rect trigger_bounds;
-  struct nk_vec2 popup_size;
+static void ui_canvas_context_menu(UiSystem *ui, Workspace *workspace) {
+  RectF canvas_bounds;
+  RectF host_bounds;
+  RectF popup_bounds;
+  struct nk_rect nk_host_bounds;
+  struct nk_rect nk_popup_bounds;
   int is_open = 0;
+  int menu_action_triggered = 0;
 
-  if (!ui || !ui->ctx || !workspace || canvas_bounds.w <= 0.0f ||
-      canvas_bounds.h <= 0.0f) {
+  if (!ui || !ui->ctx || !workspace || !ui->context_menu.open) {
     return;
   }
 
-  trigger_bounds =
-      nk_rect(canvas_bounds.x, canvas_bounds.y, canvas_bounds.w, canvas_bounds.h);
-  popup_size = nk_vec2(UI_CONTEXT_MENU_WIDTH, 240.0f);
-
-  if (nk_input_mouse_clicked(&ui->ctx->input, NK_BUTTON_RIGHT, trigger_bounds)) {
-    ui->context_menu_mode = workspace->document.selection.count > 0
-                                ? UI_CONTEXT_MENU_MODE_SELECTION
-                                : UI_CONTEXT_MENU_MODE_TOOLS;
+  canvas_bounds = ui->context_menu.canvas_bounds;
+  if (canvas_bounds.w <= 0.0f || canvas_bounds.h <= 0.0f) {
+    ui_context_menu_reset(ui);
+    return;
   }
 
-  if (nk_begin(ui->ctx, "Canvas Overlay", trigger_bounds,
+  popup_bounds = ui_context_menu_popup_bounds(&ui->context_menu);
+  ui->context_menu.popup_bounds = popup_bounds;
+
+  host_bounds.x = popup_bounds.x;
+  host_bounds.y = popup_bounds.y;
+  host_bounds.w = UI_CONTEXT_MENU_ANCHOR_SIZE;
+  host_bounds.h = UI_CONTEXT_MENU_ANCHOR_SIZE;
+
+  /* Popup APIs need an active Nuklear window/panel. Keep the host window to a
+   * single pixel so the menu does not visually cover the canvas. */
+  nk_host_bounds =
+      nk_rect(host_bounds.x, host_bounds.y, host_bounds.w, host_bounds.h);
+  nk_popup_bounds =
+      nk_rect(0.0f, 0.0f, popup_bounds.w, popup_bounds.h);
+
+  if (nk_begin(ui->ctx, "Canvas Context Host", nk_host_bounds,
                NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_BACKGROUND |
                    NK_WINDOW_NO_INPUT)) {
-    is_open = nk_contextual_begin(ui->ctx, 0, popup_size, trigger_bounds);
+    is_open = nk_popup_begin(ui->ctx, NK_POPUP_DYNAMIC, "Canvas Context Menu",
+                             NK_WINDOW_NO_SCROLLBAR, nk_popup_bounds);
     if (is_open) {
-      if (ui->context_menu_close_requested) {
-        nk_contextual_close(ui->ctx);
-      } else if (ui->context_menu_mode == UI_CONTEXT_MENU_MODE_SELECTION) {
-        ui_context_menu_build_selection(ui, workspace);
+      if (ui->context_menu.close_requested) {
+        nk_popup_close(ui->ctx);
+      } else if (ui->context_menu.mode == UI_CONTEXT_MENU_MODE_SELECTION) {
+        menu_action_triggered = ui_context_menu_build_selection(ui, workspace);
       } else {
-        ui_context_menu_build_tools(ui, workspace);
+        menu_action_triggered = ui_context_menu_build_tools(ui, workspace);
       }
 
-      nk_contextual_end(ui->ctx);
+      if (ui->context_menu.close_requested || menu_action_triggered) {
+        nk_popup_close(ui->ctx);
+      }
+      nk_popup_end(ui->ctx);
     }
   }
   nk_end(ui->ctx);
 
-  ui->context_menu_visible = is_open && !ui->context_menu_close_requested;
-  ui->context_menu_close_requested = 0;
+  if (!is_open || ui->context_menu.close_requested || menu_action_triggered) {
+    ui_context_menu_reset(ui);
+  }
 }
 
 static void ui_publish_layout(UiSystem *ui, Workspace *workspace, int width,
@@ -1087,8 +1179,7 @@ void ui_system_build(UiSystem *ui, Workspace *workspace) {
 
   ui->modal_active = workspace_modal_is_active(workspace);
   if (ui->modal_active) {
-    ui->context_menu_visible = 0;
-    ui->context_menu_close_requested = 0;
+    ui_context_menu_reset(ui);
   }
 
   if (ui->window_handle) {
@@ -1227,7 +1318,7 @@ void ui_system_build(UiSystem *ui, Workspace *workspace) {
   }
 
   if (!ui->modal_active) {
-    ui_canvas_context_menu(ui, workspace, ui->content_bounds);
+    ui_canvas_context_menu(ui, workspace);
   }
 
   ui_publish_layout(ui, workspace, width, height);
@@ -1242,9 +1333,34 @@ int ui_system_handle_key(UiSystem *ui, int key, int action) {
     return 0;
   }
 
-  if (key == GLFW_KEY_ESCAPE && ui->context_menu_visible) {
-    ui->context_menu_close_requested = 1;
+  if (key == GLFW_KEY_ESCAPE && ui->context_menu.open) {
+    ui->context_menu.close_requested = 1;
     return 1;
+  }
+
+  return 0;
+}
+
+int ui_system_handle_mouse_button(UiSystem *ui, Workspace *workspace,
+                                  Vec2 screen_pos, int button, int action) {
+  if (!ui || !workspace || action != GLFW_PRESS || ui->modal_active) {
+    return 0;
+  }
+
+  if (ui->context_menu.open && button == GLFW_MOUSE_BUTTON_LEFT) {
+    /* Match common desktop behavior: clicking blank canvas dismisses the
+     * context menu immediately instead of waiting for popup internals. */
+    if (!rectf_contains_point(&ui->context_menu.popup_bounds, screen_pos)) {
+      ui_context_menu_reset(ui);
+      return 1;
+    }
+  }
+
+  if (button == GLFW_MOUSE_BUTTON_RIGHT) {
+    /* Open the canvas menu from the input path so tools never see the same
+     * right-click as a drawing gesture. */
+    ui_context_menu_open(ui, workspace, screen_pos);
+    return ui->context_menu.open;
   }
 
   return 0;
@@ -1263,7 +1379,7 @@ int ui_system_has_active_interaction(const UiSystem *ui) {
     return 0;
   }
 
-  return ui->context_menu_visible || nk_item_is_any_active(ui->ctx);
+  return ui->context_menu.open || nk_item_is_any_active(ui->ctx);
 }
 
 int ui_system_blocks_pointer(const UiSystem *ui, Vec2 screen_pos) {

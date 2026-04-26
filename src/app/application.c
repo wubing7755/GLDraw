@@ -533,6 +533,11 @@ static void mouse_button_callback(GLFWwindow *handle, int button, int action,
   }
 
   if (action == GLFW_PRESS) {
+    if (app->ui &&
+        ui_system_handle_mouse_button(app->ui, &app->workspace,
+                                      app->cursor_screen, button, action)) {
+      return;
+    }
     if (!app->workspace.tools.pointer_captured &&
         app_pointer_blocks_canvas(app, app->cursor_screen)) {
       return;
