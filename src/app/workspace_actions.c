@@ -29,17 +29,17 @@ static int workspace_action_requires_unsaved_confirmation(WorkspaceActionType ac
 int workspace_modal_is_active(const Workspace* workspace)
 {
     return workspace &&
-           workspace->active_request_type == UI_REQUEST_DIALOG &&
-           workspace->active_dialog.modal &&
-           workspace->active_dialog.kind != UI_DIALOG_NONE;
+           workspace->session.active_request_type == UI_REQUEST_DIALOG &&
+           workspace->session.active_dialog.modal &&
+           workspace->session.active_dialog.kind != UI_DIALOG_NONE;
 }
 
 UiDialogKind workspace_active_dialog_kind(const Workspace* workspace)
 {
-    if (!workspace || workspace->active_request_type != UI_REQUEST_DIALOG) {
+    if (!workspace || workspace->session.active_request_type != UI_REQUEST_DIALOG) {
         return UI_DIALOG_NONE;
     }
-    return workspace->active_dialog.kind;
+    return workspace->session.active_dialog.kind;
 }
 
 int workspace_request_action(Workspace* workspace, WorkspaceActionType action)
@@ -53,15 +53,17 @@ int workspace_request_action(Workspace* workspace, WorkspaceActionType action)
     }
 
     if (workspace_action_requires_unsaved_confirmation(action) &&
-        workspace->document_dirty) {
+        workspace->session.document_dirty) {
         return workspace_dialog_open_confirm_unsaved(workspace, action);
     }
 
-    if (!workspace->execute_action) {
+    if (!workspace->services.execute_action) {
         return 0;
     }
 
-    return workspace->execute_action(workspace, action, workspace->command_user_data);
+    return workspace->services.execute_action(workspace,
+                                              action,
+                                              workspace->services.command_user_data);
 }
 
 int workspace_confirm_pending_action_save(Workspace* workspace)

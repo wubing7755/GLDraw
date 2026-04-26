@@ -58,15 +58,15 @@ static int command_registry_copy_selection(Workspace* workspace)
         return 0;
     }
 
-    selection_count = workspace->document.selection.count;
+    selection_count = workspace->session.selection.count;
     if (selection_count <= 0) {
         return 0;
     }
 
     memset(clipboard_objects, 0, sizeof(clipboard_objects));
     for (i = 0; i < selection_count; ++i) {
-        GraphicObject* source = document_find_object(&workspace->document,
-                                                     workspace->document.selection.ids[i]);
+        GraphicObject* source = document_find_object(&workspace->core.document,
+                                                     workspace->session.selection.ids[i]);
 
         if (!source) {
             break;
@@ -88,16 +88,17 @@ static int command_registry_copy_selection(Workspace* workspace)
 
     workspace_clear_clipboard(workspace);
     for (i = 0; i < selection_count; ++i) {
-        workspace->clipboard_objects[i] = clipboard_objects[i];
+        workspace->session.clipboard_objects[i] = clipboard_objects[i];
     }
-    workspace->clipboard_count = selection_count;
-    workspace->clipboard_paste_serial = 0;
+    workspace->session.clipboard_count = selection_count;
+    workspace->session.clipboard_paste_serial = 0;
     return 1;
 }
 
 static int command_registry_paste_clipboard(Workspace* workspace)
 {
     DocumentSnapshot before_snapshot;
+    SelectionSet before_selection;
     GraphicObject* pasted_objects[DOCUMENT_MAX_SELECTION];
     Vec2 paste_delta = vec2_make(0.0f, 0.0f);
     float world_offset = 0.0f;
@@ -108,22 +109,22 @@ static int command_registry_paste_clipboard(Workspace* workspace)
         return 0;
     }
 
-    paste_count = workspace->clipboard_count;
+    paste_count = workspace->session.clipboard_count;
     if (paste_count <= 0) {
         return 0;
     }
-    if (workspace->document.count + paste_count > DOCUMENT_MAX_OBJECTS) {
+    if (workspace->core.document.count + paste_count > DOCUMENT_MAX_OBJECTS) {
         return 0;
     }
 
     memset(pasted_objects, 0, sizeof(pasted_objects));
-    world_offset = canvas_view_world_tolerance_for_pixels(&workspace->canvas,
+    world_offset = canvas_view_world_tolerance_for_pixels(&workspace->core.canvas,
                                                           CLIPBOARD_PASTE_OFFSET_PIXELS);
-    paste_delta = vec2_make(world_offset * (float)(workspace->clipboard_paste_serial + 1u),
-                            -world_offset * (float)(workspace->clipboard_paste_serial + 1u));
+    paste_delta = vec2_make(world_offset * (float)(workspace->session.clipboard_paste_serial + 1u),
+                            -world_offset * (float)(workspace->session.clipboard_paste_serial + 1u));
 
     for (i = 0; i < paste_count; ++i) {
-        pasted_objects[i] = object_clone(workspace->clipboard_objects[i]);
+        pasted_objects[i] = object_clone(workspace->session.clipboard_objects[i]);
         if (!pasted_objects[i]) {
             break;
         }
@@ -140,20 +141,21 @@ static int command_registry_paste_clipboard(Workspace* workspace)
     }
 
     document_snapshot_init(&before_snapshot);
-    if (!document_snapshot_capture(&before_snapshot, &workspace->document)) {
+    before_selection = workspace->session.selection;
+    if (!document_snapshot_capture(&before_snapshot, &workspace->core.document)) {
         for (i = 0; i < paste_count; ++i) {
             object_destroy(pasted_objects[i]);
         }
         return 0;
     }
 
-    document_clear_selection(&workspace->document);
+    selection_set_clear(&workspace->session.selection);
     for (i = 0; i < paste_count; ++i) {
-        if (!document_add_object(&workspace->document, pasted_objects[i])) {
+        if (!document_add_object(&workspace->core.document, pasted_objects[i])) {
             break;
         }
 
-        document_selection_add(&workspace->document, pasted_objects[i]->id);
+        selection_set_add(&workspace->session.selection, pasted_objects[i]->id);
     }
 
     if (i != paste_count) {
@@ -161,11 +163,15 @@ static int command_registry_paste_clipboard(Workspace* workspace)
         return 0;
     }
 
-    if (!document_history_push(&workspace->history, &before_snapshot, &workspace->document)) {
+    if (!document_history_push(&workspace->core.history,
+                               &before_snapshot,
+                               &before_selection,
+                               &workspace->core.document,
+                               &workspace->session.selection)) {
         document_snapshot_free(&before_snapshot);
     }
 
-    workspace->clipboard_paste_serial++;
+    workspace->session.clipboard_paste_serial++;
     workspace_sync_document_dirty(workspace);
     return 1;
 }
@@ -184,7 +190,7 @@ static void command_registry_append_shortcut_line(char* buffer,
     }
 
     shortcut[0] = '\0';
-    keymap_format_command_shortcut(&workspace->keymap,
+    keymap_format_command_shortcut(&workspace->session.keymap,
                                    command_id,
                                    scope,
                                    shortcut,
@@ -279,12 +285,12 @@ static int command_registry_zoom_to_fit(Workspace* workspace)
     int first = 1;
     int i = 0;
 
-    if (!workspace || !workspace->canvas.document) {
+    if (!workspace || !workspace->core.canvas.document) {
         return 0;
     }
 
-    doc = &workspace->document;
-    canvas = &workspace->canvas;
+    doc = &workspace->core.document;
+    canvas = &workspace->core.canvas;
     canvas_viewport = canvas_view_viewport(canvas);
     if (canvas_viewport.w <= 1.0f || canvas_viewport.h <= 1.0f) {
         canvas_view_set_center_zoom(canvas, vec2_make(0.0f, 0.0f), 1.0f);
@@ -362,15 +368,31 @@ static int command_registry_zoom_to_fit(Workspace* workspace)
 static void command_registry_delete_selection(Workspace* workspace)
 {
     DocumentSnapshot before_snapshot;
+    SelectionSet before_selection;
+    ObjectId ids[DOCUMENT_MAX_SELECTION];
+    int selection_count = 0;
+    int i = 0;
 
-    if (!workspace || workspace->document.selection.count <= 0) {
+    if (!workspace || workspace->session.selection.count <= 0) {
         return;
     }
 
     document_snapshot_init(&before_snapshot);
-    document_snapshot_capture(&before_snapshot, &workspace->document);
-    document_delete_selection(&workspace->document);
-    if (!document_history_push(&workspace->history, &before_snapshot, &workspace->document)) {
+    before_selection = workspace->session.selection;
+    document_snapshot_capture(&before_snapshot, &workspace->core.document);
+    selection_count = workspace->session.selection.count;
+    for (i = 0; i < selection_count; ++i) {
+        ids[i] = workspace->session.selection.ids[i];
+    }
+    for (i = 0; i < selection_count; ++i) {
+        document_remove_object(&workspace->core.document, ids[i]);
+    }
+    selection_set_clear(&workspace->session.selection);
+    if (!document_history_push(&workspace->core.history,
+                               &before_snapshot,
+                               &before_selection,
+                               &workspace->core.document,
+                               &workspace->session.selection)) {
         document_snapshot_free(&before_snapshot);
     }
     workspace_sync_document_dirty(workspace);
@@ -378,7 +400,7 @@ static void command_registry_delete_selection(Workspace* workspace)
 
 static int command_registry_cut_selection(Workspace* workspace)
 {
-    if (!workspace || workspace->document.selection.count <= 0) {
+    if (!workspace || workspace->session.selection.count <= 0) {
         return 0;
     }
 
@@ -398,10 +420,10 @@ static void command_registry_select_all(Workspace* workspace)
         return;
     }
 
-    document_clear_selection(&workspace->document);
-    for (i = 0; i < workspace->document.count; ++i) {
-        document_selection_add(&workspace->document,
-                               workspace->document.objects[i]->id);
+    selection_set_clear(&workspace->session.selection);
+    for (i = 0; i < workspace->core.document.count; ++i) {
+        selection_set_add(&workspace->session.selection,
+                          workspace->core.document.objects[i]->id);
     }
 }
 
@@ -440,7 +462,7 @@ int command_registry_is_available(const Workspace* workspace,
 {
     switch (command) {
     case EDITOR_COMMAND_FILE_SAVE:
-        return workspace && workspace->save_document;
+        return workspace && workspace->services.save_document;
     case EDITOR_COMMAND_FILE_SAVE_AS:
         return 0;
     case EDITOR_COMMAND_HELP_SHORTCUTS:
@@ -448,9 +470,9 @@ int command_registry_is_available(const Workspace* workspace,
     case EDITOR_COMMAND_EDIT_CUT:
     case EDITOR_COMMAND_EDIT_COPY:
     case EDITOR_COMMAND_EDIT_DELETE:
-        return workspace && workspace->document.selection.count > 0;
+        return workspace && workspace->session.selection.count > 0;
     case EDITOR_COMMAND_EDIT_PASTE:
-        return workspace && workspace->clipboard_count > 0;
+        return workspace && workspace->session.clipboard_count > 0;
     case EDITOR_COMMAND_FILE_NEW:
     case EDITOR_COMMAND_FILE_OPEN:
     case EDITOR_COMMAND_FILE_EXIT:
@@ -505,19 +527,25 @@ int command_registry_execute(Workspace* workspace,
     case EDITOR_COMMAND_FILE_OPEN:
         return workspace_request_action(workspace, WORKSPACE_ACTION_OPEN_DOCUMENT);
     case EDITOR_COMMAND_FILE_SAVE:
-        return workspace->save_document ? workspace->save_document(workspace, workspace->command_user_data) : 0;
+        return workspace->services.save_document ?
+               workspace->services.save_document(workspace, workspace->services.command_user_data) : 0;
     case EDITOR_COMMAND_FILE_SAVE_AS:
-        return workspace->save_document ? workspace->save_document(workspace, workspace->command_user_data) : 0;
+        return workspace->services.save_document ?
+               workspace->services.save_document(workspace, workspace->services.command_user_data) : 0;
     case EDITOR_COMMAND_FILE_EXIT:
         return workspace_request_action(workspace, WORKSPACE_ACTION_EXIT_APPLICATION);
     case EDITOR_COMMAND_EDIT_UNDO:
-        if (document_history_undo(&workspace->history, &workspace->document)) {
+        if (document_history_undo(&workspace->core.history,
+                                  &workspace->core.document,
+                                  &workspace->session.selection)) {
             workspace_sync_document_dirty(workspace);
             return 1;
         }
         return 0;
     case EDITOR_COMMAND_EDIT_REDO:
-        if (document_history_redo(&workspace->history, &workspace->document)) {
+        if (document_history_redo(&workspace->core.history,
+                                  &workspace->core.document,
+                                  &workspace->session.selection)) {
             workspace_sync_document_dirty(workspace);
             return 1;
         }
@@ -536,39 +564,39 @@ int command_registry_execute(Workspace* workspace,
         return 1;
     case EDITOR_COMMAND_VIEW_ZOOM_IN:
     {
-        Vec2 center = canvas_view_center(&workspace->canvas);
-        canvas_view_zoom_at_screen_point(&workspace->canvas, 1.25f,
-                                         canvas_view_world_to_screen(&workspace->canvas, center));
+        Vec2 center = canvas_view_center(&workspace->core.canvas);
+        canvas_view_zoom_at_screen_point(&workspace->core.canvas, 1.25f,
+                                         canvas_view_world_to_screen(&workspace->core.canvas, center));
         return 1;
     }
     case EDITOR_COMMAND_VIEW_ZOOM_OUT:
     {
-        Vec2 center = canvas_view_center(&workspace->canvas);
-        canvas_view_zoom_at_screen_point(&workspace->canvas, 0.8f,
-                                         canvas_view_world_to_screen(&workspace->canvas, center));
+        Vec2 center = canvas_view_center(&workspace->core.canvas);
+        canvas_view_zoom_at_screen_point(&workspace->core.canvas, 0.8f,
+                                         canvas_view_world_to_screen(&workspace->core.canvas, center));
         return 1;
     }
     case EDITOR_COMMAND_VIEW_ZOOM_FIT:
         return command_registry_zoom_to_fit(workspace);
     case EDITOR_COMMAND_VIEW_TOGGLE_GRID:
-        workspace->canvas.show_grid = !workspace->canvas.show_grid;
+        workspace->core.canvas.show_grid = !workspace->core.canvas.show_grid;
         return 1;
     case EDITOR_COMMAND_VIEW_TOGGLE_INSPECTOR:
         return 1;
     case EDITOR_COMMAND_TOOL_SELECT:
-        if (tool_context) tool_controller_set_active(&workspace->tools, tool_context, TOOL_KIND_SELECT);
+        if (tool_context) tool_controller_set_active(&workspace->core.tools, tool_context, TOOL_KIND_SELECT);
         return 1;
     case EDITOR_COMMAND_TOOL_PAN:
-        if (tool_context) tool_controller_set_active(&workspace->tools, tool_context, TOOL_KIND_PAN);
+        if (tool_context) tool_controller_set_active(&workspace->core.tools, tool_context, TOOL_KIND_PAN);
         return 1;
     case EDITOR_COMMAND_TOOL_LINE:
-        if (tool_context) tool_controller_set_active(&workspace->tools, tool_context, TOOL_KIND_LINE);
+        if (tool_context) tool_controller_set_active(&workspace->core.tools, tool_context, TOOL_KIND_LINE);
         return 1;
     case EDITOR_COMMAND_TOOL_RECT:
-        if (tool_context) tool_controller_set_active(&workspace->tools, tool_context, TOOL_KIND_RECT);
+        if (tool_context) tool_controller_set_active(&workspace->core.tools, tool_context, TOOL_KIND_RECT);
         return 1;
     case EDITOR_COMMAND_TOOL_ELLIPSE:
-        if (tool_context) tool_controller_set_active(&workspace->tools, tool_context, TOOL_KIND_ELLIPSE);
+        if (tool_context) tool_controller_set_active(&workspace->core.tools, tool_context, TOOL_KIND_ELLIPSE);
         return 1;
     case EDITOR_COMMAND_HELP_SHORTCUTS:
         return command_registry_toggle_shortcuts_dialog(workspace);
@@ -608,7 +636,7 @@ void command_registry_format_menu_shortcut(const Workspace* workspace,
         return;
     }
 
-    keymap_format_command_shortcut(&workspace->keymap,
+    keymap_format_command_shortcut(&workspace->session.keymap,
                                    descriptor->id,
                                    descriptor->scope,
                                    buffer,

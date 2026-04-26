@@ -79,8 +79,8 @@ static void app_set_status(Application *app, const char *fmt, ...) {
   }
 
   va_start(args, fmt);
-  vsnprintf(app->workspace.status_message,
-            sizeof(app->workspace.status_message), fmt, args);
+  vsnprintf(app->workspace.session.status_message,
+            sizeof(app->workspace.session.status_message), fmt, args);
   va_end(args);
 }
 
@@ -117,8 +117,8 @@ static const char *app_default_document_path(void) { return "document.json"; }
  * @return Current document path string.
  */
 static const char *app_current_document_path(const Application *app) {
-  if (app->workspace.current_document_path[0] != '\0') {
-    return app->workspace.current_document_path;
+  if (app->workspace.session.current_document_path[0] != '\0') {
+    return app->workspace.session.current_document_path;
   }
   return app_default_document_path();
 }
@@ -138,10 +138,10 @@ static void app_set_document_path(Application *app, const char *path) {
     return;
   }
 
-  strncpy(app->workspace.current_document_path, path,
-          sizeof(app->workspace.current_document_path) - 1u);
-  app->workspace
-      .current_document_path[sizeof(app->workspace.current_document_path) -
+  strncpy(app->workspace.session.current_document_path, path,
+          sizeof(app->workspace.session.current_document_path) - 1u);
+  app->workspace.session
+      .current_document_path[sizeof(app->workspace.session.current_document_path) -
                              1u] = '\0';
 }
 
@@ -155,8 +155,8 @@ static void app_reset_tool_state(Application *app) {
     return;
   }
 
-  tool_controller_shutdown(&app->workspace.tools);
-  tool_controller_init(&app->workspace.tools);
+  tool_controller_shutdown(&app->workspace.core.tools);
+  tool_controller_init(&app->workspace.core.tools);
 }
 
 static int app_new_document(Application *app) {
@@ -164,19 +164,20 @@ static int app_new_document(Application *app) {
     return 0;
   }
 
-  document_reset(&app->workspace.document);
+  document_reset(&app->workspace.core.document);
+  selection_set_clear(&app->workspace.session.selection);
   app_clear_clipboard(app);
-  document_history_shutdown(&app->workspace.history);
-  if (!document_history_init(&app->workspace.history)) {
+  document_history_shutdown(&app->workspace.core.history);
+  if (!document_history_init(&app->workspace.core.history)) {
     LOG_ERROR("%s", "Failed to reinitialize history");
     app_set_status(app, "History reset failed");
     return 0;
   }
 
   app_reset_tool_state(app);
-  canvas_view_set_center_zoom(&app->workspace.canvas, vec2_make(0.0f, 0.0f),
+  canvas_view_set_center_zoom(&app->workspace.core.canvas, vec2_make(0.0f, 0.0f),
                               1.0f);
-  app->workspace.current_document_path[0] = '\0';
+  app->workspace.session.current_document_path[0] = '\0';
   workspace_mark_saved(&app->workspace);
   app_set_status(app, "New empty document");
   return 1;
@@ -195,7 +196,7 @@ static int app_new_document(Application *app) {
 static int app_save_document(Application *app) {
   const char *path = app_current_document_path(app);
 
-  if (!document_save_json(&app->workspace.document, path)) {
+  if (!document_save_json(&app->workspace.core.document, path)) {
     LOG_ERROR("%s", "Save document failed");
     app_set_status(app, "Save failed: %s", path);
     return 0;
@@ -229,17 +230,18 @@ static int app_load_document(Application *app) {
     return 0;
   }
 
-  if (!document_load_json(&app->workspace.document, path)) {
+  if (!document_load_json(&app->workspace.core.document, path)) {
     LOG_ERROR("%s", "Load document failed");
     app_set_status(app, "Load failed: %s", path);
     return 0;
   }
 
+  selection_set_clear(&app->workspace.session.selection);
   /* Rebuild history against the newly loaded object graph.
      Reusing old snapshots would leave dangling object pointers. */
   app_clear_clipboard(app);
-  document_history_shutdown(&app->workspace.history);
-  if (!document_history_init(&app->workspace.history)) {
+  document_history_shutdown(&app->workspace.core.history);
+  if (!document_history_init(&app->workspace.core.history)) {
     LOG_ERROR("%s", "Failed to reinitialize history after document load");
     app_set_status(app, "History reset failed after load");
     return 0;
@@ -333,9 +335,10 @@ static void app_open_startup_document(Application *app) {
 static ToolContext app_tool_context(Application *app) {
   ToolContext context;
   context.workspace = &app->workspace;
-  context.document = &app->workspace.document;
-  context.history = &app->workspace.history;
-  context.canvas = &app->workspace.canvas;
+  context.document = &app->workspace.core.document;
+  context.history = &app->workspace.core.history;
+  context.canvas = &app->workspace.core.canvas;
+  context.selection = &app->workspace.session.selection;
   return context;
 }
 
@@ -369,9 +372,9 @@ static void app_sync_tool_pointer_anchor(Application *app) {
     return;
   }
 
-  app->workspace.tools.last_screen = app->cursor_screen;
-  app->workspace.tools.last_world =
-      canvas_view_screen_to_world(&app->workspace.canvas, app->cursor_screen);
+  app->workspace.core.tools.last_screen = app->cursor_screen;
+  app->workspace.core.tools.last_world =
+      canvas_view_screen_to_world(&app->workspace.core.canvas, app->cursor_screen);
 }
 
 /**
@@ -382,7 +385,7 @@ static void app_sync_tool_pointer_anchor(Application *app) {
 static void app_sync_canvas_boundary(Application *app) {
   int inside_canvas = 0;
 
-  if (!app || app->workspace.tools.pointer_captured) {
+  if (!app || app->workspace.core.tools.pointer_captured) {
     return;
   }
 
@@ -411,7 +414,7 @@ static void update_canvas_viewport(Application *app) {
     viewport = ui_system_content_bounds(app->ui);
     fallback_window = ui_system_window_bounds(app->ui);
   } else {
-    viewport = app->workspace.layout.canvas_content_bounds;
+    viewport = app->workspace.session.layout.canvas_content_bounds;
     fallback_window.w = (float)app->window.width;
     fallback_window.h = (float)app->window.height;
     if (fallback_window.w < 1.0f) {
@@ -427,10 +430,10 @@ static void update_canvas_viewport(Application *app) {
   }
 
   if (app->ui) {
-    app->workspace.canvas.background = ui_system_canvas_background(app->ui);
+    app->workspace.core.canvas.background = ui_system_canvas_background(app->ui);
   }
 
-  canvas_view_set_viewport(&app->workspace.canvas, viewport);
+  canvas_view_set_viewport(&app->workspace.core.canvas, viewport);
   app_sync_canvas_boundary(app);
 }
 
@@ -447,11 +450,11 @@ static ToolEvent make_tool_event(Application *app, int button, int mods,
   ToolEvent event;
   event.screen_pos = app->cursor_screen;
   event.world_pos =
-      canvas_view_screen_to_world(&app->workspace.canvas, app->cursor_screen);
+      canvas_view_screen_to_world(&app->workspace.core.canvas, app->cursor_screen);
   event.delta_screen =
-      vec2_sub(event.screen_pos, app->workspace.tools.last_screen);
+      vec2_sub(event.screen_pos, app->workspace.core.tools.last_screen);
   event.delta_world =
-      vec2_sub(event.world_pos, app->workspace.tools.last_world);
+      vec2_sub(event.world_pos, app->workspace.core.tools.last_world);
   event.button = button;
   event.mods = mods;
   event.wheel_y = wheel_y;
@@ -503,7 +506,7 @@ static void cursor_pos_callback(GLFWwindow *handle, double xpos, double ypos) {
   app->cursor_screen = vec2_make((float)xpos, (float)ypos);
   app_sync_canvas_boundary(app);
 
-  if (!app->workspace.tools.pointer_captured &&
+  if (!app->workspace.core.tools.pointer_captured &&
       app_pointer_blocks_canvas(app, app->cursor_screen)) {
     return;
   }
@@ -511,7 +514,7 @@ static void cursor_pos_callback(GLFWwindow *handle, double xpos, double ypos) {
   context = app_tool_context(app);
   event = make_tool_event(app, -1, 0, 0.0f);
 
-  tool_controller_pointer_move(&app->workspace.tools, &context, &event);
+  tool_controller_pointer_move(&app->workspace.core.tools, &context, &event);
 }
 
 /**
@@ -538,18 +541,18 @@ static void mouse_button_callback(GLFWwindow *handle, int button, int action,
                                       app->cursor_screen, button, action)) {
       return;
     }
-    if (!app->workspace.tools.pointer_captured &&
+    if (!app->workspace.core.tools.pointer_captured &&
         app_pointer_blocks_canvas(app, app->cursor_screen)) {
       return;
     }
     context = app_tool_context(app);
     event = make_tool_event(app, button, mods, 0.0f);
-    tool_controller_pointer_down(&app->workspace.tools, &context, &event);
+    tool_controller_pointer_down(&app->workspace.core.tools, &context, &event);
   } else if (action == GLFW_RELEASE) {
     /* Ignore release outside canvas unless we previously captured the pointer.
        This keeps drag/end-state transitions consistent across window regions.
      */
-    if (!app->workspace.tools.pointer_captured) {
+    if (!app->workspace.core.tools.pointer_captured) {
       if (app_pointer_blocks_canvas(app, app->cursor_screen)) {
         return;
       }
@@ -557,7 +560,7 @@ static void mouse_button_callback(GLFWwindow *handle, int button, int action,
     }
     context = app_tool_context(app);
     event = make_tool_event(app, button, mods, 0.0f);
-    tool_controller_pointer_up(&app->workspace.tools, &context, &event);
+    tool_controller_pointer_up(&app->workspace.core.tools, &context, &event);
   }
 }
 
@@ -618,13 +621,13 @@ static void scroll_callback(GLFWwindow *handle, double xoffset,
     return;
   }
 
-  if (!app->workspace.tools.pointer_captured &&
+  if (!app->workspace.core.tools.pointer_captured &&
       app_pointer_blocks_canvas(app, app->cursor_screen)) {
     return;
   }
 
   context = app_tool_context(app);
-  tool_controller_scroll(&app->workspace.tools, &context, app->cursor_screen,
+  tool_controller_scroll(&app->workspace.core.tools, &context, app->cursor_screen,
                          (float)yoffset);
 }
 
@@ -655,19 +658,19 @@ static int app_init(Application *app) {
     return -1;
   }
 
-  document_init(&app->workspace.document);
-  if (!document_history_init(&app->workspace.history)) {
+  document_init(&app->workspace.core.document);
+  if (!document_history_init(&app->workspace.core.history)) {
     LOG_ERROR("%s", "Failed to initialize document history");
     return -1;
   }
-  canvas_view_init(&app->workspace.canvas, &app->workspace.document, viewport);
-  tool_controller_init(&app->workspace.tools);
-  keymap_init(&app->workspace.keymap, APP_KEYMAP_SETTINGS_PATH);
+  canvas_view_init(&app->workspace.core.canvas, &app->workspace.core.document, viewport);
+  tool_controller_init(&app->workspace.core.tools);
+  keymap_init(&app->workspace.session.keymap, APP_KEYMAP_SETTINGS_PATH);
   app_set_document_path(app, app_default_document_path());
-  app->workspace.save_document = app_workspace_save;
-  app->workspace.load_document = app_workspace_load;
-  app->workspace.execute_action = app_workspace_execute_action;
-  app->workspace.command_user_data = app;
+  app->workspace.services.save_document = app_workspace_save;
+  app->workspace.services.load_document = app_workspace_load;
+  app->workspace.services.execute_action = app_workspace_execute_action;
+  app->workspace.services.command_user_data = app;
   workspace_mark_saved(&app->workspace);
   app_set_status(app, "Initializing editor");
   app->cursor_screen =
@@ -723,11 +726,11 @@ static void app_shutdown(Application *app) {
 
   ui_system_destroy(app->ui);
   render_system_destroy(app->renderer);
-  tool_controller_shutdown(&app->workspace.tools);
-  keymap_shutdown(&app->workspace.keymap);
+  tool_controller_shutdown(&app->workspace.core.tools);
+  keymap_shutdown(&app->workspace.session.keymap);
   app_clear_clipboard(app);
-  document_history_shutdown(&app->workspace.history);
-  document_shutdown(&app->workspace.document);
+  document_history_shutdown(&app->workspace.core.history);
+  document_shutdown(&app->workspace.core.document);
   platform_window_shutdown(&app->window);
 }
 
@@ -767,9 +770,11 @@ int app_run(void) {
     ui_system_begin_frame(app->ui);
     ui_system_build(app->ui, &app->workspace);
     update_canvas_viewport(app);
-    render_system_draw(app->renderer, &app->workspace.document,
-                       &app->workspace.canvas,
-                       tool_controller_overlay_object(&app->workspace.tools));
+    render_system_draw(app->renderer,
+                       &app->workspace.core.document,
+                       &app->workspace.session.selection,
+                       &app->workspace.core.canvas,
+                       tool_controller_overlay_object(&app->workspace.core.tools));
     ui_system_render(app->ui);
     platform_window_swap_buffers(&app->window);
   }

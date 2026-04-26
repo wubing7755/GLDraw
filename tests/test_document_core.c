@@ -1,3 +1,4 @@
+#include <app/editor_session.h>
 #include <document/document.h>
 #include <document/history.h>
 #include <document/object.h>
@@ -153,8 +154,11 @@ static int make_temp_path(char* buffer, size_t buffer_size, const char* suffix)
 static int test_document_selection_and_deletion(void)
 {
     Document document;
+    SelectionSet selection = {0};
     GraphicObject* first = NULL;
     GraphicObject* second = NULL;
+    ObjectId ids[DOCUMENT_MAX_SELECTION];
+    int i = 0;
 
     document_init(&document);
 
@@ -168,24 +172,31 @@ static int test_document_selection_and_deletion(void)
     EXPECT_UINT_EQ(document.objects[1]->id, 2u);
     EXPECT_UINT_EQ(document.next_id, 3u);
 
-    EXPECT_TRUE(document_selection_add(&document, 1u));
-    EXPECT_TRUE(document_selection_add(&document, 2u));
-    EXPECT_TRUE(document_selection_contains(&document, 1u));
-    EXPECT_TRUE(document_selection_contains(&document, 2u));
+    EXPECT_TRUE(selection_set_add(&selection, 1u));
+    EXPECT_TRUE(selection_set_add(&selection, 2u));
+    EXPECT_TRUE(selection_set_contains(&selection, 1u));
+    EXPECT_TRUE(selection_set_contains(&selection, 2u));
 
-    document_selection_toggle(&document, 2u);
-    EXPECT_FALSE(document_selection_contains(&document, 2u));
-    EXPECT_INT_EQ(document.selection.count, 1);
+    selection_set_toggle(&selection, 2u);
+    EXPECT_FALSE(selection_set_contains(&selection, 2u));
+    EXPECT_INT_EQ(selection.count, 1);
 
     EXPECT_TRUE(document_remove_object(&document, 1u));
     EXPECT_INT_EQ(document.count, 1);
-    EXPECT_FALSE(document_selection_contains(&document, 1u));
+    selection_set_remove(&selection, 1u);
+    EXPECT_FALSE(selection_set_contains(&selection, 1u));
     EXPECT_UINT_EQ(document.objects[0]->id, 2u);
 
-    EXPECT_TRUE(document_selection_add(&document, 2u));
-    document_delete_selection(&document);
+    EXPECT_TRUE(selection_set_add(&selection, 2u));
+    for (i = 0; i < selection.count; ++i) {
+        ids[i] = selection.ids[i];
+    }
+    for (i = 0; i < selection.count; ++i) {
+        EXPECT_TRUE(document_remove_object(&document, ids[i]));
+    }
+    selection_set_clear(&selection);
     EXPECT_INT_EQ(document.count, 0);
-    EXPECT_INT_EQ(document.selection.count, 0);
+    EXPECT_INT_EQ(selection.count, 0);
 
     document_shutdown(&document);
     return g_failures == 0;
@@ -196,6 +207,7 @@ static int test_history_snapshot_undo_redo(void)
     Document document;
     DocumentHistory history;
     DocumentSnapshot before;
+    SelectionSet selection = {0};
 
     document_init(&document);
     EXPECT_TRUE(document_history_init(&history));
@@ -204,15 +216,15 @@ static int test_history_snapshot_undo_redo(void)
     EXPECT_TRUE(document_add_object(&document, create_rect(0.0f, 0.0f, 10.0f, 20.0f)));
     EXPECT_TRUE(document_snapshot_capture(&before, &document));
     EXPECT_TRUE(document_add_object(&document, create_rect(10.0f, 10.0f, 5.0f, 5.0f)));
-    EXPECT_TRUE(document_history_push(&history, &before, &document));
+    EXPECT_TRUE(document_history_push(&history, &before, &selection, &document, &selection));
     EXPECT_TRUE(document_history_can_undo(&history));
 
-    EXPECT_TRUE(document_history_undo(&history, &document));
+    EXPECT_TRUE(document_history_undo(&history, &document, &selection));
     EXPECT_INT_EQ(document.count, 1);
     EXPECT_FALSE(document_history_can_undo(&history));
     EXPECT_TRUE(document_history_can_redo(&history));
 
-    EXPECT_TRUE(document_history_redo(&history, &document));
+    EXPECT_TRUE(document_history_redo(&history, &document, &selection));
     EXPECT_INT_EQ(document.count, 2);
     EXPECT_TRUE(document_history_can_undo(&history));
 
@@ -225,6 +237,7 @@ static int test_history_scalar_edit_undo_redo(void)
 {
     Document document;
     DocumentHistory history;
+    SelectionSet selection = {0};
     GraphicObject* object = NULL;
     float value = 0.0f;
     unsigned int revision_before = 0u;
@@ -242,6 +255,7 @@ static int test_history_scalar_edit_undo_redo(void)
     revision_after = document.revision;
     EXPECT_TRUE(document_history_push_scalar_edit(&history,
                                                   &document,
+                                                  &selection,
                                                   object->id,
                                                   "width",
                                                   10.0f,
@@ -249,12 +263,12 @@ static int test_history_scalar_edit_undo_redo(void)
                                                   revision_before,
                                                   revision_after));
 
-    EXPECT_TRUE(document_history_undo(&history, &document));
+    EXPECT_TRUE(document_history_undo(&history, &document, &selection));
     EXPECT_TRUE(object_get_scalar(object, "width", &value));
     EXPECT_FLOAT_EQ(value, 10.0f);
     EXPECT_UINT_EQ(document.revision, revision_before);
 
-    EXPECT_TRUE(document_history_redo(&history, &document));
+    EXPECT_TRUE(document_history_redo(&history, &document, &selection));
     EXPECT_TRUE(object_get_scalar(object, "width", &value));
     EXPECT_FLOAT_EQ(value, 42.0f);
     EXPECT_UINT_EQ(document.revision, revision_after);
@@ -268,6 +282,7 @@ static int test_history_translate_edit_undo_redo(void)
 {
     Document document;
     DocumentHistory history;
+    SelectionSet selection = {0};
     GraphicObject* object = NULL;
     ObjectId ids[1] = {0u};
     Vec2 delta = {3.0f, -4.0f};
@@ -289,20 +304,21 @@ static int test_history_translate_edit_undo_redo(void)
     revision_after = document.revision;
     EXPECT_TRUE(document_history_push_translate_edit(&history,
                                                      &document,
+                                                     &selection,
                                                      ids,
                                                      1,
                                                      delta,
                                                      revision_before,
                                                      revision_after));
 
-    EXPECT_TRUE(document_history_undo(&history, &document));
+    EXPECT_TRUE(document_history_undo(&history, &document, &selection));
     EXPECT_TRUE(object_get_scalar(object, "x", &x));
     EXPECT_TRUE(object_get_scalar(object, "y", &y));
     EXPECT_FLOAT_EQ(x, 2.0f);
     EXPECT_FLOAT_EQ(y, 8.0f);
     EXPECT_UINT_EQ(document.revision, revision_before);
 
-    EXPECT_TRUE(document_history_redo(&history, &document));
+    EXPECT_TRUE(document_history_redo(&history, &document, &selection));
     EXPECT_TRUE(object_get_scalar(object, "x", &x));
     EXPECT_TRUE(object_get_scalar(object, "y", &y));
     EXPECT_FLOAT_EQ(x, 5.0f);
@@ -318,6 +334,7 @@ static int test_persistence_round_trip(void)
 {
     Document saved;
     Document loaded;
+    SelectionSet saved_selection = {0};
     char path[L_tmpnam + 16];
     float width = 0.0f;
 
@@ -326,7 +343,7 @@ static int test_persistence_round_trip(void)
 
     EXPECT_TRUE(document_add_object(&saved, create_rect(3.0f, 4.0f, 20.0f, 30.0f)));
     EXPECT_TRUE(document_add_object(&saved, create_line(1.0f, 2.0f, 9.0f, 10.0f)));
-    EXPECT_TRUE(document_selection_add(&saved, 2u));
+    EXPECT_TRUE(selection_set_add(&saved_selection, 2u));
 
     EXPECT_TRUE(make_temp_path(path, sizeof(path), ".json"));
     EXPECT_TRUE(document_save_json(&saved, path));
@@ -334,7 +351,6 @@ static int test_persistence_round_trip(void)
 
     EXPECT_INT_EQ(loaded.count, 2);
     EXPECT_UINT_EQ(loaded.next_id, saved.next_id);
-    EXPECT_INT_EQ(loaded.selection.count, 0);
     EXPECT_TRUE(object_get_scalar(document_find_object(&loaded, 1u), "width", &width));
     EXPECT_FLOAT_EQ(width, 20.0f);
 

@@ -5,6 +5,7 @@
 #ifndef GLDRAW_DOCUMENT_HISTORY_H
 #define GLDRAW_DOCUMENT_HISTORY_H
 
+#include <app/editor_session.h>
 #include <document/document.h>
 
 #define DOCUMENT_HISTORY_MAX_ENTRIES 128
@@ -39,7 +40,34 @@ typedef struct {
 typedef struct {
     DocumentSnapshot before;
     DocumentSnapshot after;
+    SelectionSet before_selection;
+    SelectionSet after_selection;
 } DocumentHistoryEntry;
+
+typedef enum {
+    DOCUMENT_HISTORY_ENTRY_SNAPSHOT = 0,
+    DOCUMENT_HISTORY_ENTRY_SCALAR_EDIT,
+    DOCUMENT_HISTORY_ENTRY_TRANSFORM_EDIT
+} DocumentHistoryEntryKind;
+
+typedef struct {
+    ObjectId object_id;
+    char key[32];
+    float before_value;
+    float after_value;
+    unsigned int revision_before;
+    unsigned int revision_after;
+    SelectionSet selection;
+} DocumentHistoryScalarEdit;
+
+typedef struct {
+    ObjectId object_ids[DOCUMENT_MAX_SELECTION];
+    int object_count;
+    Vec2 delta;
+    unsigned int revision_before;
+    unsigned int revision_after;
+    SelectionSet selection;
+} DocumentHistoryTransformEdit;
 
 /**
  * @struct DocumentHistory
@@ -57,6 +85,12 @@ typedef struct DocumentHistory {
     int capacity;
     int undo_count;
     int redo_count;
+    DocumentHistoryEntryKind* undo_kinds;
+    DocumentHistoryEntryKind* redo_kinds;
+    DocumentHistoryScalarEdit* undo_scalar_edits;
+    DocumentHistoryScalarEdit* redo_scalar_edits;
+    DocumentHistoryTransformEdit* undo_transform_edits;
+    DocumentHistoryTransformEdit* redo_transform_edits;
 } DocumentHistory;
 
 /**
@@ -109,7 +143,11 @@ void document_history_shutdown(DocumentHistory* history);
  * @param after_document Document after the edit.
  * @return Non-zero on success, zero on failure.
  */
-int document_history_push(DocumentHistory* history, DocumentSnapshot* before, const Document* after_document);
+int document_history_push(DocumentHistory* history,
+                          DocumentSnapshot* before,
+                          const SelectionSet* before_selection,
+                          const Document* after_document,
+                          const SelectionSet* after_selection);
 
 /**
  * @brief Push a scalar property edit history record.
@@ -126,7 +164,15 @@ int document_history_push(DocumentHistory* history, DocumentSnapshot* before, co
  * @param revision_after Document revision after modification.
  * @return Non-zero on success, zero on failure.
  */
-int document_history_push_scalar_edit(DocumentHistory* history, const Document* document, ObjectId object_id, const char* key, float before_value, float after_value, unsigned int revision_before, unsigned int revision_after);
+int document_history_push_scalar_edit(DocumentHistory* history,
+                                      const Document* document,
+                                      const SelectionSet* selection,
+                                      ObjectId object_id,
+                                      const char* key,
+                                      float before_value,
+                                      float after_value,
+                                      unsigned int revision_before,
+                                      unsigned int revision_after);
 
 /**
  * @brief Push a batch translate edit history record.
@@ -143,7 +189,14 @@ int document_history_push_scalar_edit(DocumentHistory* history, const Document* 
  * @param revision_after Revision after modification.
  * @return Non-zero on success, zero on failure.
  */
-int document_history_push_translate_edit(DocumentHistory* history, const Document* document, const ObjectId* object_ids, int object_count, Vec2 delta, unsigned int revision_before, unsigned int revision_after);
+int document_history_push_translate_edit(DocumentHistory* history,
+                                         const Document* document,
+                                         const SelectionSet* selection,
+                                         const ObjectId* object_ids,
+                                         int object_count,
+                                         Vec2 delta,
+                                         unsigned int revision_before,
+                                         unsigned int revision_after);
 
 /**
  * @brief Perform an undo.
@@ -158,7 +211,9 @@ int document_history_push_translate_edit(DocumentHistory* history, const Documen
  * @param document Target document.
  * @return Non-zero if there is something to undo and the application succeeded, zero otherwise.
  */
-int document_history_undo(DocumentHistory* history, Document* document);
+int document_history_undo(DocumentHistory* history,
+                          Document* document,
+                          SelectionSet* selection);
 
 /**
  * @brief Perform a redo.
@@ -169,7 +224,9 @@ int document_history_undo(DocumentHistory* history, Document* document);
  * @param document Target document.
  * @return Non-zero if there is something to redo and the application succeeded, zero otherwise.
  */
-int document_history_redo(DocumentHistory* history, Document* document);
+int document_history_redo(DocumentHistory* history,
+                          Document* document,
+                          SelectionSet* selection);
 
 /**
  * @brief Check whether undo is available.

@@ -6,6 +6,7 @@
 #define GLDRAW_RENDER_RENDER_SYSTEM_H
 
 #include <canvas/canvas_view.h>
+#include <app/editor_session.h>
 #include <document/document.h>
 #include <platform/window.h>
 
@@ -47,12 +48,14 @@ void render_system_resize(RenderSystem* renderer,
  *
  * @param renderer Renderer instance.
  * @param document Current document.
+ * @param selection Current editor selection state.
  * @param canvas Current canvas view.
  * @param overlay_object Tool overlay preview object (may be `NULL`).
  * @return No return value.
  */
 void render_system_draw(RenderSystem* renderer,
                         const Document* document,
+                        const SelectionSet* selection,
                         const CanvasView* canvas,
                         const GraphicObject* overlay_object);
 

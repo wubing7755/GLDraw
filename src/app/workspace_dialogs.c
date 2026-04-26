@@ -73,11 +73,13 @@ static const UiDialogDefinition UI_DIALOG_DEFINITION_INFO = {
 static int workspace_dialog_execute_action_now(Workspace* workspace,
                                                WorkspaceActionType action)
 {
-    if (!workspace || action == WORKSPACE_ACTION_NONE || !workspace->execute_action) {
+    if (!workspace || action == WORKSPACE_ACTION_NONE || !workspace->services.execute_action) {
         return 0;
     }
 
-    return workspace->execute_action(workspace, action, workspace->command_user_data);
+    return workspace->services.execute_action(workspace,
+                                              action,
+                                              workspace->services.command_user_data);
 }
 
 static int workspace_dialog_resolve_confirm_unsaved(Workspace* workspace,
@@ -89,12 +91,12 @@ static int workspace_dialog_resolve_confirm_unsaved(Workspace* workspace,
         return 0;
     }
 
-    action = (WorkspaceActionType)workspace->active_dialog.payload.int_values[0];
+    action = (WorkspaceActionType)workspace->session.active_dialog.payload.int_values[0];
 
     switch (result) {
     case UI_DIALOG_RESULT_PRIMARY:
-        if (!workspace->save_document ||
-            !workspace->save_document(workspace, workspace->command_user_data)) {
+        if (!workspace->services.save_document ||
+            !workspace->services.save_document(workspace, workspace->services.command_user_data)) {
             return 0;
         }
         workspace_dialog_close(workspace);
@@ -104,8 +106,8 @@ static int workspace_dialog_resolve_confirm_unsaved(Workspace* workspace,
         return workspace_dialog_execute_action_now(workspace, action);
     case UI_DIALOG_RESULT_CANCEL:
         workspace_dialog_close(workspace);
-        snprintf(workspace->status_message,
-                 sizeof(workspace->status_message),
+        snprintf(workspace->session.status_message,
+                 sizeof(workspace->session.status_message),
                  "Action cancelled.");
         return 1;
     case UI_DIALOG_RESULT_NONE:
@@ -268,8 +270,8 @@ int workspace_dialog_open(Workspace* workspace, const UiDialogState* dialog)
         return 0;
     }
 
-    workspace->active_request_type = UI_REQUEST_DIALOG;
-    workspace->active_dialog = *dialog;
+    workspace->session.active_request_type = UI_REQUEST_DIALOG;
+    workspace->session.active_dialog = *dialog;
     return 1;
 }
 
@@ -279,19 +281,19 @@ void workspace_dialog_close(Workspace* workspace)
         return;
     }
 
-    workspace->active_request_type = UI_REQUEST_NONE;
-    workspace_dialog_reset(&workspace->active_dialog);
+    workspace->session.active_request_type = UI_REQUEST_NONE;
+    workspace_dialog_reset(&workspace->session.active_dialog);
 }
 
 int workspace_dialog_resolve(Workspace* workspace, UiDialogResult result)
 {
     const UiDialogDefinition* definition = NULL;
 
-    if (!workspace || workspace->active_request_type != UI_REQUEST_DIALOG) {
+    if (!workspace || workspace->session.active_request_type != UI_REQUEST_DIALOG) {
         return 0;
     }
 
-    definition = workspace_dialog_definition(workspace->active_dialog.kind);
+    definition = workspace_dialog_definition(workspace->session.active_dialog.kind);
     if (!definition || !definition->resolve) {
         return 0;
     }

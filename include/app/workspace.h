@@ -5,8 +5,8 @@
 #ifndef GLDRAW_APP_WORKSPACE_H
 #define GLDRAW_APP_WORKSPACE_H
 
+#include <app/editor_session.h>
 #include <canvas/canvas_view.h>
-#include <document/document.h>
 #include <document/history.h>
 #include <input/keymap.h>
 #include <tools/tool_controller.h>
@@ -151,15 +151,28 @@ typedef struct WorkspaceLayout {
 } WorkspaceLayout;
 
 /**
- * @struct Workspace
- * @brief Runtime core state container.
+ * @struct EditorCore
+ * @brief Backend-agnostic editing state.
  *
- * @member document Current document object and selection state.
+ * @member document Persisted document model.
  * @member history Undo/redo history.
  * @member canvas Canvas view state.
  * @member tools Tool controller.
+ */
+typedef struct EditorCore {
+    Document document;
+    DocumentHistory history;
+    CanvasView canvas;
+    ToolController tools;
+} EditorCore;
+
+/**
+ * @struct EditorSession
+ * @brief Session-only editor state.
+ *
  * @member keymap Effective keyboard mapping state.
  * @member layout UI layout information.
+ * @member selection Active object selection.
  * @member clipboard_objects Internal clipboard object clones.
  * @member clipboard_count Number of objects currently stored in the internal clipboard.
  * @member clipboard_paste_serial Repeated paste counter used to offset pasted content.
@@ -169,18 +182,11 @@ typedef struct WorkspaceLayout {
  * @member document_dirty Whether the document is dirty (non-zero means unsaved changes).
  * @member active_request_type Active top-level UI request type.
  * @member active_dialog Active reusable dialog state.
- * @member save_document Save callback.
- * @member load_document Load callback.
- * @member execute_action Deferred workspace action executor.
- * @member command_user_data Callback context.
  */
-typedef struct Workspace {
-    Document document;
-    DocumentHistory history;
-    CanvasView canvas;
-    ToolController tools;
+typedef struct EditorSession {
     EditorKeymap keymap;
     WorkspaceLayout layout;
+    SelectionSet selection;
     GraphicObject* clipboard_objects[DOCUMENT_MAX_SELECTION];
     int clipboard_count;
     unsigned int clipboard_paste_serial;
@@ -190,10 +196,27 @@ typedef struct Workspace {
     int document_dirty;
     UiRequestType active_request_type;
     UiDialogState active_dialog;
+} EditorSession;
+
+/**
+ * @struct EditorServices
+ * @brief Integration callbacks supplied by the application shell.
+ */
+typedef struct EditorServices {
     WorkspaceCommandFn save_document;
     WorkspaceCommandFn load_document;
     WorkspaceActionExecutorFn execute_action;
     void* command_user_data;
+} EditorServices;
+
+/**
+ * @struct Workspace
+ * @brief Runtime editor container split into core/session/services layers.
+ */
+typedef struct Workspace {
+    EditorCore core;
+    EditorSession session;
+    EditorServices services;
 } Workspace;
 
 /**
@@ -207,8 +230,8 @@ static inline void workspace_mark_saved(Workspace* workspace)
         return;
     }
 
-    workspace->saved_revision = workspace->document.revision;
-    workspace->document_dirty = 0;
+    workspace->session.saved_revision = workspace->core.document.revision;
+    workspace->session.document_dirty = 0;
 }
 
 /**
@@ -222,7 +245,8 @@ static inline void workspace_sync_document_dirty(Workspace* workspace)
         return;
     }
 
-    workspace->document_dirty = (workspace->saved_revision != workspace->document.revision);
+    workspace->session.document_dirty =
+        (workspace->session.saved_revision != workspace->core.document.revision);
 }
 
 /**
@@ -238,13 +262,13 @@ static inline void workspace_clear_clipboard(Workspace* workspace)
         return;
     }
 
-    for (i = 0; i < workspace->clipboard_count; ++i) {
-        object_destroy(workspace->clipboard_objects[i]);
-        workspace->clipboard_objects[i] = NULL;
+    for (i = 0; i < workspace->session.clipboard_count; ++i) {
+        object_destroy(workspace->session.clipboard_objects[i]);
+        workspace->session.clipboard_objects[i] = NULL;
     }
 
-    workspace->clipboard_count = 0;
-    workspace->clipboard_paste_serial = 0;
+    workspace->session.clipboard_count = 0;
+    workspace->session.clipboard_paste_serial = 0;
 }
 
 #endif /* GLDRAW_APP_WORKSPACE_H */

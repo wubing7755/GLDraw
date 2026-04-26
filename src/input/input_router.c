@@ -32,7 +32,7 @@ int input_router_handle_key(const InputRouterContext* context, const KeyEvent* e
 
     chord.key = event->key;
     chord.mods = event->mods;
-    command_id = keymap_lookup_command(&context->workspace->keymap, scope, chord);
+    command_id = keymap_lookup_command(&context->workspace->session.keymap, scope, chord);
     if (command_id) {
         descriptor = command_registry_find_by_id(command_id);
         if (descriptor &&
@@ -48,7 +48,7 @@ int input_router_handle_key(const InputRouterContext* context, const KeyEvent* e
         return 0;
     }
 
-    tool_controller_key_down(&context->workspace->tools,
+    tool_controller_key_down(&context->workspace->core.tools,
                              context->tool_context,
                              event->key,
                              event->mods);
