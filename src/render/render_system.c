@@ -1041,6 +1041,7 @@ void render_system_resize(RenderSystem* renderer,
  */
 void render_system_draw(RenderSystem* renderer,
                         const Document* document,
+                        const SelectionSet* selection,
                         const CanvasView* canvas,
                         const GraphicObject* overlay_object)
 {
@@ -1086,7 +1087,7 @@ void render_system_draw(RenderSystem* renderer,
 
     for (i = 0; i < document->count; ++i) {
         const GraphicObject* object = document->objects[i];
-        int selected = document_selection_contains(document, object->id);
+        int selected = selection_set_contains(selection, object->id);
         draw_object(renderer, canvas, object, selected);
     }
 

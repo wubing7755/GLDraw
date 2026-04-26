@@ -92,6 +92,7 @@ struct UiSystem {
   int inspector_anim_initialized;
   int inspector_edit_active;
   DocumentSnapshot inspector_edit_before_snapshot;
+  SelectionSet inspector_edit_before_selection;
   int modal_active;
   UiContextMenuState context_menu;
   double last_frame_seconds;
@@ -252,7 +253,8 @@ static void ui_system_reload_themes(UiSystem *ui, Workspace *workspace,
         ui_theme_external_signature(UI_THEME_DIRECTORY_PATH);
     if (notify_status && workspace) {
       const char *error_summary = ui_theme_last_reload_error();
-      snprintf(workspace->status_message, sizeof(workspace->status_message),
+      snprintf(workspace->session.status_message,
+               sizeof(workspace->session.status_message),
                "Theme reload failed: %s",
                (error_summary && error_summary[0] != '\0')
                    ? error_summary
@@ -273,11 +275,13 @@ static void ui_system_reload_themes(UiSystem *ui, Workspace *workspace,
     const char *reason_label = ui_theme_reload_reason_label(reason);
     if (fallback_to_default) {
       snprintf(
-          workspace->status_message, sizeof(workspace->status_message),
+          workspace->session.status_message,
+          sizeof(workspace->session.status_message),
           "Themes %s reloaded (%d custom), active theme missing -> fallback",
           reason_label, custom_theme_count);
     } else {
-      snprintf(workspace->status_message, sizeof(workspace->status_message),
+      snprintf(workspace->session.status_message,
+               sizeof(workspace->session.status_message),
                "Themes %s reloaded (%d custom)", reason_label,
                custom_theme_count);
     }
@@ -423,7 +427,7 @@ static void ui_context_menu_open(UiSystem *ui, Workspace *workspace,
 
   ui->context_menu.open = 1;
   ui->context_menu.close_requested = 0;
-  ui->context_menu.mode = workspace->document.selection.count > 0
+  ui->context_menu.mode = workspace->session.selection.count > 0
                               ? UI_CONTEXT_MENU_MODE_SELECTION
                               : UI_CONTEXT_MENU_MODE_TOOLS;
   ui->context_menu.anchor_screen = screen_pos;
@@ -448,7 +452,7 @@ static void ui_format_command_label(const Workspace *workspace,
 
   shortcut[0] = '\0';
   if (workspace && command_id && command_id[0] != '\0') {
-    keymap_format_command_shortcut(&workspace->keymap, command_id, scope,
+    keymap_format_command_shortcut(&workspace->session.keymap, command_id, scope,
                                    shortcut, sizeof(shortcut));
   }
 
@@ -490,7 +494,7 @@ static void ui_context_menu_separator(UiSystem *ui) {
 }
 
 static int ui_context_menu_build_tools(UiSystem *ui, Workspace *workspace) {
-  const ToolKind active_tool = workspace->tools.active_kind;
+  const ToolKind active_tool = workspace->core.tools.active_kind;
 
   nk_layout_row_dynamic(ui->ctx, ui->theme.row_height, 1);
   if (active_tool == TOOL_KIND_SELECT) {
@@ -537,7 +541,7 @@ static int ui_context_menu_build_tools(UiSystem *ui, Workspace *workspace) {
 
   ui_context_menu_separator(ui);
   nk_layout_row_dynamic(ui->ctx, ui->theme.row_height, 1);
-  if (workspace->canvas.show_grid) {
+  if (workspace->core.canvas.show_grid) {
     if (ui_context_menu_item(ui, "Hide Grid", "view.toggle_grid",
                              EDITOR_COMMAND_VIEW_TOGGLE_GRID, workspace)) {
       return 1;
@@ -645,7 +649,7 @@ static void ui_publish_layout(UiSystem *ui, Workspace *workspace, int width,
   window_bounds.w = (float)width;
   window_bounds.h = (float)height;
 
-  next_layout = workspace->layout;
+  next_layout = workspace->session.layout;
   next_layout.window_bounds = window_bounds;
   next_layout.appbar_bounds =
       ui_clamp_rect_to_window(ui->appbar_bounds, window_bounds);
@@ -658,33 +662,34 @@ static void ui_publish_layout(UiSystem *ui, Workspace *workspace, int width,
   next_layout.canvas_content_bounds =
       ui_clamp_rect_to_window(ui->content_bounds, window_bounds);
 
-  changed = !ui_rectf_equals(workspace->layout.window_bounds,
+  changed = !ui_rectf_equals(workspace->session.layout.window_bounds,
                              next_layout.window_bounds) ||
-            !ui_rectf_equals(workspace->layout.appbar_bounds,
+            !ui_rectf_equals(workspace->session.layout.appbar_bounds,
                              next_layout.appbar_bounds) ||
-            !ui_rectf_equals(workspace->layout.rail_bounds,
+            !ui_rectf_equals(workspace->session.layout.rail_bounds,
                              next_layout.rail_bounds) ||
-            !ui_rectf_equals(workspace->layout.panel_bounds,
+            !ui_rectf_equals(workspace->session.layout.panel_bounds,
                              next_layout.panel_bounds) ||
-            !ui_rectf_equals(workspace->layout.status_bounds,
+            !ui_rectf_equals(workspace->session.layout.status_bounds,
                              next_layout.status_bounds) ||
-            !ui_rectf_equals(workspace->layout.canvas_content_bounds,
+            !ui_rectf_equals(workspace->session.layout.canvas_content_bounds,
                              next_layout.canvas_content_bounds);
 
   if (changed) {
-    next_layout.layout_revision = workspace->layout.layout_revision + 1u;
-    workspace->layout = next_layout;
+    next_layout.layout_revision = workspace->session.layout.layout_revision + 1u;
+    workspace->session.layout = next_layout;
   }
 
-  ui->layout_snapshot = workspace->layout;
+  ui->layout_snapshot = workspace->session.layout;
 }
 
 static ToolContext ui_tool_context(Workspace *workspace) {
   ToolContext context;
   context.workspace = workspace;
-  context.document = &workspace->document;
-  context.history = &workspace->history;
-  context.canvas = &workspace->canvas;
+  context.document = &workspace->core.document;
+  context.history = &workspace->core.history;
+  context.canvas = &workspace->core.canvas;
+  context.selection = &workspace->session.selection;
   return context;
 }
 
@@ -695,6 +700,7 @@ static void ui_reset_inspector_edit_session(UiSystem *ui) {
 
   document_snapshot_free(&ui->inspector_edit_before_snapshot);
   document_snapshot_init(&ui->inspector_edit_before_snapshot);
+  selection_set_clear(&ui->inspector_edit_before_selection);
   ui->inspector_edit_active = 0;
 }
 
@@ -708,8 +714,9 @@ static int ui_begin_inspector_edit_session(UiSystem *ui, Workspace *workspace) {
   }
 
   document_snapshot_init(&ui->inspector_edit_before_snapshot);
+  ui->inspector_edit_before_selection = workspace->session.selection;
   if (!document_snapshot_capture(&ui->inspector_edit_before_snapshot,
-                                 &workspace->document)) {
+                                 &workspace->core.document)) {
     ui_reset_inspector_edit_session(ui);
     return 0;
   }
@@ -724,11 +731,13 @@ static void ui_finalize_inspector_edit_session(UiSystem *ui,
     return;
   }
 
-  if (workspace->document.revision !=
+  if (workspace->core.document.revision !=
       ui->inspector_edit_before_snapshot.revision) {
-    if (!document_history_push(&workspace->history,
+    if (!document_history_push(&workspace->core.history,
                                &ui->inspector_edit_before_snapshot,
-                               &workspace->document)) {
+                               &ui->inspector_edit_before_selection,
+                               &workspace->core.document,
+                               &workspace->session.selection)) {
       ui_reset_inspector_edit_session(ui);
       workspace_sync_document_dirty(workspace);
       return;
@@ -862,7 +871,7 @@ static int ui_tool_button(UiSystem *ui, const char *label, int active,
 static void ui_tool_rail(UiSystem *ui, Workspace *workspace, RectF bounds) {
   struct nk_context *ctx = ui->ctx;
   ToolContext context = ui_tool_context(workspace);
-  ToolKind active = workspace->tools.active_kind;
+  ToolKind active = workspace->core.tools.active_kind;
 
   ui->rail_bounds = bounds;
   if (bounds.w <= 0.0f || bounds.h <= 0.0f) {
@@ -876,29 +885,29 @@ static void ui_tool_rail(UiSystem *ui, Workspace *workspace, RectF bounds) {
 
     if (ui_tool_button(ui, "Select (V)", active == TOOL_KIND_SELECT,
                        "Select and edit objects")) {
-      tool_controller_set_active(&workspace->tools, &context, TOOL_KIND_SELECT);
+      tool_controller_set_active(&workspace->core.tools, &context, TOOL_KIND_SELECT);
     }
     if (ui_tool_button(ui, "Hand (H)", active == TOOL_KIND_PAN,
                        "Pan canvas view")) {
-      tool_controller_set_active(&workspace->tools, &context, TOOL_KIND_PAN);
+      tool_controller_set_active(&workspace->core.tools, &context, TOOL_KIND_PAN);
     }
     if (ui_tool_button(ui, "Line (L)", active == TOOL_KIND_LINE, "Draw line")) {
-      tool_controller_set_active(&workspace->tools, &context, TOOL_KIND_LINE);
+      tool_controller_set_active(&workspace->core.tools, &context, TOOL_KIND_LINE);
     }
     if (ui_tool_button(ui, "Rect (R)", active == TOOL_KIND_RECT,
                        "Draw rectangle")) {
-      tool_controller_set_active(&workspace->tools, &context, TOOL_KIND_RECT);
+      tool_controller_set_active(&workspace->core.tools, &context, TOOL_KIND_RECT);
     }
     if (ui_tool_button(ui, "Ellipse (E)", active == TOOL_KIND_ELLIPSE,
                        "Draw ellipse")) {
-      tool_controller_set_active(&workspace->tools, &context,
+      tool_controller_set_active(&workspace->core.tools, &context,
                                  TOOL_KIND_ELLIPSE);
     }
 
     nk_layout_row_dynamic(ctx, ui->theme.row_height * 0.9f, 1);
     nk_label(ctx, "", NK_TEXT_LEFT);
     nk_labelf(ctx, NK_TEXT_LEFT, "Active:");
-    nk_label(ctx, tool_controller_active_label(&workspace->tools),
+    nk_label(ctx, tool_controller_active_label(&workspace->core.tools),
              NK_TEXT_LEFT);
   }
   nk_end(ctx);
@@ -913,15 +922,16 @@ static void ui_inspector_empty_hint(struct nk_context *ctx) {
 }
 
 static void ui_inspector_overview(struct nk_context *ctx,
+                                  const SelectionSet *selection,
                                   const Document *document,
                                   const GraphicObject *object) {
-  if (!ctx || !document || !object) {
+  if (!ctx || !selection || !document || !object) {
     return;
   }
 
   nk_layout_row_dynamic(ctx, 20.0f, 1);
   nk_labelf(ctx, NK_TEXT_LEFT, "Type: %s", object_type_name(object->type));
-  nk_labelf(ctx, NK_TEXT_LEFT, "Selected: %d", document->selection.count);
+  nk_labelf(ctx, NK_TEXT_LEFT, "Selected: %d", selection->count);
 }
 
 static void ui_inspector_style(UiSystem *ui, struct nk_context *ctx,
@@ -1004,8 +1014,9 @@ static void ui_inspector_geometry(UiSystem *ui, struct nk_context *ctx,
 static void ui_selection_panel(UiSystem *ui, Workspace *workspace,
                                RectF bounds) {
   struct nk_context *ctx = ui->ctx;
-  Document *document = &workspace->document;
-  GraphicObject *object = document_primary_selection(document);
+  Document *document = &workspace->core.document;
+  GraphicObject *object =
+      selection_set_primary_object(&workspace->session.selection, document);
 
   ui->panel_bounds = bounds;
   if (bounds.w <= 0.0f || bounds.h <= 0.0f) {
@@ -1019,7 +1030,7 @@ static void ui_selection_panel(UiSystem *ui, Workspace *workspace,
     if (!object) {
       ui_inspector_empty_hint(ctx);
     } else {
-      ui_inspector_overview(ctx, document, object);
+      ui_inspector_overview(ctx, &workspace->session.selection, document, object);
       ui_inspector_style(ui, ctx, workspace, object);
       ui_inspector_geometry(ui, ctx, workspace, object);
     }
@@ -1032,7 +1043,7 @@ static void ui_status_bar(UiSystem *ui, Workspace *workspace, int window_width,
   struct nk_context *ctx = ui->ctx;
   const float status_h = ui->theme.status_height;
   const char *status_text =
-      workspace->status_message[0] ? workspace->status_message : "Ready";
+      workspace->session.status_message[0] ? workspace->session.status_message : "Ready";
   float status_row_h = ui->theme.row_height * 0.65f;
   char zoom_text[24];
 
@@ -1046,7 +1057,7 @@ static void ui_status_bar(UiSystem *ui, Workspace *workspace, int window_width,
   }
 
   snprintf(zoom_text, sizeof(zoom_text), "Zoom: %.0f%%",
-           canvas_view_zoom(&workspace->canvas) * 100.0f);
+           canvas_view_zoom(&workspace->core.canvas) * 100.0f);
 
   if (nk_begin(ctx, "Status",
                nk_rect(ui->status_bounds.x, ui->status_bounds.y,
@@ -1054,18 +1065,18 @@ static void ui_status_bar(UiSystem *ui, Workspace *workspace, int window_width,
                NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_BORDER)) {
     nk_layout_row_begin(ctx, NK_DYNAMIC, status_row_h, 5);
     nk_layout_row_push(ctx, 0.12f);
-    nk_labelf(ctx, NK_TEXT_LEFT, "Objects: %d", workspace->document.count);
+    nk_labelf(ctx, NK_TEXT_LEFT, "Objects: %d", workspace->core.document.count);
     nk_layout_row_push(ctx, 0.13f);
     nk_label(ctx, zoom_text, NK_TEXT_LEFT);
     nk_layout_row_push(ctx, 0.35f);
     nk_labelf(ctx, NK_TEXT_LEFT, "File: %s%s",
-              workspace->current_document_path[0]
-                  ? workspace->current_document_path
+              workspace->session.current_document_path[0]
+                  ? workspace->session.current_document_path
                   : "(default)",
-              workspace->document_dirty ? " *" : "");
+              workspace->session.document_dirty ? " *" : "");
     nk_layout_row_push(ctx, 0.18f);
     nk_labelf(ctx, NK_TEXT_LEFT, "Undo:%d Redo:%d",
-              workspace->history.undo_count, workspace->history.redo_count);
+              workspace->core.history.undo_count, workspace->core.history.redo_count);
     nk_layout_row_push(ctx, 0.22f);
     nk_label(ctx, status_text, NK_TEXT_RIGHT);
     nk_layout_row_end(ctx);
@@ -1090,7 +1101,7 @@ static void ui_modal_dialogs(UiSystem *ui, Workspace *workspace,
   }
 
   result =
-      ui_dialog_show(ui->ctx, &workspace->active_dialog, window_width, window_height);
+      ui_dialog_show(ui->ctx, &workspace->session.active_dialog, window_width, window_height);
   if (result != UI_DIALOG_RESULT_NONE) {
     workspace_resolve_active_dialog(workspace, result);
   }
@@ -1221,7 +1232,8 @@ void ui_system_build(UiSystem *ui, Workspace *workspace) {
     if (requested_theme_index >= 0) {
       requested_theme = ui_theme_descriptor_at(requested_theme_index);
       if (requested_theme && ui_system_set_theme(ui, requested_theme->id, 1)) {
-        snprintf(workspace->status_message, sizeof(workspace->status_message),
+        snprintf(workspace->session.status_message,
+                 sizeof(workspace->session.status_message),
                  "Theme: %s",
                  requested_theme->label ? requested_theme->label
                                         : requested_theme->id);

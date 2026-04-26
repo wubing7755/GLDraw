@@ -110,7 +110,6 @@ static GraphicObject* build_shape_object(ToolKind kind, Vec2 anchor, Vec2 curren
 }
 
 /**
-/**
  * @brief Update an existing preview shape object in place.
  * @param object Preview object to update.
  * @param kind Shape tool kind associated with the preview.
@@ -151,33 +150,6 @@ static int update_shape_object(GraphicObject* object, ToolKind kind, Vec2 anchor
 }
 
 /**
- * @brief Checks if selection matches a snapshot.
- * @param document Document instance.
- * @param snapshot Snapshot to compare.
- * @return 1 if matches, 0 otherwise.
- */
-static int selection_matches_snapshot(const Document* document, const DocumentSnapshot* snapshot)
-{
-    int i = 0;
-
-    if (!document || !snapshot) {
-        return 0;
-    }
-
-    if (document->selection.count != snapshot->selection.count) {
-        return 0;
-    }
-
-    for (i = 0; i < document->selection.count; ++i) {
-        if (document->selection.ids[i] != snapshot->selection.ids[i]) {
-            return 0;
-        }
-    }
-
-    return 1;
-}
-
-/**
  * @brief Pushes document edit to history and syncs dirty flag.
  * @param context [in,out] Tool context.
  * @param before_snapshot [in,out] Before snapshot (consumed and reset by this function).
@@ -185,16 +157,22 @@ static int selection_matches_snapshot(const Document* document, const DocumentSn
  *
  * @remark Safely resets snapshot even when context/history is invalid.
  */
-static void tool_commit_document_change(ToolContext* context, DocumentSnapshot* before_snapshot)
+static void tool_commit_document_change(ToolContext* context,
+                                        DocumentSnapshot* before_snapshot,
+                                        const SelectionSet* before_selection)
 {
-    if (!context || !context->history || !before_snapshot) {
+    if (!context || !context->history || !before_snapshot || !before_selection || !context->selection) {
         if (before_snapshot) {
             snapshot_reset(before_snapshot);
         }
         return;
     }
 
-    if (!document_history_push(context->history, before_snapshot, context->document)) {
+    if (!document_history_push(context->history,
+                               before_snapshot,
+                               before_selection,
+                               context->document,
+                               context->selection)) {
         snapshot_reset(before_snapshot);
         return;
     }
@@ -255,32 +233,32 @@ static int select_tool_pointer_down(Tool* tool, ToolContext* context, const Tool
     hit = canvas_view_pick_object(context->canvas, event->screen_pos, 8.0f);
     if (!hit) {
         if ((event->mods & GLFW_MOD_SHIFT) == 0) {
-            document_clear_selection(context->document);
+            selection_set_clear(context->selection);
         }
         return 0;
     }
 
     if ((event->mods & GLFW_MOD_SHIFT) != 0) {
-        document_selection_toggle(context->document, hit->id);
-        state->dragging = document_selection_contains(context->document, hit->id);
+        selection_set_toggle(context->selection, hit->id);
+        state->dragging = selection_set_contains(context->selection, hit->id);
     } else {
-        if (!document_selection_contains(context->document, hit->id) || context->document->selection.count != 1) {
-            document_clear_selection(context->document);
-            document_selection_add(context->document, hit->id);
+        if (!selection_set_contains(context->selection, hit->id) || context->selection->count != 1) {
+            selection_set_clear(context->selection);
+            selection_set_add(context->selection, hit->id);
         }
-        state->dragging = document_selection_contains(context->document, hit->id);
+        state->dragging = selection_set_contains(context->selection, hit->id);
     }
 
-    if (!state->dragging || context->document->selection.count <= 0) {
+    if (!state->dragging || context->selection->count <= 0) {
         return 0;
     }
 
-    state->drag_object_count = context->document->selection.count;
+    state->drag_object_count = context->selection->count;
     if (state->drag_object_count > DOCUMENT_MAX_SELECTION) {
         state->drag_object_count = DOCUMENT_MAX_SELECTION;
     }
     for (i = 0; i < state->drag_object_count; ++i) {
-        state->drag_object_ids[i] = context->document->selection.ids[i];
+        state->drag_object_ids[i] = context->selection->ids[i];
     }
     state->last_world = event->world_pos;
     state->drag_revision_before = context->document->revision;
@@ -342,6 +320,7 @@ static void select_tool_pointer_up(Tool* tool, ToolContext* context, const ToolE
         context->history) {
         document_history_push_translate_edit(context->history,
                                              context->document,
+                                             context->selection,
                                              state->drag_object_ids,
                                              state->drag_object_count,
                                              state->drag_delta_total,
@@ -370,7 +349,7 @@ static void select_tool_key_down(Tool* tool, ToolContext* context, int key, int 
     (void)tool;
     (void)mods;
     if (key == GLFW_KEY_ESCAPE) {
-        document_clear_selection(context->document);
+        selection_set_clear(context->selection);
     }
 }
 
@@ -563,6 +542,7 @@ static void shape_tool_pointer_up(Tool* tool, ToolContext* context, const ToolEv
     GraphicStyle style = object_default_style();
     GraphicObject* object = NULL;
     DocumentSnapshot before_snapshot;
+    SelectionSet before_selection;
 
     (void)event;
     if (!state->drawing) {
@@ -570,6 +550,7 @@ static void shape_tool_pointer_up(Tool* tool, ToolContext* context, const ToolEv
     }
 
     document_snapshot_init(&before_snapshot);
+    before_selection = *context->selection;
     document_snapshot_capture(&before_snapshot, context->document);
     state->drawing = 0;
     object = build_shape_object(tool->kind, state->anchor, state->current, style);
@@ -586,9 +567,9 @@ static void shape_tool_pointer_up(Tool* tool, ToolContext* context, const ToolEv
         return;
     }
 
-    document_clear_selection(context->document);
-    document_selection_add(context->document, object->id);
-    tool_commit_document_change(context, &before_snapshot);
+    selection_set_clear(context->selection);
+    selection_set_add(context->selection, object->id);
+    tool_commit_document_change(context, &before_snapshot, &before_selection);
 }
 
 /** Escape cancels in-progress shape drawing. */

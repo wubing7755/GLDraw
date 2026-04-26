@@ -1006,7 +1006,6 @@ static int parse_document_root(JsonParser* parser, Document* document)
     }
 
     /* Selection is editor-session state and intentionally not serialized. */
-    document_clear_selection(document);
     if (got_next_id && next_id > document_max_id(document)) {
         document->next_id = next_id;
     } else {

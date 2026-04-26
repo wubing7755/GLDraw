@@ -6,6 +6,7 @@
 #define GLDRAW_TOOLS_TOOL_H
 
 #include <base/types.h>
+#include <document/document.h>
 #include <document/object.h>
 
 struct Workspace;
@@ -56,12 +57,14 @@ typedef struct {
  * @member document Current document.
  * @member history History stack.
  * @member canvas Canvas view.
+ * @member selection Active editor selection state.
  */
 typedef struct {
     struct Workspace* workspace;
     struct Document* document;
     struct DocumentHistory* history;
     struct CanvasView* canvas;
+    SelectionSet* selection;
 } ToolContext;
 
 typedef struct Tool Tool;
