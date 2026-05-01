@@ -106,6 +106,7 @@ static const CommandDescriptor g_commands[] = {
     {EDITOR_COMMAND_FILE_OPEN, "file.open", "Open", KEY_SCOPE_GLOBAL, MENU_ID_FILE_OPEN},
     {EDITOR_COMMAND_FILE_SAVE, "file.save", "Save", KEY_SCOPE_GLOBAL, MENU_ID_FILE_SAVE},
     {EDITOR_COMMAND_FILE_SAVE_AS, "file.save_as", "Save As", KEY_SCOPE_GLOBAL, MENU_ID_FILE_SAVE_AS},
+    {EDITOR_COMMAND_FILE_EXPORT_PNG, "file.export_png", "Export as PNG", KEY_SCOPE_GLOBAL, MENU_ID_FILE_EXPORT_PNG},
     {EDITOR_COMMAND_FILE_EXIT, "file.exit", "Exit", KEY_SCOPE_GLOBAL, MENU_ID_FILE_EXIT},
     {EDITOR_COMMAND_EDIT_UNDO, "edit.undo", "Undo", KEY_SCOPE_GLOBAL, MENU_ID_EDIT_UNDO},
     {EDITOR_COMMAND_EDIT_REDO, "edit.redo", "Redo", KEY_SCOPE_GLOBAL, MENU_ID_EDIT_REDO},
@@ -547,6 +548,8 @@ int command_registry_is_available(const Workspace* workspace,
         return workspace && workspace->services.save_document;
     case EDITOR_COMMAND_FILE_SAVE_AS:
         return workspace && workspace->services.save_as_document;
+    case EDITOR_COMMAND_FILE_EXPORT_PNG:
+        return workspace && workspace->services.export_png;
     case EDITOR_COMMAND_HELP_SHORTCUTS:
         return 1;
     case EDITOR_COMMAND_EDIT_CUT:
@@ -613,6 +616,9 @@ int command_registry_execute(Workspace* workspace,
                workspace->services.save_document(workspace, workspace->services.command_user_data) : 0;
     case EDITOR_COMMAND_FILE_SAVE_AS:
         return command_registry_open_save_as_dialog(workspace);
+    case EDITOR_COMMAND_FILE_EXPORT_PNG:
+        return workspace->services.export_png ?
+               workspace->services.export_png(workspace, workspace->services.command_user_data) : 0;
     case EDITOR_COMMAND_FILE_EXIT:
         return workspace_request_action(workspace, WORKSPACE_ACTION_EXIT_APPLICATION);
     case EDITOR_COMMAND_EDIT_UNDO:

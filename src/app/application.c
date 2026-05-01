@@ -43,10 +43,13 @@ typedef struct {
   UiSystem *ui;
   Vec2 cursor_screen;
   int cursor_inside_canvas;
+  int pending_export_png;
+  char pending_export_png_path[260];
 } Application;
 
 static int app_workspace_save(Workspace *workspace, void *user_data);
 static int app_workspace_save_as(Workspace *workspace, void *user_data);
+static int app_workspace_export_png(Workspace *workspace, void *user_data);
 static int app_workspace_load(Workspace *workspace, void *user_data);
 static int app_workspace_execute_action(Workspace *workspace,
                                         WorkspaceActionType action,
@@ -263,6 +266,32 @@ static int app_filename_has_json_extension(const char *filename) {
   return 1;
 }
 
+static int app_path_has_extension(const char *path, const char *extension) {
+  size_t path_length = 0u;
+  size_t extension_length = 0u;
+  size_t i = 0u;
+
+  if (!path || !extension) {
+    return 0;
+  }
+
+  path_length = strlen(path);
+  extension_length = strlen(extension);
+  if (path_length < extension_length) {
+    return 0;
+  }
+
+  path += path_length - extension_length;
+  for (i = 0u; i < extension_length; ++i) {
+    if (tolower((unsigned char)path[i]) !=
+        tolower((unsigned char)extension[i])) {
+      return 0;
+    }
+  }
+
+  return 1;
+}
+
 static int app_validate_save_as_filename(const char *filename) {
   const char *cursor = NULL;
 
@@ -326,6 +355,69 @@ static int app_build_save_as_path(Application *app, const char *filename,
 
   memcpy(output, current_path, directory_length);
   memcpy(output + directory_length, final_filename, filename_length + 1u);
+  return 1;
+}
+
+static void app_suggest_png_export_filename(const Application *app,
+                                            char *buffer,
+                                            size_t buffer_size) {
+  const char *path = app_current_document_path(app);
+  const char *basename = path;
+  const char *cursor = NULL;
+  size_t length = 0u;
+
+  if (!buffer || buffer_size == 0u) {
+    return;
+  }
+
+  buffer[0] = '\0';
+  for (cursor = path; cursor && *cursor != '\0'; ++cursor) {
+    if (*cursor == '/' || *cursor == '\\') {
+      basename = cursor + 1;
+    }
+  }
+
+  length = strlen(basename);
+  if (length > 5u && app_path_has_extension(basename, ".json")) {
+    length -= 5u;
+  }
+  if (length == 0u) {
+    snprintf(buffer, buffer_size, "document.png");
+    return;
+  }
+  if (length + 5u >= buffer_size) {
+    snprintf(buffer, buffer_size, "document.png");
+    return;
+  }
+
+  memcpy(buffer, basename, length);
+  memcpy(buffer + length, ".png", 5u);
+}
+
+static int app_copy_png_export_path(const char *selected_path,
+                                    char *output,
+                                    size_t output_size) {
+  size_t path_length = 0u;
+
+  if (!selected_path || !output || output_size == 0u || selected_path[0] == '\0') {
+    return 0;
+  }
+
+  path_length = strlen(selected_path);
+  if (app_path_has_extension(selected_path, ".png")) {
+    if (path_length + 1u > output_size) {
+      return 0;
+    }
+    memcpy(output, selected_path, path_length + 1u);
+    return 1;
+  }
+
+  if (path_length + 5u > output_size) {
+    return 0;
+  }
+
+  memcpy(output, selected_path, path_length);
+  memcpy(output + path_length, ".png", 5u);
   return 1;
 }
 
@@ -489,6 +581,63 @@ static int app_open_document_with_picker(Application *app) {
   return app_load_document_from_path(app, selected_path);
 }
 
+static int app_request_export_png(Application *app) {
+  char suggested_filename[260];
+  char selected_path[260];
+  PlatformFileDialogResult result;
+
+  if (!app) {
+    return 0;
+  }
+
+  app_suggest_png_export_filename(app, suggested_filename, sizeof(suggested_filename));
+  result = platform_file_dialog_save_png(selected_path,
+                                         sizeof(selected_path),
+                                         suggested_filename);
+  if (result == PLATFORM_FILE_DIALOG_CANCELLED) {
+    app_set_status(app, "Export PNG cancelled.");
+    return 1;
+  }
+  if (result == PLATFORM_FILE_DIALOG_ERROR) {
+    app_set_status(app, "Export PNG failed: save dialog unavailable or failed.");
+    return 0;
+  }
+
+  if (!app_copy_png_export_path(selected_path,
+                                app->pending_export_png_path,
+                                sizeof(app->pending_export_png_path))) {
+    app_set_status(app, "Export PNG failed: path too long.");
+    return 0;
+  }
+
+  app->pending_export_png = 1;
+  app_set_status(app, "Export PNG queued: %s", app->pending_export_png_path);
+  return 1;
+}
+
+static void app_flush_pending_export_png(Application *app) {
+  char export_path[260];
+
+  if (!app || !app->pending_export_png) {
+    return;
+  }
+
+  snprintf(export_path, sizeof(export_path), "%s", app->pending_export_png_path);
+  app->pending_export_png = 0;
+  app->pending_export_png_path[0] = '\0';
+
+  if (render_system_export_png(app->renderer,
+                               &app->workspace.core.canvas,
+                               export_path)) {
+    app_set_status(app, "Exported PNG: %s", export_path);
+    LOG_INFO("Exported PNG: %s", export_path);
+    return;
+  }
+
+  app_set_status(app, "Export PNG failed: %s", export_path);
+  LOG_ERROR("Export PNG failed: %s", export_path);
+}
+
 static int app_exit_application(Application *app) {
   if (!app || !app->window.handle) {
     return 0;
@@ -513,6 +662,11 @@ static int app_workspace_save(Workspace *workspace, void *user_data) {
 static int app_workspace_save_as(Workspace *workspace, void *user_data) {
   (void)workspace;
   return app_save_as_document((Application *)user_data);
+}
+
+static int app_workspace_export_png(Workspace *workspace, void *user_data) {
+  (void)workspace;
+  return app_request_export_png((Application *)user_data);
 }
 
 /**
@@ -909,6 +1063,7 @@ static int app_init(Application *app) {
   app_set_document_path(app, app_default_document_path());
   app->workspace.services.save_document = app_workspace_save;
   app->workspace.services.save_as_document = app_workspace_save_as;
+  app->workspace.services.export_png = app_workspace_export_png;
   app->workspace.services.load_document = app_workspace_load;
   app->workspace.services.execute_action = app_workspace_execute_action;
   app->workspace.services.command_user_data = app;
@@ -1016,6 +1171,7 @@ int app_run(void) {
                        &app->workspace.session.selection,
                        &app->workspace.core.canvas,
                        tool_controller_overlay_object(&app->workspace.core.tools));
+    app_flush_pending_export_png(app);
     ui_system_render(app->ui);
     platform_window_swap_buffers(&app->window);
   }

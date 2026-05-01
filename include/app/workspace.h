@@ -206,6 +206,7 @@ typedef struct EditorSession {
 typedef struct EditorServices {
     WorkspaceCommandFn save_document;
     WorkspaceCommandFn save_as_document;
+    WorkspaceCommandFn export_png;
     WorkspaceCommandFn load_document;
     WorkspaceActionExecutorFn execute_action;
     void* command_user_data;
