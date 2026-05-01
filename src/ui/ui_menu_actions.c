@@ -25,7 +25,6 @@
 int ui_menu_is_action_available(const Workspace* workspace, MenuId id)
 {
     switch (id) {
-    case MENU_ID_FILE_EXPORT_PNG:
     case MENU_ID_FILE_RECENT:
         return 0;
     default:

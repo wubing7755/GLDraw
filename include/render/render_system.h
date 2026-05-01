@@ -59,4 +59,15 @@ void render_system_draw(RenderSystem* renderer,
                         const CanvasView* canvas,
                         const GraphicObject* overlay_object);
 
+/**
+ * @brief Export the current canvas viewport pixels from the framebuffer to a PNG file.
+ * @param renderer Renderer instance.
+ * @param canvas Current canvas view.
+ * @param path Destination PNG path.
+ * @return Non-zero on success, zero on failure.
+ */
+int render_system_export_png(RenderSystem* renderer,
+                             const CanvasView* canvas,
+                             const char* path);
+
 #endif /* GLDRAW_RENDER_RENDER_SYSTEM_H */
