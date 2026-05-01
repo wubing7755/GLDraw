@@ -25,6 +25,7 @@ typedef struct UiThemeDescriptor UiThemeDescriptor;
  * @member active_theme_index Currently active theme index.
  * @member requested_theme_index Pending theme index to apply (-1 means no request).
  * @member requested_theme_reload Whether a reload of external themes is requested.
+ * @member menu_open Whether a menu popup was open during the latest build.
  */
 typedef struct UiMenuBar {
     struct nk_context* ctx;
@@ -35,6 +36,7 @@ typedef struct UiMenuBar {
     int active_theme_index;
     int requested_theme_index;
     int requested_theme_reload;
+    int menu_open;
 } UiMenuBar;
 
 /**
@@ -66,6 +68,13 @@ void ui_menubar_build(UiMenuBar* menubar, struct Workspace* workspace, int windo
  * @return `true` if visible, `false` otherwise.
  */
 bool ui_menubar_inspector_visible(const UiMenuBar* menubar);
+
+/**
+ * @brief Query whether a top-level menu popup is currently open.
+ * @param menubar Menu bar object.
+ * @return Non-zero when any menu popup was open during the latest frame.
+ */
+int ui_menubar_menu_open(const UiMenuBar* menubar);
 
 /**
  * @brief Get the menu bar height.
