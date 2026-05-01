@@ -109,6 +109,7 @@ static void ui_context_menu_reset(UiSystem *ui);
 static RectF ui_context_menu_popup_bounds(const UiContextMenuState *menu);
 static void ui_context_menu_open(UiSystem *ui, Workspace *workspace,
                                  Vec2 screen_pos);
+static int ui_hover_overlays_allowed(const UiSystem *ui);
 
 /**
  * @brief Clamps a float value.
@@ -825,6 +826,15 @@ static void ui_property_apply_float(UiSystem *ui, struct nk_context *ctx,
   }
 }
 
+static int ui_hover_overlays_allowed(const UiSystem *ui) {
+  if (!ui) {
+    return 0;
+  }
+
+  return !ui->modal_active && !ui->context_menu.open &&
+         !ui_menubar_menu_open(ui->menu_bar);
+}
+
 static int ui_tool_button(UiSystem *ui, const char *label, int active,
                           const char *tooltip) {
   struct nk_context *ctx = ui->ctx;
@@ -852,7 +862,8 @@ static int ui_tool_button(UiSystem *ui, const char *label, int active,
   widget_bounds = nk_widget_bounds(ctx);
   pressed = nk_button_label(ctx, label);
   hovered = nk_input_is_mouse_hovering_rect(&ctx->input, widget_bounds);
-  if (tooltip && tooltip[0] != '\0' && hovered) {
+  if (tooltip && tooltip[0] != '\0' && hovered &&
+      ui_hover_overlays_allowed(ui)) {
     nk_tooltip(ctx, tooltip);
   }
 
@@ -1391,7 +1402,8 @@ int ui_system_has_active_interaction(const UiSystem *ui) {
     return 0;
   }
 
-  return ui->context_menu.open || nk_item_is_any_active(ui->ctx);
+  return ui->context_menu.open || ui_menubar_menu_open(ui->menu_bar) ||
+         nk_item_is_any_active(ui->ctx);
 }
 
 int ui_system_blocks_pointer(const UiSystem *ui, Vec2 screen_pos) {

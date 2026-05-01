@@ -147,6 +147,11 @@ bool ui_menubar_inspector_visible(const UiMenuBar* menubar)
     return menubar ? menubar->show_inspector : true;
 }
 
+int ui_menubar_menu_open(const UiMenuBar* menubar)
+{
+    return menubar ? menubar->menu_open : 0;
+}
+
 /**
  * @brief Get the current menu bar height.
  * @param menubar [in] Menu bar instance; defaults to `MENU_BAR_HEIGHT` when `NULL`.
@@ -380,6 +385,7 @@ static int ui_render_top_menu(UiMenuBar* menubar, Workspace* workspace, const Ui
     }
 
     if (nk_menu_begin_label(ctx, menu->label, NK_TEXT_LEFT, menu->popup_size)) {
+        menubar->menu_open = 1;
         nk_layout_row_dynamic(ctx, 25.0f, 1);
         if (menu->parent_id == MENU_PARENT_THEME) {
             int theme_index = ui_render_theme_dropdown(menubar);
@@ -437,6 +443,7 @@ void ui_menubar_build(UiMenuBar* menubar, Workspace* workspace, int window_width
     if (!ctx) {
         return;
     }
+    menubar->menu_open = 0;
 
     for (size_t i = 0; i < menu_count; i++) {
         left_width_total += g_top_menus[i].item_width;
