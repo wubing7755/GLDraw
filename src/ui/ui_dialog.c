@@ -46,7 +46,7 @@ static void ui_dialog_render_message_lines(struct nk_context* ctx,
 }
 
 UiDialogResult ui_dialog_show(struct nk_context* ctx,
-                              const UiDialogState* dialog,
+                              UiDialogState* dialog,
                               int window_width,
                               int window_height)
 {
@@ -113,6 +113,16 @@ UiDialogResult ui_dialog_show(struct nk_context* ctx,
 
     if (nk_begin(ctx, window_title, bounds, window_flags)) {
         ui_dialog_render_message_lines(ctx, dialog);
+        if (dialog->kind == UI_DIALOG_SAVE_AS) {
+            nk_layout_row_dynamic(ctx, 20.0f, 1);
+            nk_label(ctx, "Filename", NK_TEXT_LEFT);
+            nk_layout_row_dynamic(ctx, 28.0f, 1);
+            nk_edit_string_zero_terminated(ctx,
+                                           NK_EDIT_FIELD,
+                                           dialog->payload.text,
+                                           (int)sizeof(dialog->payload.text),
+                                           nk_filter_default);
+        }
         nk_layout_row_dynamic(ctx, 12.0f, 1);
         nk_label(ctx, "", NK_TEXT_LEFT);
         if (dialog->button_count > 0) {

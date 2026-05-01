@@ -13,7 +13,7 @@ struct nk_context;
 
 /** Render one workspace-owned dialog and return the user result for this frame. */
 UiDialogResult ui_dialog_show(struct nk_context* ctx,
-                              const UiDialogState* dialog,
+                              UiDialogState* dialog,
                               int window_width,
                               int window_height);
 

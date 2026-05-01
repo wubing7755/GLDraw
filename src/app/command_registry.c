@@ -19,6 +19,88 @@
 
 #define CLIPBOARD_PASTE_OFFSET_PIXELS 10.0f
 
+static const char* command_registry_path_basename(const char* path)
+{
+    const char* basename = path;
+    const char* cursor = NULL;
+
+    if (!path || path[0] == '\0') {
+        return "document.json";
+    }
+
+    for (cursor = path; *cursor != '\0'; ++cursor) {
+        if (*cursor == '/' || *cursor == '\\') {
+            basename = cursor + 1;
+        }
+    }
+
+    return (basename && basename[0] != '\0') ? basename : "document.json";
+}
+
+static void command_registry_format_path_directory(const char* path,
+                                                   char* buffer,
+                                                   size_t buffer_size)
+{
+    const char* cursor = NULL;
+    const char* last_separator = NULL;
+    size_t length = 0u;
+
+    if (!buffer || buffer_size == 0u) {
+        return;
+    }
+
+    buffer[0] = '\0';
+    if (!path || path[0] == '\0') {
+        snprintf(buffer, buffer_size, ".");
+        return;
+    }
+
+    for (cursor = path; *cursor != '\0'; ++cursor) {
+        if (*cursor == '/' || *cursor == '\\') {
+            last_separator = cursor;
+        }
+    }
+
+    if (!last_separator) {
+        snprintf(buffer, buffer_size, ".");
+        return;
+    }
+
+    length = (size_t)(last_separator - path);
+    if (length == 0u) {
+        length = 1u;
+    } else if (length == 2u && path[1] == ':') {
+        length = 3u;
+    }
+    if (length >= buffer_size) {
+        length = buffer_size - 1u;
+    }
+
+    memcpy(buffer, path, length);
+    buffer[length] = '\0';
+}
+
+static int command_registry_open_save_as_dialog(Workspace* workspace)
+{
+    char directory[260];
+    const char* path = NULL;
+
+    if (!workspace) {
+        return 0;
+    }
+    if (workspace_modal_is_active(workspace)) {
+        return 0;
+    }
+
+    path = workspace->session.current_document_path[0] != '\0'
+               ? workspace->session.current_document_path
+               : "document.json";
+    command_registry_format_path_directory(path, directory, sizeof(directory));
+    return workspace_dialog_open_save_as(workspace,
+                                         command_registry_path_basename(path),
+                                         directory);
+}
+
 static const CommandDescriptor g_commands[] = {
     {EDITOR_COMMAND_FILE_NEW, "file.new", "New", KEY_SCOPE_GLOBAL, MENU_ID_FILE_NEW},
     {EDITOR_COMMAND_FILE_OPEN, "file.open", "Open", KEY_SCOPE_GLOBAL, MENU_ID_FILE_OPEN},
@@ -464,7 +546,7 @@ int command_registry_is_available(const Workspace* workspace,
     case EDITOR_COMMAND_FILE_SAVE:
         return workspace && workspace->services.save_document;
     case EDITOR_COMMAND_FILE_SAVE_AS:
-        return 0;
+        return workspace && workspace->services.save_as_document;
     case EDITOR_COMMAND_HELP_SHORTCUTS:
         return 1;
     case EDITOR_COMMAND_EDIT_CUT:
@@ -530,8 +612,7 @@ int command_registry_execute(Workspace* workspace,
         return workspace->services.save_document ?
                workspace->services.save_document(workspace, workspace->services.command_user_data) : 0;
     case EDITOR_COMMAND_FILE_SAVE_AS:
-        return workspace->services.save_document ?
-               workspace->services.save_document(workspace, workspace->services.command_user_data) : 0;
+        return command_registry_open_save_as_dialog(workspace);
     case EDITOR_COMMAND_FILE_EXIT:
         return workspace_request_action(workspace, WORKSPACE_ACTION_EXIT_APPLICATION);
     case EDITOR_COMMAND_EDIT_UNDO:
