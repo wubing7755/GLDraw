@@ -80,6 +80,12 @@ if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
     )
 endif()
 
+if(CMAKE_C_COMPILER_ID MATCHES "Clang")
+    set_source_files_properties(${CMAKE_SOURCE_DIR}/src/ui/ui_system.c
+        PROPERTIES COMPILE_FLAGS "-Wno-c23-extensions"
+    )
+endif()
+
 add_executable(${PROJECT_NAME} ${GLDRAW_SOURCES})
 
 target_include_directories(${PROJECT_NAME}

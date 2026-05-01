@@ -214,6 +214,7 @@ static void render_prepare_pass_state(const RenderSystem* renderer)
  * @param user_param User parameter.
  * @return No return value.
  */
+#if !defined(NDEBUG)
 static void APIENTRY render_debug_callback(GLenum source,
                                            GLenum type,
                                            GLuint id,
@@ -228,7 +229,6 @@ static void APIENTRY render_debug_callback(GLenum source,
     (void)length;
     (void)user_param;
 
-#if !defined(NDEBUG)
     if (severity == GL_DEBUG_SEVERITY_NOTIFICATION) {
         return;
     }
@@ -236,11 +236,8 @@ static void APIENTRY render_debug_callback(GLenum source,
               (unsigned int)severity,
               (unsigned int)id,
               message ? (const char*)message : "(null)");
-#else
-    (void)severity;
-    (void)message;
-#endif
 }
+#endif
 
 /**
  * @brief Log frame statistics every 120 frames (debug builds only).
