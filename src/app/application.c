@@ -19,6 +19,7 @@
 #include <base/math2d.h>
 #include <document/persistence.h>
 #include <input/input_router.h>
+#include <platform/file_dialog.h>
 #include <platform/window.h>
 #include <render/render_system.h>
 #include <ui/ui_menu_actions.h>
@@ -221,9 +222,7 @@ static int app_save_document(Application *app) {
  * Time complexity: dominated by parse/build, roughly `O(file_size +
  * object_count)`.
  */
-static int app_load_document(Application *app) {
-  const char *path = app_current_document_path(app);
-
+static int app_load_document_from_path(Application *app, const char *path) {
   if (!app_file_exists(path)) {
     LOG_WARN("Document file not found: %s", path);
     app_set_status(app, "Document not found: %s", path);
@@ -252,6 +251,31 @@ static int app_load_document(Application *app) {
   app_set_status(app, "Loaded document: %s", path);
   LOG_INFO("Loaded document: %s", path);
   return 1;
+}
+
+static int app_load_document(Application *app) {
+  return app_load_document_from_path(app, app_current_document_path(app));
+}
+
+static int app_open_document_with_picker(Application *app) {
+  char selected_path[260];
+  PlatformFileDialogResult result;
+
+  if (!app) {
+    return 0;
+  }
+
+  result = platform_file_dialog_open_document(selected_path, sizeof(selected_path));
+  if (result == PLATFORM_FILE_DIALOG_CANCELLED) {
+    app_set_status(app, "Open cancelled.");
+    return 1;
+  }
+  if (result == PLATFORM_FILE_DIALOG_ERROR) {
+    app_set_status(app, "Open failed: file picker unavailable or failed.");
+    return 0;
+  }
+
+  return app_load_document_from_path(app, selected_path);
 }
 
 static int app_exit_application(Application *app) {
@@ -296,7 +320,7 @@ static int app_workspace_execute_action(Workspace *workspace,
   case WORKSPACE_ACTION_NEW_DOCUMENT:
     return app_new_document(app);
   case WORKSPACE_ACTION_OPEN_DOCUMENT:
-    return app_load_document(app);
+    return app_open_document_with_picker(app);
   case WORKSPACE_ACTION_EXIT_APPLICATION:
     return app_exit_application(app);
   case WORKSPACE_ACTION_NONE:
