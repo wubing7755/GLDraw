@@ -16,12 +16,14 @@
 
 static int ui_dialog_supports_backdrop_close(const UiDialogState* dialog)
 {
-    return dialog && dialog->kind == UI_DIALOG_SHORTCUTS;
+    (void)dialog;
+    return 0;
 }
 
 static int ui_dialog_supports_header_close(const UiDialogState* dialog)
 {
-    return dialog && dialog->kind == UI_DIALOG_SHORTCUTS;
+    (void)dialog;
+    return 0;
 }
 
 static void ui_dialog_render_message_lines(struct nk_context* ctx,

@@ -852,7 +852,7 @@ static int ui_tool_button(UiSystem *ui, const char *label, int active,
   widget_bounds = nk_widget_bounds(ctx);
   pressed = nk_button_label(ctx, label);
   hovered = nk_input_is_mouse_hovering_rect(&ctx->input, widget_bounds);
-  if (tooltip && tooltip[0] != '\0' && hovered) {
+  if (tooltip && tooltip[0] != '\0' && hovered && !ui->modal_active) {
     nk_tooltip(ctx, tooltip);
   }
 
@@ -881,25 +881,34 @@ static void ui_tool_rail(UiSystem *ui, Workspace *workspace, RectF bounds) {
   if (nk_begin(ctx, "Tool Rail",
                nk_rect(bounds.x, bounds.y, bounds.w, bounds.h),
                NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_BORDER | NK_WINDOW_TITLE)) {
+    if (ui->modal_active) {
+      nk_widget_disable_begin(ctx);
+    }
+
     nk_layout_row_dynamic(ctx, ui->theme.row_height, 1);
 
     if (ui_tool_button(ui, "Select (V)", active == TOOL_KIND_SELECT,
-                       "Select and edit objects")) {
+                       "Select and edit objects") &&
+        !ui->modal_active) {
       tool_controller_set_active(&workspace->core.tools, &context, TOOL_KIND_SELECT);
     }
     if (ui_tool_button(ui, "Hand (H)", active == TOOL_KIND_PAN,
-                       "Pan canvas view")) {
+                       "Pan canvas view") &&
+        !ui->modal_active) {
       tool_controller_set_active(&workspace->core.tools, &context, TOOL_KIND_PAN);
     }
-    if (ui_tool_button(ui, "Line (L)", active == TOOL_KIND_LINE, "Draw line")) {
+    if (ui_tool_button(ui, "Line (L)", active == TOOL_KIND_LINE, "Draw line") &&
+        !ui->modal_active) {
       tool_controller_set_active(&workspace->core.tools, &context, TOOL_KIND_LINE);
     }
     if (ui_tool_button(ui, "Rect (R)", active == TOOL_KIND_RECT,
-                       "Draw rectangle")) {
+                       "Draw rectangle") &&
+        !ui->modal_active) {
       tool_controller_set_active(&workspace->core.tools, &context, TOOL_KIND_RECT);
     }
     if (ui_tool_button(ui, "Ellipse (E)", active == TOOL_KIND_ELLIPSE,
-                       "Draw ellipse")) {
+                       "Draw ellipse") &&
+        !ui->modal_active) {
       tool_controller_set_active(&workspace->core.tools, &context,
                                  TOOL_KIND_ELLIPSE);
     }
@@ -909,6 +918,10 @@ static void ui_tool_rail(UiSystem *ui, Workspace *workspace, RectF bounds) {
     nk_labelf(ctx, NK_TEXT_LEFT, "Active:");
     nk_label(ctx, tool_controller_active_label(&workspace->core.tools),
              NK_TEXT_LEFT);
+
+    if (ui->modal_active) {
+      nk_widget_disable_end(ctx);
+    }
   }
   nk_end(ctx);
 }
@@ -1026,6 +1039,10 @@ static void ui_selection_panel(UiSystem *ui, Workspace *workspace,
   if (nk_begin(
           ctx, "Inspector", nk_rect(bounds.x, bounds.y, bounds.w, bounds.h),
           NK_WINDOW_BORDER | NK_WINDOW_TITLE | NK_WINDOW_SCROLL_AUTO_HIDE)) {
+    if (ui->modal_active) {
+      nk_widget_disable_begin(ctx);
+    }
+
     nk_layout_row_dynamic(ctx, 20.0f, 1);
     if (!object) {
       ui_inspector_empty_hint(ctx);
@@ -1033,6 +1050,10 @@ static void ui_selection_panel(UiSystem *ui, Workspace *workspace,
       ui_inspector_overview(ctx, &workspace->session.selection, document, object);
       ui_inspector_style(ui, ctx, workspace, object);
       ui_inspector_geometry(ui, ctx, workspace, object);
+    }
+
+    if (ui->modal_active) {
+      nk_widget_disable_end(ctx);
     }
   }
   nk_end(ctx);
@@ -1258,9 +1279,7 @@ void ui_system_build(UiSystem *ui, Workspace *workspace) {
   rail_bounds.w = ui->theme.tool_rail_width;
   rail_bounds.h = content_height;
   ui->rail_bounds = rail_bounds;
-  if (!ui->modal_active) {
-    ui_tool_rail(ui, workspace, rail_bounds);
-  }
+  ui_tool_rail(ui, workspace, rail_bounds);
 
   inspector_requested = ui_menubar_inspector_visible(ui->menu_bar);
   needed_width = ui->theme.tool_rail_width + UI_MIN_CANVAS_WIDTH;
@@ -1300,9 +1319,7 @@ void ui_system_build(UiSystem *ui, Workspace *workspace) {
         (inspector_shown_x - inspector_hidden_x) * inspector_eased_t;
     inspector_bounds.y = content_top;
     ui->panel_bounds = inspector_bounds;
-    if (!ui->modal_active) {
-      ui_selection_panel(ui, workspace, inspector_bounds);
-    }
+    ui_selection_panel(ui, workspace, inspector_bounds);
   } else {
     ui->panel_bounds.x = 0.0f;
     ui->panel_bounds.y = 0.0f;
