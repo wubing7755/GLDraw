@@ -91,6 +91,7 @@ set(GLDRAW_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/input/input_router.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/tools/tool_controller.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/render/render_system.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ui_context_menu.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ui_system.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ui_dialog.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ui_menu_def.c

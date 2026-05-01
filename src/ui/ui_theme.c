@@ -16,6 +16,7 @@
 #include <base/path_utils.h>
 #include <ui/ui_theme.h>
 
+#include <ctype.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -726,7 +727,7 @@ static int ui_theme_id_is_safe_for_json(const char* theme_id)
     }
 
     while (*cursor != '\0') {
-        if (!(isalnum(*cursor) || *cursor == '-' || *cursor == '_' || *cursor == '.')) {
+        if (!(isalnum((unsigned char)*cursor) || *cursor == '-' || *cursor == '_' || *cursor == '.')) {
             return 0;
         }
         cursor++;
