@@ -18,6 +18,7 @@
 #include <app/command_registry.h>
 #include <app/workspace_actions.h>
 #include <base/math2d.h>
+#include <base/path_utils.h>
 #include <canvas/canvas_view.h>
 #include <document/document.h>
 #include <document/history.h>
@@ -77,7 +78,7 @@ struct UiSystem {
   UiMenuBar *menu_bar;
   UiThemeTokens theme;
   char active_theme_id[UI_THEME_ID_CAPACITY];
-  char theme_settings_path[260];
+  char theme_settings_path[GLDRAW_PATH_MAX];
   UiThemeDescriptor theme_descriptors_cache[UI_THEME_DESCRIPTOR_CACHE_MAX];
   unsigned long long theme_directory_signature;
   double theme_watch_last_check_seconds;

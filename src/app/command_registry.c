@@ -8,6 +8,7 @@
 #include <app/workspace_actions.h>
 #include <app/workspace_dialogs.h>
 #include <base/math2d.h>
+#include <base/path_utils.h>
 #include <canvas/canvas_view.h>
 #include <document/document.h>
 #include <document/history.h>
@@ -19,70 +20,9 @@
 
 #define CLIPBOARD_PASTE_OFFSET_PIXELS 10.0f
 
-static const char* command_registry_path_basename(const char* path)
-{
-    const char* basename = path;
-    const char* cursor = NULL;
-
-    if (!path || path[0] == '\0') {
-        return "document.json";
-    }
-
-    for (cursor = path; *cursor != '\0'; ++cursor) {
-        if (*cursor == '/' || *cursor == '\\') {
-            basename = cursor + 1;
-        }
-    }
-
-    return (basename && basename[0] != '\0') ? basename : "document.json";
-}
-
-static void command_registry_format_path_directory(const char* path,
-                                                   char* buffer,
-                                                   size_t buffer_size)
-{
-    const char* cursor = NULL;
-    const char* last_separator = NULL;
-    size_t length = 0u;
-
-    if (!buffer || buffer_size == 0u) {
-        return;
-    }
-
-    buffer[0] = '\0';
-    if (!path || path[0] == '\0') {
-        snprintf(buffer, buffer_size, ".");
-        return;
-    }
-
-    for (cursor = path; *cursor != '\0'; ++cursor) {
-        if (*cursor == '/' || *cursor == '\\') {
-            last_separator = cursor;
-        }
-    }
-
-    if (!last_separator) {
-        snprintf(buffer, buffer_size, ".");
-        return;
-    }
-
-    length = (size_t)(last_separator - path);
-    if (length == 0u) {
-        length = 1u;
-    } else if (length == 2u && path[1] == ':') {
-        length = 3u;
-    }
-    if (length >= buffer_size) {
-        length = buffer_size - 1u;
-    }
-
-    memcpy(buffer, path, length);
-    buffer[length] = '\0';
-}
-
 static int command_registry_open_save_as_dialog(Workspace* workspace)
 {
-    char directory[260];
+    char directory[GLDRAW_PATH_MAX];
     const char* path = NULL;
 
     if (!workspace) {
@@ -95,9 +35,11 @@ static int command_registry_open_save_as_dialog(Workspace* workspace)
     path = workspace->session.current_document_path[0] != '\0'
                ? workspace->session.current_document_path
                : "document.json";
-    command_registry_format_path_directory(path, directory, sizeof(directory));
+    if (!path_utils_dirname(path, directory, sizeof(directory))) {
+        snprintf(directory, sizeof(directory), ".");
+    }
     return workspace_dialog_open_save_as(workspace,
-                                         command_registry_path_basename(path),
+                                         path_utils_basename_or_default(path, "document.json"),
                                          directory);
 }
 

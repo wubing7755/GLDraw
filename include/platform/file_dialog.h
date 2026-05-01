@@ -5,6 +5,8 @@
 #ifndef GLDRAW_PLATFORM_FILE_DIALOG_H
 #define GLDRAW_PLATFORM_FILE_DIALOG_H
 
+#include <base/path_utils.h>
+
 #include <stddef.h>
 
 typedef enum PlatformFileDialogResult {

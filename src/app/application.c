@@ -17,6 +17,7 @@
 #include <app/workspace.h>
 #include <base/log.h>
 #include <base/math2d.h>
+#include <base/path_utils.h>
 #include <document/persistence.h>
 #include <input/input_router.h>
 #include <platform/file_dialog.h>
@@ -28,7 +29,6 @@
 
 #include <GLFW/glfw3.h>
 
-#include <ctype.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -44,7 +44,7 @@ typedef struct {
   Vec2 cursor_screen;
   int cursor_inside_canvas;
   int pending_export_png;
-  char pending_export_png_path[260];
+  char pending_export_png_path[GLDRAW_PATH_MAX];
 } Application;
 
 static int app_workspace_save(Workspace *workspace, void *user_data);
@@ -129,51 +129,17 @@ static const char *app_current_document_path(const Application *app) {
   return app_default_document_path();
 }
 
-static void app_current_document_directory(const Application *app, char *buffer,
-                                           size_t buffer_size) {
-  const char *path = app_current_document_path(app);
-  const char *cursor = NULL;
-  const char *last_separator = NULL;
-  size_t length = 0u;
-
-  if (!buffer || buffer_size == 0u) {
-    return;
-  }
-
-  buffer[0] = '\0';
-  for (cursor = path; cursor && *cursor != '\0'; ++cursor) {
-    if (*cursor == '/' || *cursor == '\\') {
-      last_separator = cursor;
-    }
-  }
-
-  if (!last_separator) {
-    snprintf(buffer, buffer_size, ".");
-    return;
-  }
-
-  length = (size_t)(last_separator - path);
-  if (length == 0u) {
-    length = 1u;
-  } else if (length == 2u && path[1] == ':') {
-    length = 3u;
-  }
-  if (length >= buffer_size) {
-    length = buffer_size - 1u;
-  }
-  memcpy(buffer, path, length);
-  buffer[length] = '\0';
-}
-
 static void app_update_save_as_dialog_message(Application *app,
                                               const char *error_text) {
-  char directory[260];
+  char directory[GLDRAW_PATH_MAX];
 
   if (!app) {
     return;
   }
 
-  app_current_document_directory(app, directory, sizeof(directory));
+  if (!path_utils_dirname(app_current_document_path(app), directory, sizeof(directory))) {
+    snprintf(directory, sizeof(directory), ".");
+  }
   if (error_text && error_text[0] != '\0') {
     snprintf(app->workspace.session.active_dialog.message,
              sizeof(app->workspace.session.active_dialog.message),
@@ -211,159 +177,11 @@ static void app_set_document_path(Application *app, const char *path) {
                              1u] = '\0';
 }
 
-static int app_copy_trimmed_filename(const char *input, char *output,
-                                     size_t output_size) {
-  const char *start = input;
-  const char *end = NULL;
-  size_t length = 0u;
-
-  if (!input || !output || output_size == 0u) {
-    return 0;
-  }
-
-  while (*start != '\0' && isspace((unsigned char)*start)) {
-    start++;
-  }
-  end = start + strlen(start);
-  while (end > start && isspace((unsigned char)*(end - 1))) {
-    end--;
-  }
-
-  length = (size_t)(end - start);
-  if (length == 0u || length >= output_size) {
-    output[0] = '\0';
-    return 0;
-  }
-
-  memcpy(output, start, length);
-  output[length] = '\0';
-  return 1;
-}
-
-static int app_filename_has_json_extension(const char *filename) {
-  size_t length = 0u;
-  const char *extension = ".json";
-  size_t extension_length = strlen(extension);
-  size_t i = 0u;
-
-  if (!filename) {
-    return 0;
-  }
-
-  length = strlen(filename);
-  if (length < extension_length) {
-    return 0;
-  }
-
-  filename += length - extension_length;
-  for (i = 0u; i < extension_length; ++i) {
-    if (tolower((unsigned char)filename[i]) !=
-        tolower((unsigned char)extension[i])) {
-      return 0;
-    }
-  }
-
-  return 1;
-}
-
-static int app_path_has_extension(const char *path, const char *extension) {
-  size_t path_length = 0u;
-  size_t extension_length = 0u;
-  size_t i = 0u;
-
-  if (!path || !extension) {
-    return 0;
-  }
-
-  path_length = strlen(path);
-  extension_length = strlen(extension);
-  if (path_length < extension_length) {
-    return 0;
-  }
-
-  path += path_length - extension_length;
-  for (i = 0u; i < extension_length; ++i) {
-    if (tolower((unsigned char)path[i]) !=
-        tolower((unsigned char)extension[i])) {
-      return 0;
-    }
-  }
-
-  return 1;
-}
-
-static int app_validate_save_as_filename(const char *filename) {
-  const char *cursor = NULL;
-
-  if (!filename || filename[0] == '\0') {
-    return 0;
-  }
-  if (strcmp(filename, ".") == 0 || strcmp(filename, "..") == 0) {
-    return 0;
-  }
-
-  for (cursor = filename; *cursor != '\0'; ++cursor) {
-    unsigned char ch = (unsigned char)*cursor;
-    if (ch < 32u || strchr("/\\:*?\"<>|", *cursor)) {
-      return 0;
-    }
-  }
-
-  return 1;
-}
-
-static int app_build_save_as_path(Application *app, const char *filename,
-                                  char *output, size_t output_size) {
-  const char *current_path = app_current_document_path(app);
-  const char *cursor = NULL;
-  const char *last_separator = NULL;
-  char final_filename[260];
-  size_t directory_length = 0u;
-  size_t filename_length = 0u;
-
-  if (!app || !filename || !output || output_size == 0u) {
-    return 0;
-  }
-
-  if (app_filename_has_json_extension(filename)) {
-    snprintf(final_filename, sizeof(final_filename), "%s", filename);
-  } else if (strlen(filename) + 5u < sizeof(final_filename)) {
-    snprintf(final_filename, sizeof(final_filename), "%s.json", filename);
-  } else {
-    return 0;
-  }
-
-  for (cursor = current_path; cursor && *cursor != '\0'; ++cursor) {
-    if (*cursor == '/' || *cursor == '\\') {
-      last_separator = cursor;
-    }
-  }
-
-  filename_length = strlen(final_filename);
-  if (!last_separator) {
-    if (filename_length + 1u > output_size) {
-      return 0;
-    }
-    snprintf(output, output_size, "%s", final_filename);
-    return 1;
-  }
-
-  directory_length = (size_t)(last_separator - current_path) + 1u;
-  if (directory_length + filename_length + 1u > output_size) {
-    return 0;
-  }
-
-  memcpy(output, current_path, directory_length);
-  memcpy(output + directory_length, final_filename, filename_length + 1u);
-  return 1;
-}
-
 static void app_suggest_png_export_filename(const Application *app,
                                             char *buffer,
                                             size_t buffer_size) {
-  const char *path = app_current_document_path(app);
-  const char *basename = path;
-  const char *cursor = NULL;
+  const char *basename = path_utils_basename_or_default(app_current_document_path(app),
+                                                        "document.json");
   size_t length = 0u;
 
   if (!buffer || buffer_size == 0u) {
@@ -371,14 +189,8 @@ static void app_suggest_png_export_filename(const Application *app,
   }
 
   buffer[0] = '\0';
-  for (cursor = path; cursor && *cursor != '\0'; ++cursor) {
-    if (*cursor == '/' || *cursor == '\\') {
-      basename = cursor + 1;
-    }
-  }
-
   length = strlen(basename);
-  if (length > 5u && app_path_has_extension(basename, ".json")) {
+  if (length > 5u && path_utils_has_extension(basename, ".json")) {
     length -= 5u;
   }
   if (length == 0u) {
@@ -404,7 +216,7 @@ static int app_copy_png_export_path(const char *selected_path,
   }
 
   path_length = strlen(selected_path);
-  if (app_path_has_extension(selected_path, ".png")) {
+  if (path_utils_has_extension(selected_path, ".png")) {
     if (path_length + 1u > output_size) {
       return 0;
     }
@@ -488,8 +300,8 @@ static int app_save_document(Application *app) {
 }
 
 static int app_save_as_document(Application *app) {
-  char filename[260];
-  char target_path[260];
+  char filename[GLDRAW_PATH_MAX];
+  char target_path[GLDRAW_PATH_MAX];
   const char *input = NULL;
 
   if (!app) {
@@ -497,14 +309,18 @@ static int app_save_as_document(Application *app) {
   }
 
   input = app->workspace.session.active_dialog.payload.text;
-  if (!app_copy_trimmed_filename(input, filename, sizeof(filename)) ||
-      !app_validate_save_as_filename(filename)) {
+  if (!path_utils_copy_trimmed(input, filename, sizeof(filename)) ||
+      !path_utils_is_safe_filename(filename)) {
     app_set_status(app, "Save As failed: invalid filename");
     app_update_save_as_dialog_message(app, "Invalid filename. Use a simple file name without path separators or reserved characters.");
     return 0;
   }
 
-  if (!app_build_save_as_path(app, filename, target_path, sizeof(target_path))) {
+  if (!path_utils_join_same_directory(app_current_document_path(app),
+                                      filename,
+                                      ".json",
+                                      target_path,
+                                      sizeof(target_path))) {
     app_set_status(app, "Save As failed: path too long");
     app_update_save_as_dialog_message(app, "Invalid filename. The resulting path is too long.");
     return 0;
@@ -561,7 +377,7 @@ static int app_load_document(Application *app) {
 }
 
 static int app_open_document_with_picker(Application *app) {
-  char selected_path[260];
+  char selected_path[GLDRAW_PATH_MAX];
   PlatformFileDialogResult result;
 
   if (!app) {
@@ -582,8 +398,8 @@ static int app_open_document_with_picker(Application *app) {
 }
 
 static int app_request_export_png(Application *app) {
-  char suggested_filename[260];
-  char selected_path[260];
+  char suggested_filename[GLDRAW_PATH_MAX];
+  char selected_path[GLDRAW_PATH_MAX];
   PlatformFileDialogResult result;
 
   if (!app) {
@@ -616,7 +432,7 @@ static int app_request_export_png(Application *app) {
 }
 
 static void app_flush_pending_export_png(Application *app) {
-  char export_path[260];
+  char export_path[GLDRAW_PATH_MAX];
 
   if (!app || !app->pending_export_png) {
     return;
