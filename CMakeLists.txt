@@ -55,6 +55,7 @@ set(GLDRAW_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/app/command_registry.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/app/workspace_actions.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/app/workspace_dialogs.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/platform/file_dialog.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/platform/window.c
     ${GLDRAW_CORE_SOURCES}
     ${CMAKE_CURRENT_SOURCE_DIR}/src/canvas/canvas_view.c
@@ -127,7 +128,7 @@ elseif(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
 endif()
 
 if(WIN32)
-    target_link_libraries(${PROJECT_NAME} PRIVATE gdi32)
+    target_link_libraries(${PROJECT_NAME} PRIVATE gdi32 comdlg32)
 endif()
 
 if(UNIX AND NOT APPLE)
