@@ -43,6 +43,7 @@ find_package(OpenGL REQUIRED)
 
 set(GLDRAW_CORE_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/base/file_utils.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/base/path_utils.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/document/object.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/document/document.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/document/history.c

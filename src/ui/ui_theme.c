@@ -13,9 +13,9 @@
 #include <nuklear/nuklear.h>
 #include <base/file_utils.h>
 #include <base/log.h>
+#include <base/path_utils.h>
 #include <ui/ui_theme.h>
 
-#include <ctype.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -665,33 +665,6 @@ static int ui_parse_hex_color(const char* hex_text, struct nk_color* out_color)
 }
 
 /**
- * @brief Checks if path has .json extension.
- * @param path File path.
- * @return 1 if has .json extension, 0 otherwise.
- */
-static int ui_theme_path_has_json_extension(const char* path)
-{
-    size_t length = 0u;
-    const char* ext = NULL;
-
-    if (!path) {
-        return 0;
-    }
-
-    length = strlen(path);
-    if (length < 5u) {
-        return 0;
-    }
-
-    ext = path + length - 5u;
-    return (tolower((unsigned char)ext[0]) == '.') &&
-           (tolower((unsigned char)ext[1]) == 'j') &&
-           (tolower((unsigned char)ext[2]) == 's') &&
-           (tolower((unsigned char)ext[3]) == 'o') &&
-           (tolower((unsigned char)ext[4]) == 'n');
-}
-
-/**
  * @brief Computes hash of byte data.
  * @param seed Hash seed.
  * @param data Data bytes.
@@ -813,7 +786,7 @@ static int ui_theme_id_from_path(const char* path, char* out_id, size_t out_id_s
     }
 
     length = strlen(filename);
-    if (length > 5u && ui_theme_path_has_json_extension(filename)) {
+    if (length > 5u && path_utils_has_extension(filename, ".json")) {
         length -= 5u;
     }
     if (length == 0u) {
@@ -1184,7 +1157,7 @@ int ui_theme_reload_external(const char* directory_path)
             if (entry->d_name[0] == '.') {
                 continue;
             }
-            if (!ui_theme_path_has_json_extension(entry->d_name)) {
+            if (!path_utils_has_extension(entry->d_name, ".json")) {
                 continue;
             }
 
@@ -1303,7 +1276,7 @@ unsigned long long ui_theme_external_signature(const char* directory_path)
             if (entry->d_name[0] == '.') {
                 continue;
             }
-            if (!ui_theme_path_has_json_extension(entry->d_name)) {
+            if (!path_utils_has_extension(entry->d_name, ".json")) {
                 continue;
             }
 

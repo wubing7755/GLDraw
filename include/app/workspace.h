@@ -6,6 +6,7 @@
 #define GLDRAW_APP_WORKSPACE_H
 
 #include <app/editor_session.h>
+#include <base/path_utils.h>
 #include <canvas/canvas_view.h>
 #include <document/history.h>
 #include <input/keymap.h>
@@ -191,7 +192,7 @@ typedef struct EditorSession {
     GraphicObject* clipboard_objects[DOCUMENT_MAX_SELECTION];
     int clipboard_count;
     unsigned int clipboard_paste_serial;
-    char current_document_path[260];
+    char current_document_path[GLDRAW_PATH_MAX];
     char status_message[256];
     unsigned int saved_revision;
     int document_dirty;

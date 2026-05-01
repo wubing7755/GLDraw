@@ -26,7 +26,7 @@ PlatformFileDialogResult platform_file_dialog_open_document(char* out_path,
 #ifdef _WIN32
     {
         OPENFILENAMEA dialog;
-        char path_buffer[260];
+        char path_buffer[GLDRAW_PATH_MAX];
 
         memset(&dialog, 0, sizeof(dialog));
         memset(path_buffer, 0, sizeof(path_buffer));
@@ -75,7 +75,7 @@ PlatformFileDialogResult platform_file_dialog_save_png(char* out_path,
 #ifdef _WIN32
     {
         OPENFILENAMEA dialog;
-        char path_buffer[260];
+        char path_buffer[GLDRAW_PATH_MAX];
 
         memset(&dialog, 0, sizeof(dialog));
         memset(path_buffer, 0, sizeof(path_buffer));

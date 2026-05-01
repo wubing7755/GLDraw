@@ -5,6 +5,7 @@
 #ifndef GLDRAW_INPUT_KEYMAP_H
 #define GLDRAW_INPUT_KEYMAP_H
 
+#include <base/path_utils.h>
 #include <input/key_chord.h>
 
 #define KEYMAP_MAX_BINDINGS 64
@@ -28,7 +29,7 @@ typedef struct EditorKeymap {
     int default_count;
     KeyBinding user_overrides[KEYMAP_MAX_BINDINGS];
     int user_override_count;
-    char settings_path[260];
+    char settings_path[GLDRAW_PATH_MAX];
     char last_error[256];
 } EditorKeymap;
 
