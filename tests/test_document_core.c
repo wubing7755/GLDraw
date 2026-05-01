@@ -1,4 +1,5 @@
 #include <app/editor_session.h>
+#include <base/path_utils.h>
 #include <document/document.h>
 #include <document/history.h>
 #include <document/object.h>
@@ -86,6 +87,26 @@ static void expect_float_eq_impl(float actual,
     }
 }
 
+static void expect_str_eq_impl(const char* actual,
+                               const char* expected,
+                               const char* actual_expr,
+                               const char* expected_expr,
+                               const char* file,
+                               int line)
+{
+    if (!actual || !expected || strcmp(actual, expected) != 0) {
+        fprintf(stderr,
+                "%s:%d: expected %s == %s (\"%s\" != \"%s\")\n",
+                file,
+                line,
+                actual_expr,
+                expected_expr,
+                actual ? actual : "(null)",
+                expected ? expected : "(null)");
+        g_failures++;
+    }
+}
+
 #define EXPECT_TRUE(expr) expect_true_impl((expr), #expr, __FILE__, __LINE__)
 #define EXPECT_FALSE(expr) expect_true_impl(!(expr), "!(" #expr ")", __FILE__, __LINE__)
 #define EXPECT_UINT_EQ(actual, expected) \
@@ -94,6 +115,8 @@ static void expect_float_eq_impl(float actual,
     expect_int_eq_impl((actual), (expected), #actual, #expected, __FILE__, __LINE__)
 #define EXPECT_FLOAT_EQ(actual, expected) \
     expect_float_eq_impl((actual), (expected), #actual, #expected, __FILE__, __LINE__)
+#define EXPECT_STR_EQ(actual, expected) \
+    expect_str_eq_impl((actual), (expected), #actual, #expected, __FILE__, __LINE__)
 
 static GraphicObject* create_rect(float x, float y, float w, float h)
 {
@@ -379,6 +402,56 @@ static int test_persistence_rejects_invalid_json(void)
     return g_failures == 0;
 }
 
+static int test_path_utils_common_cases(void)
+{
+    char buffer[GLDRAW_PATH_MAX];
+    char small_buffer[1];
+
+    EXPECT_STR_EQ(path_utils_basename_or_default("C:\\dir\\file.json", "fallback.json"),
+                  "file.json");
+    EXPECT_STR_EQ(path_utils_basename_or_default("dir/file.json", "fallback.json"),
+                  "file.json");
+    EXPECT_STR_EQ(path_utils_basename_or_default("", "fallback.json"), "fallback.json");
+    EXPECT_STR_EQ(path_utils_basename_or_default("dir/", "fallback.json"), "fallback.json");
+
+    EXPECT_TRUE(path_utils_dirname("C:\\file.json", buffer, sizeof(buffer)));
+    EXPECT_STR_EQ(buffer, "C:\\");
+    EXPECT_TRUE(path_utils_dirname("dir/file.json", buffer, sizeof(buffer)));
+    EXPECT_STR_EQ(buffer, "dir");
+    EXPECT_TRUE(path_utils_dirname("file.json", buffer, sizeof(buffer)));
+    EXPECT_STR_EQ(buffer, ".");
+    EXPECT_FALSE(path_utils_dirname("file.json", small_buffer, sizeof(small_buffer)));
+
+    EXPECT_TRUE(path_utils_has_extension("theme.JSON", ".json"));
+    EXPECT_FALSE(path_utils_has_extension("theme.json.bak", ".json"));
+
+    EXPECT_TRUE(path_utils_copy_trimmed("  copy  ", buffer, sizeof(buffer)));
+    EXPECT_STR_EQ(buffer, "copy");
+    EXPECT_FALSE(path_utils_copy_trimmed("   ", buffer, sizeof(buffer)));
+
+    EXPECT_TRUE(path_utils_is_safe_filename("copy.json"));
+    EXPECT_FALSE(path_utils_is_safe_filename("dir/copy.json"));
+    EXPECT_FALSE(path_utils_is_safe_filename("dir\\copy.json"));
+    EXPECT_FALSE(path_utils_is_safe_filename("bad:name.json"));
+    EXPECT_FALSE(path_utils_is_safe_filename("."));
+    EXPECT_FALSE(path_utils_is_safe_filename(".."));
+
+    EXPECT_TRUE(path_utils_join_same_directory("dir/base.json",
+                                               "copy",
+                                               ".json",
+                                               buffer,
+                                               sizeof(buffer)));
+    EXPECT_STR_EQ(buffer, "dir/copy.json");
+    EXPECT_TRUE(path_utils_join_same_directory("C:\\dir\\base.json",
+                                               "copy.JSON",
+                                               ".json",
+                                               buffer,
+                                               sizeof(buffer)));
+    EXPECT_STR_EQ(buffer, "C:\\dir\\copy.JSON");
+
+    return g_failures == 0;
+}
+
 int main(void)
 {
     static const struct {
@@ -390,7 +463,8 @@ int main(void)
         {"history scalar edit undo/redo", test_history_scalar_edit_undo_redo},
         {"history translate edit undo/redo", test_history_translate_edit_undo_redo},
         {"persistence round trip", test_persistence_round_trip},
-        {"persistence rejects invalid json", test_persistence_rejects_invalid_json}
+        {"persistence rejects invalid json", test_persistence_rejects_invalid_json},
+        {"path utils common cases", test_path_utils_common_cases}
     };
     int i = 0;
     int test_count = (int)(sizeof(tests) / sizeof(tests[0]));

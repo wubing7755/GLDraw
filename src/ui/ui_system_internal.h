@@ -35,6 +35,7 @@
 #endif
 
 #include <app/workspace.h>
+#include <base/path_utils.h>
 #include <base/types.h>
 #include <ui/ui_menubar.h>
 #include <ui/ui_theme.h>
@@ -65,7 +66,7 @@ struct UiSystem {
   UiMenuBar *menu_bar;
   UiThemeTokens theme;
   char active_theme_id[UI_THEME_ID_CAPACITY];
-  char theme_settings_path[260];
+  char theme_settings_path[GLDRAW_PATH_MAX];
   UiThemeDescriptor theme_descriptors_cache[UI_THEME_DESCRIPTOR_CACHE_MAX];
   unsigned long long theme_directory_signature;
   double theme_watch_last_check_seconds;
