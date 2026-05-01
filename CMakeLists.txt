@@ -41,6 +41,27 @@ endif()
 
 find_package(OpenGL REQUIRED)
 
+function(gldraw_apply_compile_options target_name)
+    if(MSVC)
+        target_compile_options(${target_name} PRIVATE
+            /W4
+            /permissive-
+            /utf-8
+            $<$<CONFIG:Release>:/O2 /Ob2 /DNDEBUG>
+            $<$<CONFIG:Debug>:/Od /Zi>
+        )
+    elseif(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
+        target_compile_options(${target_name} PRIVATE
+            -Wall
+            -Wextra
+            -Wpedantic
+            -Wshadow
+            $<$<CONFIG:Release>:-O2 -DNDEBUG>
+            $<$<CONFIG:Debug>:-g -O0>
+        )
+    endif()
+endfunction()
+
 set(GLDRAW_CORE_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/base/file_utils.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/base/path_utils.c
@@ -48,6 +69,10 @@ set(GLDRAW_CORE_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/document/document.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/document/history.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/document/persistence.c
+)
+
+set(GLDRAW_IMAGE_SOURCES
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/image/png_writer.c
 )
 
 set(GLDRAW_SOURCES
@@ -59,6 +84,7 @@ set(GLDRAW_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/platform/file_dialog.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/platform/window.c
     ${GLDRAW_CORE_SOURCES}
+    ${GLDRAW_IMAGE_SOURCES}
     ${CMAKE_CURRENT_SOURCE_DIR}/src/canvas/canvas_view.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/input/key_chord.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/input/keymap.c
@@ -115,24 +141,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     OpenGL::GL
 )
 
-if(MSVC)
-    target_compile_options(${PROJECT_NAME} PRIVATE
-        /W4
-        /permissive-
-        /utf-8
-        $<$<CONFIG:Release>:/O2 /Ob2 /DNDEBUG>
-        $<$<CONFIG:Debug>:/Od /Zi>
-    )
-elseif(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
-    target_compile_options(${PROJECT_NAME} PRIVATE
-        -Wall
-        -Wextra
-        -Wpedantic
-        -Wshadow
-        $<$<CONFIG:Release>:-O2 -DNDEBUG>
-        $<$<CONFIG:Debug>:-g -O0>
-    )
-endif()
+gldraw_apply_compile_options(${PROJECT_NAME})
 
 if(WIN32)
     target_link_libraries(${PROJECT_NAME} PRIVATE gdi32 comdlg32)
@@ -156,24 +165,7 @@ target_include_directories(gldraw_document_core_tests
         ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
-if(MSVC)
-    target_compile_options(gldraw_document_core_tests PRIVATE
-        /W4
-        /permissive-
-        /utf-8
-        $<$<CONFIG:Release>:/O2 /Ob2 /DNDEBUG>
-        $<$<CONFIG:Debug>:/Od /Zi>
-    )
-elseif(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
-    target_compile_options(gldraw_document_core_tests PRIVATE
-        -Wall
-        -Wextra
-        -Wpedantic
-        -Wshadow
-        $<$<CONFIG:Release>:-O2 -DNDEBUG>
-        $<$<CONFIG:Debug>:-g -O0>
-    )
-endif()
+gldraw_apply_compile_options(gldraw_document_core_tests)
 
 if(UNIX AND NOT APPLE)
     target_link_libraries(gldraw_document_core_tests PRIVATE m)
@@ -184,6 +176,24 @@ set_target_properties(gldraw_document_core_tests PROPERTIES
 )
 
 add_test(NAME gldraw_document_core_tests COMMAND $<TARGET_FILE:gldraw_document_core_tests>)
+
+add_executable(gldraw_png_writer_tests
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_png_writer.c
+    ${GLDRAW_IMAGE_SOURCES}
+)
+
+target_include_directories(gldraw_png_writer_tests
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+
+gldraw_apply_compile_options(gldraw_png_writer_tests)
+
+set_target_properties(gldraw_png_writer_tests PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+)
+
+add_test(NAME gldraw_png_writer_tests COMMAND $<TARGET_FILE:gldraw_png_writer_tests>)
 
 install(TARGETS ${PROJECT_NAME}
     RUNTIME DESTINATION bin
