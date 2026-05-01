@@ -13,6 +13,8 @@ static int workspace_dialog_resolve_shortcuts(Workspace* workspace,
                                               UiDialogResult result);
 static int workspace_dialog_resolve_info(Workspace* workspace,
                                          UiDialogResult result);
+static int workspace_dialog_resolve_save_as(Workspace* workspace,
+                                            UiDialogResult result);
 
 static const UiDialogButtonDefinition UI_DIALOG_BUTTONS_CONFIRM_UNSAVED[] = {
     {"Save", UI_DIALOG_RESULT_PRIMARY, 1},
@@ -68,6 +70,25 @@ static const UiDialogDefinition UI_DIALOG_DEFINITION_INFO = {
     UI_DIALOG_BUTTONS_INFO,
     (int)(sizeof(UI_DIALOG_BUTTONS_INFO) / sizeof(UI_DIALOG_BUTTONS_INFO[0])),
     workspace_dialog_resolve_info
+};
+
+static const UiDialogButtonDefinition UI_DIALOG_BUTTONS_SAVE_AS[] = {
+    {"Save", UI_DIALOG_RESULT_PRIMARY, 1},
+    {"Cancel", UI_DIALOG_RESULT_CANCEL, 0}
+};
+
+static const UiDialogDefinition UI_DIALOG_DEFINITION_SAVE_AS = {
+    {
+        UI_DIALOG_SAVE_AS,
+        "Save As",
+        "",
+        460.0f,
+        220.0f,
+        1
+    },
+    UI_DIALOG_BUTTONS_SAVE_AS,
+    (int)(sizeof(UI_DIALOG_BUTTONS_SAVE_AS) / sizeof(UI_DIALOG_BUTTONS_SAVE_AS[0])),
+    workspace_dialog_resolve_save_as
 };
 
 static int workspace_dialog_execute_action_now(Workspace* workspace,
@@ -154,6 +175,35 @@ static int workspace_dialog_resolve_info(Workspace* workspace,
     }
 }
 
+static int workspace_dialog_resolve_save_as(Workspace* workspace,
+                                            UiDialogResult result)
+{
+    if (!workspace) {
+        return 0;
+    }
+
+    switch (result) {
+    case UI_DIALOG_RESULT_PRIMARY:
+        if (!workspace->services.save_as_document ||
+            !workspace->services.save_as_document(workspace,
+                                                  workspace->services.command_user_data)) {
+            return 0;
+        }
+        workspace_dialog_close(workspace);
+        return 1;
+    case UI_DIALOG_RESULT_CANCEL:
+        workspace_dialog_close(workspace);
+        snprintf(workspace->session.status_message,
+                 sizeof(workspace->session.status_message),
+                 "Save As cancelled.");
+        return 1;
+    case UI_DIALOG_RESULT_NONE:
+    case UI_DIALOG_RESULT_SECONDARY:
+    default:
+        return 0;
+    }
+}
+
 const UiDialogDefinition* workspace_dialog_definition(UiDialogKind kind)
 {
     switch (kind) {
@@ -163,6 +213,8 @@ const UiDialogDefinition* workspace_dialog_definition(UiDialogKind kind)
         return &UI_DIALOG_DEFINITION_SHORTCUTS;
     case UI_DIALOG_INFO:
         return &UI_DIALOG_DEFINITION_INFO;
+    case UI_DIALOG_SAVE_AS:
+        return &UI_DIALOG_DEFINITION_SAVE_AS;
     case UI_DIALOG_NONE:
     default:
         return NULL;
@@ -346,5 +398,35 @@ int workspace_dialog_open_info(Workspace* workspace,
     snprintf(dialog.title, sizeof(dialog.title), "%s", title);
     snprintf(dialog.message, sizeof(dialog.message), "%s", message);
     return workspace_dialog_add_button(&dialog, &UI_DIALOG_BUTTONS_INFO[0]) &&
+           workspace_dialog_open(workspace, &dialog);
+}
+
+int workspace_dialog_open_save_as(Workspace* workspace,
+                                  const char* initial_filename,
+                                  const char* target_directory)
+{
+    UiDialogState dialog;
+    const char* directory = target_directory;
+
+    if (!workspace) {
+        return 0;
+    }
+
+    if (!directory || directory[0] == '\0') {
+        directory = ".";
+    }
+
+    workspace_dialog_apply_template(&dialog,
+                                    &UI_DIALOG_DEFINITION_SAVE_AS.dialog_template);
+    snprintf(dialog.message,
+             sizeof(dialog.message),
+             "Enter a new filename.\nThe file will be saved in the same directory:\n%s",
+             directory);
+    if (initial_filename && initial_filename[0] != '\0') {
+        snprintf(dialog.payload.text, sizeof(dialog.payload.text), "%s", initial_filename);
+    }
+
+    return workspace_dialog_add_button(&dialog, &UI_DIALOG_BUTTONS_SAVE_AS[0]) &&
+           workspace_dialog_add_button(&dialog, &UI_DIALOG_BUTTONS_SAVE_AS[1]) &&
            workspace_dialog_open(workspace, &dialog);
 }

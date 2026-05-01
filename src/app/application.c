@@ -28,6 +28,7 @@
 
 #include <GLFW/glfw3.h>
 
+#include <ctype.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -45,6 +46,7 @@ typedef struct {
 } Application;
 
 static int app_workspace_save(Workspace *workspace, void *user_data);
+static int app_workspace_save_as(Workspace *workspace, void *user_data);
 static int app_workspace_load(Workspace *workspace, void *user_data);
 static int app_workspace_execute_action(Workspace *workspace,
                                         WorkspaceActionType action,
@@ -124,6 +126,66 @@ static const char *app_current_document_path(const Application *app) {
   return app_default_document_path();
 }
 
+static void app_current_document_directory(const Application *app, char *buffer,
+                                           size_t buffer_size) {
+  const char *path = app_current_document_path(app);
+  const char *cursor = NULL;
+  const char *last_separator = NULL;
+  size_t length = 0u;
+
+  if (!buffer || buffer_size == 0u) {
+    return;
+  }
+
+  buffer[0] = '\0';
+  for (cursor = path; cursor && *cursor != '\0'; ++cursor) {
+    if (*cursor == '/' || *cursor == '\\') {
+      last_separator = cursor;
+    }
+  }
+
+  if (!last_separator) {
+    snprintf(buffer, buffer_size, ".");
+    return;
+  }
+
+  length = (size_t)(last_separator - path);
+  if (length == 0u) {
+    length = 1u;
+  } else if (length == 2u && path[1] == ':') {
+    length = 3u;
+  }
+  if (length >= buffer_size) {
+    length = buffer_size - 1u;
+  }
+  memcpy(buffer, path, length);
+  buffer[length] = '\0';
+}
+
+static void app_update_save_as_dialog_message(Application *app,
+                                              const char *error_text) {
+  char directory[260];
+
+  if (!app) {
+    return;
+  }
+
+  app_current_document_directory(app, directory, sizeof(directory));
+  if (error_text && error_text[0] != '\0') {
+    snprintf(app->workspace.session.active_dialog.message,
+             sizeof(app->workspace.session.active_dialog.message),
+             "%s\n\nEnter a new filename.\nThe file will be saved in the same directory:\n%s",
+             error_text,
+             directory);
+    return;
+  }
+
+  snprintf(app->workspace.session.active_dialog.message,
+           sizeof(app->workspace.session.active_dialog.message),
+           "Enter a new filename.\nThe file will be saved in the same directory:\n%s",
+           directory);
+}
+
 /**
  * @brief Copy document path into workspace path buffer.
  * @param app [in,out] Application state.
@@ -144,6 +206,127 @@ static void app_set_document_path(Application *app, const char *path) {
   app->workspace.session
       .current_document_path[sizeof(app->workspace.session.current_document_path) -
                              1u] = '\0';
+}
+
+static int app_copy_trimmed_filename(const char *input, char *output,
+                                     size_t output_size) {
+  const char *start = input;
+  const char *end = NULL;
+  size_t length = 0u;
+
+  if (!input || !output || output_size == 0u) {
+    return 0;
+  }
+
+  while (*start != '\0' && isspace((unsigned char)*start)) {
+    start++;
+  }
+  end = start + strlen(start);
+  while (end > start && isspace((unsigned char)*(end - 1))) {
+    end--;
+  }
+
+  length = (size_t)(end - start);
+  if (length == 0u || length >= output_size) {
+    output[0] = '\0';
+    return 0;
+  }
+
+  memcpy(output, start, length);
+  output[length] = '\0';
+  return 1;
+}
+
+static int app_filename_has_json_extension(const char *filename) {
+  size_t length = 0u;
+  const char *extension = ".json";
+  size_t extension_length = strlen(extension);
+  size_t i = 0u;
+
+  if (!filename) {
+    return 0;
+  }
+
+  length = strlen(filename);
+  if (length < extension_length) {
+    return 0;
+  }
+
+  filename += length - extension_length;
+  for (i = 0u; i < extension_length; ++i) {
+    if (tolower((unsigned char)filename[i]) !=
+        tolower((unsigned char)extension[i])) {
+      return 0;
+    }
+  }
+
+  return 1;
+}
+
+static int app_validate_save_as_filename(const char *filename) {
+  const char *cursor = NULL;
+
+  if (!filename || filename[0] == '\0') {
+    return 0;
+  }
+  if (strcmp(filename, ".") == 0 || strcmp(filename, "..") == 0) {
+    return 0;
+  }
+
+  for (cursor = filename; *cursor != '\0'; ++cursor) {
+    unsigned char ch = (unsigned char)*cursor;
+    if (ch < 32u || strchr("/\\:*?\"<>|", *cursor)) {
+      return 0;
+    }
+  }
+
+  return 1;
+}
+
+static int app_build_save_as_path(Application *app, const char *filename,
+                                  char *output, size_t output_size) {
+  const char *current_path = app_current_document_path(app);
+  const char *cursor = NULL;
+  const char *last_separator = NULL;
+  char final_filename[260];
+  size_t directory_length = 0u;
+  size_t filename_length = 0u;
+
+  if (!app || !filename || !output || output_size == 0u) {
+    return 0;
+  }
+
+  if (app_filename_has_json_extension(filename)) {
+    snprintf(final_filename, sizeof(final_filename), "%s", filename);
+  } else if (strlen(filename) + 5u < sizeof(final_filename)) {
+    snprintf(final_filename, sizeof(final_filename), "%s.json", filename);
+  } else {
+    return 0;
+  }
+
+  for (cursor = current_path; cursor && *cursor != '\0'; ++cursor) {
+    if (*cursor == '/' || *cursor == '\\') {
+      last_separator = cursor;
+    }
+  }
+
+  filename_length = strlen(final_filename);
+  if (!last_separator) {
+    if (filename_length + 1u > output_size) {
+      return 0;
+    }
+    snprintf(output, output_size, "%s", final_filename);
+    return 1;
+  }
+
+  directory_length = (size_t)(last_separator - current_path) + 1u;
+  if (directory_length + filename_length + 1u > output_size) {
+    return 0;
+  }
+
+  memcpy(output, current_path, directory_length);
+  memcpy(output + directory_length, final_filename, filename_length + 1u);
+  return 1;
 }
 
 /**
@@ -194,9 +377,7 @@ static int app_new_document(Application *app) {
  *
  * Time complexity: dominated by serialization, roughly `O(object_count)`.
  */
-static int app_save_document(Application *app) {
-  const char *path = app_current_document_path(app);
-
+static int app_save_document_to_path(Application *app, const char *path) {
   if (!document_save_json(&app->workspace.core.document, path)) {
     LOG_ERROR("%s", "Save document failed");
     app_set_status(app, "Save failed: %s", path);
@@ -208,6 +389,36 @@ static int app_save_document(Application *app) {
   app_set_status(app, "Saved document: %s", path);
   LOG_INFO("Saved document: %s", path);
   return 1;
+}
+
+static int app_save_document(Application *app) {
+  return app_save_document_to_path(app, app_current_document_path(app));
+}
+
+static int app_save_as_document(Application *app) {
+  char filename[260];
+  char target_path[260];
+  const char *input = NULL;
+
+  if (!app) {
+    return 0;
+  }
+
+  input = app->workspace.session.active_dialog.payload.text;
+  if (!app_copy_trimmed_filename(input, filename, sizeof(filename)) ||
+      !app_validate_save_as_filename(filename)) {
+    app_set_status(app, "Save As failed: invalid filename");
+    app_update_save_as_dialog_message(app, "Invalid filename. Use a simple file name without path separators or reserved characters.");
+    return 0;
+  }
+
+  if (!app_build_save_as_path(app, filename, target_path, sizeof(target_path))) {
+    app_set_status(app, "Save As failed: path too long");
+    app_update_save_as_dialog_message(app, "Invalid filename. The resulting path is too long.");
+    return 0;
+  }
+
+  return app_save_document_to_path(app, target_path);
 }
 
 /**
@@ -297,6 +508,11 @@ static int app_exit_application(Application *app) {
 static int app_workspace_save(Workspace *workspace, void *user_data) {
   (void)workspace;
   return app_save_document((Application *)user_data);
+}
+
+static int app_workspace_save_as(Workspace *workspace, void *user_data) {
+  (void)workspace;
+  return app_save_as_document((Application *)user_data);
 }
 
 /**
@@ -692,6 +908,7 @@ static int app_init(Application *app) {
   keymap_init(&app->workspace.session.keymap, APP_KEYMAP_SETTINGS_PATH);
   app_set_document_path(app, app_default_document_path());
   app->workspace.services.save_document = app_workspace_save;
+  app->workspace.services.save_as_document = app_workspace_save_as;
   app->workspace.services.load_document = app_workspace_load;
   app->workspace.services.execute_action = app_workspace_execute_action;
   app->workspace.services.command_user_data = app;

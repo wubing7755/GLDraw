@@ -50,7 +50,8 @@ typedef enum UiDialogKind {
     UI_DIALOG_NONE = 0,
     UI_DIALOG_CONFIRM_UNSAVED,
     UI_DIALOG_SHORTCUTS,
-    UI_DIALOG_INFO
+    UI_DIALOG_INFO,
+    UI_DIALOG_SAVE_AS
 } UiDialogKind;
 
 /**
@@ -204,6 +205,7 @@ typedef struct EditorSession {
  */
 typedef struct EditorServices {
     WorkspaceCommandFn save_document;
+    WorkspaceCommandFn save_as_document;
     WorkspaceCommandFn load_document;
     WorkspaceActionExecutorFn execute_action;
     void* command_user_data;

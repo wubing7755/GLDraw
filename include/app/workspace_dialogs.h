@@ -77,5 +77,9 @@ int workspace_dialog_open_shortcuts(Workspace* workspace, const char* content_te
 int workspace_dialog_open_info(Workspace* workspace,
                                const char* title,
                                const char* message);
+/** Open the Save As filename dialog. */
+int workspace_dialog_open_save_as(Workspace* workspace,
+                                  const char* initial_filename,
+                                  const char* target_directory);
 
 #endif /* GLDRAW_APP_WORKSPACE_DIALOGS_H */
