@@ -56,11 +56,18 @@ static int key_chord_named_key_from_token(const char* token)
 static const char* key_chord_name_for_key(int key)
 {
     size_t i = 0u;
+    static char fallback_name[2];
 
     for (i = 0u; i < sizeof(g_named_keys) / sizeof(g_named_keys[0]); ++i) {
         if (g_named_keys[i].key == key) {
             return g_named_keys[i].name;
         }
+    }
+
+    if (key >= GLFW_KEY_A && key <= GLFW_KEY_Z) {
+        fallback_name[0] = (char)('A' + (key - GLFW_KEY_A));
+        fallback_name[1] = '\0';
+        return fallback_name;
     }
 
     return "";

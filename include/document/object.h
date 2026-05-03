@@ -13,12 +13,13 @@ typedef unsigned int GraphicObjectType;
 typedef unsigned int LayerId;
 
 #define GRAPHIC_OBJECT_INVALID 0u
+/* Convenience aliases -- new object types should use GRAPHIC_OBJECT_INVALID (0u)
+   to get an auto-assigned numeric type from the registry. */
 #define GRAPHIC_OBJECT_LINE 1u
 #define GRAPHIC_OBJECT_RECT 2u
 #define GRAPHIC_OBJECT_ELLIPSE 3u
 
 #define GRAPHIC_OBJECT_MAX_PROPERTIES 32
-#define GRAPHIC_OBJECT_MAX_TYPES 32
 
 typedef struct {
     Color stroke_color;

@@ -34,6 +34,8 @@ int canvas_drawlist_build(CanvasDrawList* draw_list,
                           const Document* document,
                           const SelectionSet* selection,
                           const CanvasView* canvas,
+                          int selection_preview_active,
+                          Vec2 selection_preview_delta,
                           const GraphicObject* overlay_object);
 
 #endif /* GLDRAW_RENDER_CANVAS_DRAWLIST_H */

@@ -40,14 +40,13 @@ static void command_dispatcher_set_status(Workspace* workspace, const char* mess
 
 static ToolContext command_dispatcher_tool_context(Workspace* workspace)
 {
-    ToolContext context;
+  ToolContext context;
 
-    context.workspace = workspace;
-    context.document = workspace ? &workspace->core.document : NULL;
-    context.history = workspace ? &workspace->core.history : NULL;
-    context.canvas = workspace ? &workspace->core.canvas : NULL;
-    context.selection = workspace ? &workspace->session.selection : NULL;
-    return context;
+  context.workspace = workspace;
+  context.document = workspace ? &workspace->core.document : NULL;
+  context.canvas = workspace ? &workspace->core.canvas : NULL;
+  context.selection = workspace ? &workspace->session.selection : NULL;
+  return context;
 }
 
 void command_dispatcher_init(CommandDispatcher* dispatcher, Workspace* workspace)

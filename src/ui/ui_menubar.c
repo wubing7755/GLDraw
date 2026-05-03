@@ -347,31 +347,13 @@ static int ui_render_dropdown(struct nk_context* ctx,
         case MENU_ITEM_ACTION: {
             char menu_text[96];
             int enabled = ui_menu_is_action_available(view_model, (MenuId)item->id);
-            struct nk_rect widget_bounds;
-            int hovered = 0;
-            char tooltip[128];
-            const CommandDescriptor* descriptor =
-                command_registry_find_by_menu_id(item->id);
-
             ui_build_menu_item_text(view_model, menu_text, sizeof(menu_text), item);
 
             if (!enabled) {
                 nk_widget_disable_begin(ctx);
             }
-            widget_bounds = nk_widget_bounds(ctx);
             if (nk_menu_item_label(ctx, menu_text, NK_TEXT_LEFT) && enabled) {
                 clicked_id = item->id;
-            }
-            hovered = nk_input_is_mouse_hovering_rect(&ctx->input, widget_bounds);
-            if (hovered && descriptor) {
-                ui_build_command_tooltip(view_model,
-                                         descriptor->command,
-                                         item->label,
-                                         tooltip,
-                                         sizeof(tooltip));
-                if (tooltip[0] != '\0') {
-                    nk_tooltip(ctx, tooltip);
-                }
             }
             if (!enabled) {
                 nk_widget_disable_end(ctx);

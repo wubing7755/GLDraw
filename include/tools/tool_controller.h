@@ -16,6 +16,17 @@ typedef struct {
     Vec2 last_world;
 } ToolController;
 
+/**
+ * @brief Register all built-in tool descriptors into the tool registry.
+ *
+ * Must be called before tool_controller_init(). After registration,
+ * tool_registry_count() reflects the full set of available tools.
+ * Re-registration is idempotent.
+ *
+ * @return Non-zero on success, zero on failure.
+ */
+int register_builtin_tools(void);
+
 void tool_controller_init(ToolController* controller);
 void tool_controller_shutdown(ToolController* controller);
 int tool_controller_set_active(ToolController* controller,

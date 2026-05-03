@@ -15,6 +15,7 @@
 #include <base/math2d.h>
 
 #include <stddef.h>
+#include <stdlib.h>
 
 /**
  * @brief Gets the current viewport state from canvas.
@@ -385,7 +386,7 @@ GraphicObject* canvas_view_pick_object(const CanvasView* canvas, Vec2 screen_poi
 {
     Vec2 world_point = {0.0f, 0.0f};
     float tolerance_world = 0.0f;
-    int indices[DOCUMENT_MAX_OBJECTS];
+    int* indices = NULL;
     int candidate_count = 0;
     int i = 0;
 
@@ -395,12 +396,18 @@ GraphicObject* canvas_view_pick_object(const CanvasView* canvas, Vec2 screen_poi
 
     world_point = canvas_view_screen_to_world(canvas, screen_point);
     tolerance_world = canvas_view_world_tolerance_for_pixels(canvas, tolerance_pixels);
+    if (canvas->document->count > 0) {
+        indices = (int*)malloc((size_t)canvas->document->count * sizeof(indices[0]));
+        if (!indices) {
+            return NULL;
+        }
+    }
 
     candidate_count = document_query_point_indices(canvas->document,
                                                    world_point,
                                                    tolerance_world,
                                                    indices,
-                                                   DOCUMENT_MAX_OBJECTS);
+                                                   canvas->document->count);
     if (candidate_count <= 0) {
         candidate_count = canvas->document->count;
         for (i = 0; i < candidate_count; ++i) {
@@ -413,9 +420,11 @@ GraphicObject* canvas_view_pick_object(const CanvasView* canvas, Vec2 screen_poi
         if (object &&
             !document_layer_is_locked(canvas->document, object->layer_id) &&
             object_hit_test(object, world_point, tolerance_world)) {
+            free(indices);
             return object;
         }
     }
 
+    free(indices);
     return NULL;
 }

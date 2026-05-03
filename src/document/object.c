@@ -2,37 +2,24 @@
 
 #include <base/math2d.h>
 
+#include "object_internal.h"
+
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-#define ELLIPSE_SEGMENTS 64
+#define OBJECT_REGISTRY_INITIAL_CAPACITY 8
 
 typedef struct {
-    Vec2 p1;
-    Vec2 p2;
-} LineData;
-
-typedef struct {
-    RectF rect;
-} RectData;
-
-typedef struct {
-    RectF bounds;
-} EllipseData;
-
-typedef struct {
-    GraphicObjectDescriptor descriptors[GRAPHIC_OBJECT_MAX_TYPES];
+    GraphicObjectDescriptor *descriptors;
     int count;
+    int capacity;
     unsigned int next_dynamic_type;
     int initialized;
 } ObjectRegistryState;
 
 static ObjectRegistryState g_registry = {0};
-
-static void ensure_registry_builtins(void);
-void object_register_builtin_extensions(void);
 
 static void object_bump_revision(GraphicObject* object)
 {
@@ -46,7 +33,7 @@ static int property_def_is_valid(const GraphicPropertyDef* def)
     return def && def->name && def->name[0] != '\0';
 }
 
-static int style_get_scalar(const GraphicObject* object, const char* key, float* out_value)
+int style_get_scalar(const GraphicObject* object, const char* key, float* out_value)
 {
     if (!object || !key || !out_value) {
         return 0;
@@ -60,7 +47,7 @@ static int style_get_scalar(const GraphicObject* object, const char* key, float*
     return 0;
 }
 
-static int style_set_scalar(GraphicObject* object, const char* key, float value)
+int style_set_scalar(GraphicObject* object, const char* key, float value)
 {
     if (!object || !key) {
         return 0;
@@ -74,10 +61,10 @@ static int style_set_scalar(GraphicObject* object, const char* key, float value)
     return 0;
 }
 
-static GraphicObject* object_alloc(GraphicObjectType type,
-                                   const GraphicObjectDescriptor* descriptor,
-                                   void* impl,
-                                   GraphicStyle style)
+GraphicObject* object_alloc(GraphicObjectType type,
+                           const GraphicObjectDescriptor* descriptor,
+                           void* impl,
+                           GraphicStyle style)
 {
     GraphicObject* object = (GraphicObject*)calloc(1, sizeof(*object));
     if (!object) {
@@ -96,8 +83,18 @@ static GraphicObject* object_alloc(GraphicObjectType type,
 
 static GraphicObjectDescriptor* object_registry_alloc_slot(void)
 {
-    if (g_registry.count >= GRAPHIC_OBJECT_MAX_TYPES) {
-        return NULL;
+    if (g_registry.count >= g_registry.capacity) {
+        int new_capacity = g_registry.capacity > 0 ? g_registry.capacity * 2
+                                                    : OBJECT_REGISTRY_INITIAL_CAPACITY;
+        GraphicObjectDescriptor *new_descriptors =
+            (GraphicObjectDescriptor *)realloc(g_registry.descriptors,
+                                               (size_t)new_capacity *
+                                                   sizeof(g_registry.descriptors[0]));
+        if (!new_descriptors) {
+            return NULL;
+        }
+        g_registry.descriptors = new_descriptors;
+        g_registry.capacity = new_capacity;
     }
 
     return &g_registry.descriptors[g_registry.count++];
@@ -142,7 +139,7 @@ void object_registry_init(void)
 
     memset(&g_registry, 0, sizeof(g_registry));
     g_registry.initialized = 1;
-    g_registry.next_dynamic_type = GRAPHIC_OBJECT_ELLIPSE + 1u;
+    g_registry.next_dynamic_type = 100u;
 }
 
 int register_object_type(const GraphicObjectDescriptor* descriptor)
@@ -184,26 +181,21 @@ int register_object_type(const GraphicObjectDescriptor* descriptor)
 
 const GraphicObjectDescriptor* object_registry_lookup(const char* type_id)
 {
-    ensure_registry_builtins();
     return object_registry_find_by_type_id(type_id);
 }
 
 const GraphicObjectDescriptor* object_registry_lookup_by_type(GraphicObjectType type)
 {
-    ensure_registry_builtins();
     return object_registry_find_by_type(type);
 }
 
 int object_registry_count(void)
 {
-    ensure_registry_builtins();
     return g_registry.count;
 }
 
 const GraphicObjectDescriptor* object_registry_at(int index)
 {
-    ensure_registry_builtins();
-
     if (index < 0 || index >= g_registry.count) {
         return NULL;
     }
@@ -264,7 +256,7 @@ int graphic_property_bag_get(const GraphicPropertyBag* bag, const char* name, fl
     return 0;
 }
 
-static int default_serialize_from_schema(const GraphicObject* object, GraphicPropertyBag* out_properties)
+int default_serialize_from_schema(const GraphicObject* object, GraphicPropertyBag* out_properties)
 {
     const GraphicPropertyDef* schema = NULL;
     int count = 0;
@@ -296,7 +288,7 @@ static int default_serialize_from_schema(const GraphicObject* object, GraphicPro
     return 1;
 }
 
-static GraphicObject* default_clone_object(const GraphicObject* object)
+GraphicObject* default_clone_object(const GraphicObject* object)
 {
     GraphicPropertyBag properties;
 
@@ -311,484 +303,6 @@ static GraphicObject* default_clone_object(const GraphicObject* object)
     }
 
     return object->descriptor->deserialize(&properties, object->style);
-}
-
-static int builtin_object_get_scalar(const GraphicObject* object, const char* key, float* out_value)
-{
-    if (!object || !object->impl) {
-        return 0;
-    }
-
-    if (object->type == GRAPHIC_OBJECT_LINE) {
-        const LineData* line = (const LineData*)object->impl;
-        if (strcmp(key, "x1") == 0) { *out_value = line->p1.x; return 1; }
-        if (strcmp(key, "y1") == 0) { *out_value = line->p1.y; return 1; }
-        if (strcmp(key, "x2") == 0) { *out_value = line->p2.x; return 1; }
-        if (strcmp(key, "y2") == 0) { *out_value = line->p2.y; return 1; }
-    } else if (object->type == GRAPHIC_OBJECT_RECT) {
-        const RectData* rect = (const RectData*)object->impl;
-        if (strcmp(key, "x") == 0) { *out_value = rect->rect.x; return 1; }
-        if (strcmp(key, "y") == 0) { *out_value = rect->rect.y; return 1; }
-        if (strcmp(key, "width") == 0) { *out_value = rect->rect.w; return 1; }
-        if (strcmp(key, "height") == 0) { *out_value = rect->rect.h; return 1; }
-    } else if (object->type == GRAPHIC_OBJECT_ELLIPSE) {
-        const EllipseData* ellipse = (const EllipseData*)object->impl;
-        if (strcmp(key, "x") == 0) { *out_value = ellipse->bounds.x; return 1; }
-        if (strcmp(key, "y") == 0) { *out_value = ellipse->bounds.y; return 1; }
-        if (strcmp(key, "width") == 0) { *out_value = ellipse->bounds.w; return 1; }
-        if (strcmp(key, "height") == 0) { *out_value = ellipse->bounds.h; return 1; }
-    }
-
-    return style_get_scalar(object, key, out_value);
-}
-
-static int builtin_object_set_scalar(GraphicObject* object, const char* key, float value)
-{
-    if (!object || !object->impl) {
-        return 0;
-    }
-
-    if (object->type == GRAPHIC_OBJECT_LINE) {
-        LineData* line = (LineData*)object->impl;
-        if (strcmp(key, "x1") == 0) { line->p1.x = value; return 1; }
-        if (strcmp(key, "y1") == 0) { line->p1.y = value; return 1; }
-        if (strcmp(key, "x2") == 0) { line->p2.x = value; return 1; }
-        if (strcmp(key, "y2") == 0) { line->p2.y = value; return 1; }
-    } else if (object->type == GRAPHIC_OBJECT_RECT) {
-        RectData* rect = (RectData*)object->impl;
-        if (strcmp(key, "x") == 0) { rect->rect.x = value; return 1; }
-        if (strcmp(key, "y") == 0) { rect->rect.y = value; return 1; }
-        if (strcmp(key, "width") == 0) { rect->rect.w = value; return 1; }
-        if (strcmp(key, "height") == 0) { rect->rect.h = value; return 1; }
-    } else if (object->type == GRAPHIC_OBJECT_ELLIPSE) {
-        EllipseData* ellipse = (EllipseData*)object->impl;
-        if (strcmp(key, "x") == 0) { ellipse->bounds.x = value; return 1; }
-        if (strcmp(key, "y") == 0) { ellipse->bounds.y = value; return 1; }
-        if (strcmp(key, "width") == 0) { ellipse->bounds.w = value; return 1; }
-        if (strcmp(key, "height") == 0) { ellipse->bounds.h = value; return 1; }
-    }
-
-    return style_set_scalar(object, key, value);
-}
-
-static void builtin_object_destroy(GraphicObject* object)
-{
-    if (!object) {
-        return;
-    }
-
-    free(object->impl);
-    free(object);
-}
-
-static void builtin_object_translate(GraphicObject* object, Vec2 delta)
-{
-    if (!object || !object->impl) {
-        return;
-    }
-
-    if (object->type == GRAPHIC_OBJECT_LINE) {
-        LineData* line = (LineData*)object->impl;
-        line->p1 = vec2_add(line->p1, delta);
-        line->p2 = vec2_add(line->p2, delta);
-    } else if (object->type == GRAPHIC_OBJECT_RECT) {
-        RectData* rect = (RectData*)object->impl;
-        rect->rect.x += delta.x;
-        rect->rect.y += delta.y;
-    } else if (object->type == GRAPHIC_OBJECT_ELLIPSE) {
-        EllipseData* ellipse = (EllipseData*)object->impl;
-        ellipse->bounds.x += delta.x;
-        ellipse->bounds.y += delta.y;
-    }
-}
-
-static RectF builtin_object_get_bounds(const GraphicObject* object)
-{
-    RectF empty = {0.0f, 0.0f, 0.0f, 0.0f};
-
-    if (!object || !object->impl) {
-        return empty;
-    }
-
-    if (object->type == GRAPHIC_OBJECT_LINE) {
-        const LineData* line = (const LineData*)object->impl;
-        float min_x = (line->p1.x < line->p2.x) ? line->p1.x : line->p2.x;
-        float min_y = (line->p1.y < line->p2.y) ? line->p1.y : line->p2.y;
-        float max_x = (line->p1.x > line->p2.x) ? line->p1.x : line->p2.x;
-        float max_y = (line->p1.y > line->p2.y) ? line->p1.y : line->p2.y;
-        RectF bounds = {min_x, min_y, max_x - min_x, max_y - min_y};
-        return bounds;
-    }
-
-    if (object->type == GRAPHIC_OBJECT_RECT) {
-        const RectData* rect = (const RectData*)object->impl;
-        return rect->rect;
-    }
-
-    if (object->type == GRAPHIC_OBJECT_ELLIPSE) {
-        const EllipseData* ellipse = (const EllipseData*)object->impl;
-        return ellipse->bounds;
-    }
-
-    return empty;
-}
-
-static float line_distance_to_segment(Vec2 point, Vec2 a, Vec2 b)
-{
-    Vec2 ab = vec2_sub(b, a);
-    float ab_len_sq = vec2_length_sq(ab);
-    float t = 0.0f;
-    Vec2 nearest = {0.0f, 0.0f};
-
-    if (ab_len_sq <= 1e-6f) {
-        return vec2_length(vec2_sub(point, a));
-    }
-
-    t = vec2_dot(vec2_sub(point, a), ab) / ab_len_sq;
-    nearest = vec2_add(a, vec2_scale(ab, clampf(t, 0.0f, 1.0f)));
-    return vec2_length(vec2_sub(point, nearest));
-}
-
-static int builtin_object_hit_test(const GraphicObject* object, Vec2 point, float tolerance)
-{
-    if (!object || !object->impl) {
-        return 0;
-    }
-
-    if (object->type == GRAPHIC_OBJECT_LINE) {
-        const LineData* line = (const LineData*)object->impl;
-        return line_distance_to_segment(point, line->p1, line->p2) <= tolerance;
-    }
-
-    if (object->type == GRAPHIC_OBJECT_RECT) {
-        RectF bounds = builtin_object_get_bounds(object);
-        bounds.x -= tolerance;
-        bounds.y -= tolerance;
-        bounds.w += tolerance * 2.0f;
-        bounds.h += tolerance * 2.0f;
-        return rectf_contains_point(&bounds, point);
-    }
-
-    if (object->type == GRAPHIC_OBJECT_ELLIPSE) {
-        RectF bounds = builtin_object_get_bounds(object);
-        float rx = (bounds.w * 0.5f) + tolerance;
-        float ry = (bounds.h * 0.5f) + tolerance;
-        Vec2 center = vec2_make(bounds.x + bounds.w * 0.5f, bounds.y + bounds.h * 0.5f);
-        float nx = 0.0f;
-        float ny = 0.0f;
-
-        if (rx <= 1e-6f || ry <= 1e-6f) {
-            return 0;
-        }
-
-        nx = (point.x - center.x) / rx;
-        ny = (point.y - center.y) / ry;
-        return (nx * nx + ny * ny) <= 1.0f;
-    }
-
-    return 0;
-}
-
-static int builtin_object_get_path_point_count(const GraphicObject* object)
-{
-    if (!object) {
-        return 0;
-    }
-
-    if (object->type == GRAPHIC_OBJECT_LINE) {
-        return 2;
-    }
-    if (object->type == GRAPHIC_OBJECT_RECT) {
-        return 5;
-    }
-    if (object->type == GRAPHIC_OBJECT_ELLIPSE) {
-        return ELLIPSE_SEGMENTS + 1;
-    }
-    return 0;
-}
-
-static void builtin_object_write_path_points(const GraphicObject* object, Vec2* out_points)
-{
-    int i = 0;
-
-    if (!object || !object->impl || !out_points) {
-        return;
-    }
-
-    if (object->type == GRAPHIC_OBJECT_LINE) {
-        const LineData* line = (const LineData*)object->impl;
-        out_points[0] = line->p1;
-        out_points[1] = line->p2;
-        return;
-    }
-
-    if (object->type == GRAPHIC_OBJECT_RECT) {
-        const RectData* rect = (const RectData*)object->impl;
-        out_points[0] = vec2_make(rect->rect.x, rect->rect.y);
-        out_points[1] = vec2_make(rect->rect.x + rect->rect.w, rect->rect.y);
-        out_points[2] = vec2_make(rect->rect.x + rect->rect.w, rect->rect.y + rect->rect.h);
-        out_points[3] = vec2_make(rect->rect.x, rect->rect.y + rect->rect.h);
-        out_points[4] = out_points[0];
-        return;
-    }
-
-    if (object->type == GRAPHIC_OBJECT_ELLIPSE) {
-        const EllipseData* ellipse = (const EllipseData*)object->impl;
-        float rx = ellipse->bounds.w * 0.5f;
-        float ry = ellipse->bounds.h * 0.5f;
-        Vec2 center = vec2_make(ellipse->bounds.x + rx, ellipse->bounds.y + ry);
-
-        for (i = 0; i < ELLIPSE_SEGMENTS; ++i) {
-            float t = (float)i / (float)ELLIPSE_SEGMENTS;
-            float angle = t * 6.28318530718f;
-            out_points[i] = vec2_make(center.x + cosf(angle) * rx,
-                                      center.y + sinf(angle) * ry);
-        }
-        out_points[ELLIPSE_SEGMENTS] = out_points[0];
-    }
-}
-
-static int builtin_object_serialize(const GraphicObject* object, GraphicPropertyBag* out_properties)
-{
-    return default_serialize_from_schema(object, out_properties);
-}
-
-static GraphicObject* make_line_from_bag(const GraphicPropertyBag* properties, GraphicStyle style)
-{
-    Vec2 p1 = {0.0f, 0.0f};
-    Vec2 p2 = {0.0f, 0.0f};
-    LineData* data = NULL;
-
-    if (!graphic_property_bag_get(properties, "x1", &p1.x) ||
-        !graphic_property_bag_get(properties, "y1", &p1.y) ||
-        !graphic_property_bag_get(properties, "x2", &p2.x) ||
-        !graphic_property_bag_get(properties, "y2", &p2.y)) {
-        return NULL;
-    }
-
-    data = (LineData*)calloc(1, sizeof(*data));
-    if (!data) {
-        return NULL;
-    }
-    data->p1 = p1;
-    data->p2 = p2;
-    return object_alloc(GRAPHIC_OBJECT_LINE,
-                        object_registry_lookup_by_type(GRAPHIC_OBJECT_LINE),
-                        data,
-                        style);
-}
-
-static GraphicObject* make_rect_from_bag(const GraphicPropertyBag* properties, GraphicStyle style)
-{
-    RectData* data = NULL;
-    RectF rect = {0.0f, 0.0f, 0.0f, 0.0f};
-
-    if (!graphic_property_bag_get(properties, "x", &rect.x) ||
-        !graphic_property_bag_get(properties, "y", &rect.y) ||
-        !graphic_property_bag_get(properties, "width", &rect.w) ||
-        !graphic_property_bag_get(properties, "height", &rect.h) ||
-        rect.w <= 0.0f || rect.h <= 0.0f) {
-        return NULL;
-    }
-
-    data = (RectData*)calloc(1, sizeof(*data));
-    if (!data) {
-        return NULL;
-    }
-    data->rect = rect;
-    return object_alloc(GRAPHIC_OBJECT_RECT,
-                        object_registry_lookup_by_type(GRAPHIC_OBJECT_RECT),
-                        data,
-                        style);
-}
-
-static GraphicObject* make_ellipse_from_bag(const GraphicPropertyBag* properties, GraphicStyle style)
-{
-    EllipseData* data = NULL;
-    RectF bounds = {0.0f, 0.0f, 0.0f, 0.0f};
-
-    if (!graphic_property_bag_get(properties, "x", &bounds.x) ||
-        !graphic_property_bag_get(properties, "y", &bounds.y) ||
-        !graphic_property_bag_get(properties, "width", &bounds.w) ||
-        !graphic_property_bag_get(properties, "height", &bounds.h) ||
-        bounds.w <= 0.0f || bounds.h <= 0.0f) {
-        return NULL;
-    }
-
-    data = (EllipseData*)calloc(1, sizeof(*data));
-    if (!data) {
-        return NULL;
-    }
-    data->bounds = bounds;
-    return object_alloc(GRAPHIC_OBJECT_ELLIPSE,
-                        object_registry_lookup_by_type(GRAPHIC_OBJECT_ELLIPSE),
-                        data,
-                        style);
-}
-
-static GraphicObject* builtin_object_deserialize_line(const GraphicPropertyBag* properties, GraphicStyle style)
-{
-    return make_line_from_bag(properties, style);
-}
-
-static GraphicObject* builtin_object_deserialize_rect(const GraphicPropertyBag* properties, GraphicStyle style)
-{
-    return make_rect_from_bag(properties, style);
-}
-
-static GraphicObject* builtin_object_deserialize_ellipse(const GraphicPropertyBag* properties, GraphicStyle style)
-{
-    return make_ellipse_from_bag(properties, style);
-}
-
-static GraphicObject* builtin_object_create_line(const void* init_data, GraphicStyle style)
-{
-    const Vec2* points = (const Vec2*)init_data;
-    GraphicPropertyBag bag;
-
-    graphic_property_bag_init(&bag);
-    if (points) {
-        graphic_property_bag_set(&bag, "x1", points[0].x);
-        graphic_property_bag_set(&bag, "y1", points[0].y);
-        graphic_property_bag_set(&bag, "x2", points[1].x);
-        graphic_property_bag_set(&bag, "y2", points[1].y);
-    }
-    return builtin_object_deserialize_line(&bag, style);
-}
-
-static GraphicObject* builtin_object_create_rect(const void* init_data, GraphicStyle style)
-{
-    const RectF* rect = (const RectF*)init_data;
-    GraphicPropertyBag bag;
-
-    graphic_property_bag_init(&bag);
-    if (rect) {
-        graphic_property_bag_set(&bag, "x", rect->x);
-        graphic_property_bag_set(&bag, "y", rect->y);
-        graphic_property_bag_set(&bag, "width", rect->w);
-        graphic_property_bag_set(&bag, "height", rect->h);
-    }
-    return builtin_object_deserialize_rect(&bag, style);
-}
-
-static GraphicObject* builtin_object_create_ellipse(const void* init_data, GraphicStyle style)
-{
-    const RectF* rect = (const RectF*)init_data;
-    GraphicPropertyBag bag;
-
-    graphic_property_bag_init(&bag);
-    if (rect) {
-        graphic_property_bag_set(&bag, "x", rect->x);
-        graphic_property_bag_set(&bag, "y", rect->y);
-        graphic_property_bag_set(&bag, "width", rect->w);
-        graphic_property_bag_set(&bag, "height", rect->h);
-    }
-    return builtin_object_deserialize_ellipse(&bag, style);
-}
-
-static const GraphicPropertyDef g_line_schema[] = {
-    {"x1", GRAPHIC_PROPERTY_FLOAT, -5000.0f, 5000.0f, 1.0f, 0.5f},
-    {"y1", GRAPHIC_PROPERTY_FLOAT, -5000.0f, 5000.0f, 1.0f, 0.5f},
-    {"x2", GRAPHIC_PROPERTY_FLOAT, -5000.0f, 5000.0f, 1.0f, 0.5f},
-    {"y2", GRAPHIC_PROPERTY_FLOAT, -5000.0f, 5000.0f, 1.0f, 0.5f},
-    {"stroke_r", GRAPHIC_PROPERTY_FLOAT, 0.0f, 1.0f, 0.01f, 0.01f},
-    {"stroke_g", GRAPHIC_PROPERTY_FLOAT, 0.0f, 1.0f, 0.01f, 0.01f},
-    {"stroke_b", GRAPHIC_PROPERTY_FLOAT, 0.0f, 1.0f, 0.01f, 0.01f},
-    {"stroke_a", GRAPHIC_PROPERTY_FLOAT, 0.0f, 1.0f, 0.01f, 0.01f},
-    {"stroke_width", GRAPHIC_PROPERTY_FLOAT, 1.0f, 12.0f, 0.1f, 0.1f}
-};
-
-static const GraphicPropertyDef g_rect_schema[] = {
-    {"x", GRAPHIC_PROPERTY_FLOAT, -5000.0f, 5000.0f, 1.0f, 0.5f},
-    {"y", GRAPHIC_PROPERTY_FLOAT, -5000.0f, 5000.0f, 1.0f, 0.5f},
-    {"width", GRAPHIC_PROPERTY_FLOAT, 1.0f, 5000.0f, 1.0f, 0.5f},
-    {"height", GRAPHIC_PROPERTY_FLOAT, 1.0f, 5000.0f, 1.0f, 0.5f},
-    {"stroke_r", GRAPHIC_PROPERTY_FLOAT, 0.0f, 1.0f, 0.01f, 0.01f},
-    {"stroke_g", GRAPHIC_PROPERTY_FLOAT, 0.0f, 1.0f, 0.01f, 0.01f},
-    {"stroke_b", GRAPHIC_PROPERTY_FLOAT, 0.0f, 1.0f, 0.01f, 0.01f},
-    {"stroke_a", GRAPHIC_PROPERTY_FLOAT, 0.0f, 1.0f, 0.01f, 0.01f},
-    {"stroke_width", GRAPHIC_PROPERTY_FLOAT, 1.0f, 12.0f, 0.1f, 0.1f}
-};
-
-static const GraphicPropertyDef g_ellipse_schema[] = {
-    {"x", GRAPHIC_PROPERTY_FLOAT, -5000.0f, 5000.0f, 1.0f, 0.5f},
-    {"y", GRAPHIC_PROPERTY_FLOAT, -5000.0f, 5000.0f, 1.0f, 0.5f},
-    {"width", GRAPHIC_PROPERTY_FLOAT, 1.0f, 5000.0f, 1.0f, 0.5f},
-    {"height", GRAPHIC_PROPERTY_FLOAT, 1.0f, 5000.0f, 1.0f, 0.5f},
-    {"stroke_r", GRAPHIC_PROPERTY_FLOAT, 0.0f, 1.0f, 0.01f, 0.01f},
-    {"stroke_g", GRAPHIC_PROPERTY_FLOAT, 0.0f, 1.0f, 0.01f, 0.01f},
-    {"stroke_b", GRAPHIC_PROPERTY_FLOAT, 0.0f, 1.0f, 0.01f, 0.01f},
-    {"stroke_a", GRAPHIC_PROPERTY_FLOAT, 0.0f, 1.0f, 0.01f, 0.01f},
-    {"stroke_width", GRAPHIC_PROPERTY_FLOAT, 1.0f, 12.0f, 0.1f, 0.1f}
-};
-
-static const GraphicObjectDescriptor g_builtin_descriptors[] = {
-    {GRAPHIC_OBJECT_LINE,
-     "line",
-     "Line",
-     builtin_object_create_line,
-     default_clone_object,
-     builtin_object_destroy,
-     builtin_object_translate,
-     builtin_object_get_bounds,
-     builtin_object_hit_test,
-     builtin_object_get_path_point_count,
-     builtin_object_write_path_points,
-     builtin_object_get_scalar,
-     builtin_object_set_scalar,
-     builtin_object_serialize,
-     builtin_object_deserialize_line,
-     g_line_schema,
-     (int)(sizeof(g_line_schema) / sizeof(g_line_schema[0]))},
-    {GRAPHIC_OBJECT_RECT,
-     "rect",
-     "Rectangle",
-     builtin_object_create_rect,
-     default_clone_object,
-     builtin_object_destroy,
-     builtin_object_translate,
-     builtin_object_get_bounds,
-     builtin_object_hit_test,
-     builtin_object_get_path_point_count,
-     builtin_object_write_path_points,
-     builtin_object_get_scalar,
-     builtin_object_set_scalar,
-     builtin_object_serialize,
-     builtin_object_deserialize_rect,
-     g_rect_schema,
-     (int)(sizeof(g_rect_schema) / sizeof(g_rect_schema[0]))},
-    {GRAPHIC_OBJECT_ELLIPSE,
-     "ellipse",
-     "Ellipse",
-     builtin_object_create_ellipse,
-     default_clone_object,
-     builtin_object_destroy,
-     builtin_object_translate,
-     builtin_object_get_bounds,
-     builtin_object_hit_test,
-     builtin_object_get_path_point_count,
-     builtin_object_write_path_points,
-     builtin_object_get_scalar,
-     builtin_object_set_scalar,
-     builtin_object_serialize,
-     builtin_object_deserialize_ellipse,
-     g_ellipse_schema,
-     (int)(sizeof(g_ellipse_schema) / sizeof(g_ellipse_schema[0]))}
-};
-
-static void ensure_registry_builtins(void)
-{
-    size_t i = 0;
-
-    object_registry_init();
-
-    for (i = 0; i < sizeof(g_builtin_descriptors) / sizeof(g_builtin_descriptors[0]); ++i) {
-        if (!object_registry_find_by_type_id(g_builtin_descriptors[i].type_id)) {
-            register_object_type(&g_builtin_descriptors[i]);
-        }
-    }
-
-    object_register_builtin_extensions();
 }
 
 GraphicStyle object_default_style(void)
@@ -806,7 +320,6 @@ const char* object_type_name(GraphicObjectType type)
 {
     const GraphicObjectDescriptor* descriptor = NULL;
 
-    ensure_registry_builtins();
     descriptor = object_registry_lookup_by_type(type);
     return descriptor ? descriptor->name : "Unknown";
 }
@@ -840,7 +353,6 @@ GraphicObject* object_create(const char* type_id, const void* init_data, Graphic
 {
     const GraphicObjectDescriptor* descriptor = NULL;
 
-    ensure_registry_builtins();
     descriptor = object_registry_lookup(type_id);
     if (!descriptor || !descriptor->create) {
         return NULL;
@@ -849,21 +361,6 @@ GraphicObject* object_create(const char* type_id, const void* init_data, Graphic
     return descriptor->create(init_data, style);
 }
 
-GraphicObject* object_create_line(Vec2 p1, Vec2 p2, GraphicStyle style)
-{
-    Vec2 points[2] = {p1, p2};
-    return object_create("line", points, style);
-}
-
-GraphicObject* object_create_rect(RectF rect, GraphicStyle style)
-{
-    return object_create("rect", &rect, style);
-}
-
-GraphicObject* object_create_ellipse(RectF bounds, GraphicStyle style)
-{
-    return object_create("ellipse", &bounds, style);
-}
 
 GraphicObject* object_clone(const GraphicObject* object)
 {

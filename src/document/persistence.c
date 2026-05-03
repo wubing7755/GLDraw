@@ -743,6 +743,7 @@ static int parse_layer_entry(JsonParser* parser, Document* document)
     unsigned int id = 0u;
     int visible = 1;
     int locked = 0;
+    DocumentLayer layer = {0};
     char name[32] = {0};
     char blend_mode[16] = {0};
     int has_id = 0;
@@ -800,23 +801,16 @@ static int parse_layer_entry(JsonParser* parser, Document* document)
     }
 
     json_parser_next(parser);
-    if (!has_id || !has_name || id == 0u || document->layer_count >= DOCUMENT_MAX_LAYERS) {
+    if (!has_id || !has_name || id == 0u) {
         return 0;
     }
 
-    document->layers[document->layer_count].id = id;
-    snprintf(document->layers[document->layer_count].name,
-             sizeof(document->layers[document->layer_count].name),
-             "%s",
-             name);
-    document->layers[document->layer_count].visible = visible ? 1 : 0;
-    document->layers[document->layer_count].locked = locked ? 1 : 0;
-    document->layers[document->layer_count].blend_mode = layer_blend_mode_from_name(blend_mode);
-    document->layer_count++;
-    if (document->next_layer_id <= id) {
-        document->next_layer_id = id + 1u;
-    }
-    return 1;
+    layer.id = id;
+    snprintf(layer.name, sizeof(layer.name), "%s", name);
+    layer.visible = visible ? 1 : 0;
+    layer.locked = locked ? 1 : 0;
+    layer.blend_mode = layer_blend_mode_from_name(blend_mode);
+    return document_insert_layer_at(document, &layer, document->layer_count);
 }
 
 static int parse_layers_array(JsonParser* parser, Document* document)

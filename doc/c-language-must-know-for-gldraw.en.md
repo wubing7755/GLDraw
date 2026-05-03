@@ -37,7 +37,7 @@ Every item below maps directly to real code in this repository.
 | Fixed arrays + bounds checks | Object pool and selection safety | `include/document/document.h` |
 | Function pointers + vtable | Object/tool polymorphism | `include/document/object.h`, `src/document/object.c` |
 | Callbacks + `void*` user pointer | Recover `Application*` from window callbacks | `src/app/application.c` |
-| Dynamic memory management | Prevent leaks and dangling pointers | `src/document/history.c` |
+| Dynamic memory management | Prevent leaks and dangling pointers | `src/commands/command.c` |
 | `const` / `static` / scope | Visibility and mutability control | Most `.h/.c` files |
 | Preprocessor platform branches | Windows and non-Windows behavior | `src/document/persistence.c` |
 | Bitmask operations | Modifier key handling | `src/tools/tool_controller.c` |
@@ -95,7 +95,7 @@ Why: Reduces crash risk and matches the repository coding style.
 ### Change inspector/property editing behavior
 
 1. Edit `src/ui/ui_system.c`
-2. Ensure object edits correctly push to `document_history_push()`
+2. Ensure object edits correctly push through `command_executor_execute()`
 3. Verify dirty state sync via `workspace_sync_document_dirty()`
 
 ## Pre-PR checklist
@@ -116,7 +116,7 @@ Why: Reduces crash risk and matches the repository coding style.
 ### Issue 2: Object changes not recorded in history
 
 Symptom: `Ctrl+Z` does not undo your edit.  
-Check: Did your code call `document_history_push()` at the right place?
+Check: Did your code call `command_executor_execute()` at the right place?
 
 ### Issue 3: Rendering changed, model unchanged
 

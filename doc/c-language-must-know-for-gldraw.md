@@ -36,7 +36,7 @@
 | 定长数组与边界检查 | 对象池和选择集安全 | `include/document/document.h` |
 | 函数指针与 vtable | 对象系统与工具系统多态 | `include/document/object.h`, `src/document/object.c` |
 | 回调与 `void*` 用户指针 | 从 GLFW 窗口取回 `Application*` | `src/app/application.c` |
-| 动态内存管理 | 避免泄漏与悬空引用 | `src/document/history.c` |
+| 动态内存管理 | 避免泄漏与悬空引用 | `src/commands/command.c` |
 | `const` / `static` / 作用域 | 控制可见性与只读约束 | 各模块 `.h/.c` |
 | 预处理与平台分支 | Windows 与非 Windows 路径 | `src/document/persistence.c` |
 | 位运算掩码 | 键盘修饰键处理 | `src/tools/tool_controller.c` |
@@ -93,7 +93,7 @@ if (!app) {
 ### 修改属性面板行为
 
 1. 改 `src/ui/ui_system.c`
-2. 修改对象属性时保证 `document_history_push()` 被正确触发
+2. 修改对象属性时保证通过 `command_executor_execute()` 提交命令
 3. 检查 `workspace_sync_document_dirty()` 是否同步
 
 ## 提交 PR 前检查（推荐）
@@ -114,7 +114,7 @@ if (!app) {
 ### 问题 2：改了对象数据但没进历史栈
 
 症状：修改后无法 `Ctrl+Z`。  
-排查：是否在正确位置调用 `document_history_push()`。
+排查：是否通过 `command_executor_execute()` 正确提交了命令。
 
 ### 问题 3：只改了渲染，没改数据模型
 

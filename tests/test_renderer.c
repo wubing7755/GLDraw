@@ -3,6 +3,8 @@
 #include <render/canvas_drawlist.h>
 #include <render/canvas_renderer.h>
 
+#include <app/extension_loader.h>
+
 #include <stdio.h>
 #include <string.h>
 
@@ -187,7 +189,13 @@ static int test_canvas_renderer_submit_sequence(void)
     EXPECT_TRUE(document_add_object(&document, make_rect(10.0f, 20.0f, 40.0f, 50.0f)));
 
     canvas_drawlist_init(&draw_list);
-    EXPECT_TRUE(canvas_drawlist_build(&draw_list, &document, &selection, &canvas, NULL));
+    EXPECT_TRUE(canvas_drawlist_build(&draw_list,
+                                      &document,
+                                      &selection,
+                                      &canvas,
+                                      0,
+                                      (Vec2){0.0f, 0.0f},
+                                      NULL));
     EXPECT_INT_EQ((int)draw_list.stroke_count, 1);
 
     mock.base.vtable = &MOCK_VTABLE;
@@ -229,7 +237,13 @@ static int test_selected_object_emits_highlight_first(void)
     EXPECT_TRUE(selection_set_add(&selection, 1u));
 
     canvas_drawlist_init(&draw_list);
-    EXPECT_TRUE(canvas_drawlist_build(&draw_list, &document, &selection, &canvas, NULL));
+    EXPECT_TRUE(canvas_drawlist_build(&draw_list,
+                                      &document,
+                                      &selection,
+                                      &canvas,
+                                      0,
+                                      (Vec2){0.0f, 0.0f},
+                                      NULL));
     EXPECT_INT_EQ((int)draw_list.stroke_count, 2);
     EXPECT_TRUE(draw_list.strokes[0].line_width > draw_list.strokes[1].line_width);
 
@@ -240,6 +254,8 @@ static int test_selected_object_emits_highlight_first(void)
 
 int main(void)
 {
+    extension_loader_register_all();
+
     if (test_canvas_renderer_submit_sequence()) return 1;
     if (test_selected_object_emits_highlight_first()) return 1;
 

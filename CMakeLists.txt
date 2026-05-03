@@ -75,16 +75,21 @@ endfunction()
 set(GLDRAW_MODEL_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/base/file_utils.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/base/path_utils.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/model/selection.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/app/extension_manifest.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/document/object.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/document/object_line.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/document/object_rect.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/document/object_ellipse.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/document/object_fake_star.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/document/document.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/document/history.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/document/persistence.c
 )
 
 set(GLDRAW_RENDER_GL_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/canvas/canvas_view.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/render/render_device.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/render/render_device_factory.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/render/render_device_gl.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/render/canvas_drawlist.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/render/canvas_renderer.c
@@ -101,10 +106,14 @@ set(GLDRAW_COMMAND_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/app/editor_viewmodel.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/app/workspace_actions.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/app/workspace_dialogs.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/app/workspace_service.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/input/key_chord.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/input/keymap.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/input/input_router.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/tools/tool_controller.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/tools/tool_select.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/tools/tool_pan.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/tools/tool_shape.c
 )
 
 if(GLDRAW_ENABLE_SCRIPTING)
@@ -401,7 +410,7 @@ target_include_directories(gldraw_registry_tests
         ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
-target_link_libraries(gldraw_registry_tests PRIVATE gldraw_render_gl)
+target_link_libraries(gldraw_registry_tests PRIVATE gldraw_ui_nuklear)
 
 gldraw_apply_compile_options(gldraw_registry_tests)
 gldraw_apply_sanitizers(gldraw_registry_tests)
@@ -411,6 +420,46 @@ set_target_properties(gldraw_registry_tests PROPERTIES
 )
 
 add_test(NAME gldraw_registry_tests COMMAND $<TARGET_FILE:gldraw_registry_tests>)
+
+add_executable(gldraw_fake_star_tests
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_fake_star.c
+)
+
+target_include_directories(gldraw_fake_star_tests
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+
+target_link_libraries(gldraw_fake_star_tests PRIVATE gldraw_render_gl)
+
+gldraw_apply_compile_options(gldraw_fake_star_tests)
+gldraw_apply_sanitizers(gldraw_fake_star_tests)
+
+set_target_properties(gldraw_fake_star_tests PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+)
+
+add_test(NAME gldraw_fake_star_tests COMMAND $<TARGET_FILE:gldraw_fake_star_tests>)
+
+add_executable(gldraw_no_builtin_knowledge_tests
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_no_builtin_knowledge.c
+)
+
+target_include_directories(gldraw_no_builtin_knowledge_tests
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+
+target_link_libraries(gldraw_no_builtin_knowledge_tests PRIVATE gldraw_model)
+
+gldraw_apply_compile_options(gldraw_no_builtin_knowledge_tests)
+gldraw_apply_sanitizers(gldraw_no_builtin_knowledge_tests)
+
+set_target_properties(gldraw_no_builtin_knowledge_tests PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+)
+
+add_test(NAME gldraw_no_builtin_knowledge_tests COMMAND $<TARGET_FILE:gldraw_no_builtin_knowledge_tests>)
 
 add_executable(gldraw_ui_logic_tests
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_ui_logic.c
@@ -460,6 +509,8 @@ add_custom_target(gldraw_tests
         gldraw_document_tests
         gldraw_command_tests
         gldraw_registry_tests
+        gldraw_fake_star_tests
+        gldraw_no_builtin_knowledge_tests
         gldraw_ui_logic_tests
         gldraw_renderer_tests
 )

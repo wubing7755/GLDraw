@@ -26,6 +26,7 @@ typedef struct EditorToolView {
     char id[EDITOR_ACTION_ID_CAPACITY];
     char name[EDITOR_VIEWMODEL_NAME_CAPACITY];
     char tooltip[EDITOR_VIEWMODEL_TOOLTIP_CAPACITY];
+    char unavailable_reason[EDITOR_VIEWMODEL_TOOLTIP_CAPACITY];
     char icon[EDITOR_VIEWMODEL_NAME_CAPACITY];
     char shortcut[EDITOR_VIEWMODEL_SHORTCUT_CAPACITY];
     int active;
@@ -70,17 +71,20 @@ typedef struct EditorDocumentSummaryView {
 typedef struct EditorViewModel {
     EditorDocumentSummaryView summary;
     EditorCommandView commands[EDITOR_VIEWMODEL_MAX_COMMANDS];
-    EditorToolView tools[TOOL_MAX_TYPES];
+    EditorToolView* tools;
     int tool_count;
+    int tool_capacity;
     EditorPropertyView properties[GRAPHIC_OBJECT_MAX_PROPERTIES];
     int property_count;
-    EditorLayerView layers[DOCUMENT_MAX_LAYERS];
+    EditorLayerView* layers;
     int layer_count;
+    int layer_capacity;
     UiDialogState active_dialog;
     int has_selection;
 } EditorViewModel;
 
 void editor_viewmodel_init(EditorViewModel* view_model);
+void editor_viewmodel_shutdown(EditorViewModel* view_model);
 int editor_viewmodel_build(EditorViewModel* view_model, const struct Workspace* workspace);
 int editor_viewmodel_command_available(const EditorViewModel* view_model,
                                        EditorCommand command);

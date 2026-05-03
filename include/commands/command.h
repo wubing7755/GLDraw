@@ -82,6 +82,12 @@ void command_executor_set_memory_budget(CommandExecutor* executor, size_t memory
 Command* command_create_create_object(GraphicObject* object_snapshot);
 Command* command_create_delete_selection(const Document* document, const SelectionSet* selection);
 Command* command_create_move_objects(const ObjectId* object_ids, int object_count, Vec2 delta);
+Command* command_create_paste_objects(const Document* document,
+                                      GraphicObject* const* object_snapshots,
+                                      int object_count,
+                                      Vec2 delta,
+                                      LayerId layer_id,
+                                      SelectionSet* out_selection);
 Command* command_create_set_property(ObjectId object_id,
                                      const char* key,
                                      float before_value,

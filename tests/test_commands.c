@@ -1,5 +1,6 @@
 #include <commands/command.h>
 
+#include <app/extension_loader.h>
 #include <base/math2d.h>
 
 #include <math.h>
@@ -549,8 +550,211 @@ static int test_command_can_execute_reports_capability(void)
     return 0;
 }
 
+static int test_paste_command_undo_redo_and_conflict_rollback(void)
+{
+    Document document;
+    CommandExecutor executor;
+    GraphicObject* clipboard[2] = {NULL, NULL};
+    Command* command = NULL;
+    SelectionSet pasted_selection = {0};
+    float x = 0.0f;
+
+    document_init(&document);
+    command_executor_init(&executor);
+
+    clipboard[0] = make_rect(0.0f, 0.0f, 10.0f, 10.0f);
+    clipboard[1] = make_rect(20.0f, 0.0f, 10.0f, 10.0f);
+    EXPECT_TRUE(clipboard[0] != NULL);
+    EXPECT_TRUE(clipboard[1] != NULL);
+
+    EXPECT_TRUE(command_executor_execute(&executor,
+                                         command_create_paste_objects(&document,
+                                                                      clipboard,
+                                                                      2,
+                                                                      vec2_make(5.0f, 0.0f),
+                                                                      1u,
+                                                                      &pasted_selection),
+                                         &document));
+    EXPECT_INT_EQ(document.count, 2);
+    EXPECT_INT_EQ(pasted_selection.count, 2);
+    EXPECT_TRUE(get_scalar(&document, pasted_selection.ids[0], "x", &x));
+    EXPECT_FLOAT_EQ(x, 5.0f);
+
+    EXPECT_TRUE(command_executor_undo(&executor, &document));
+    EXPECT_INT_EQ(document.count, 0);
+    EXPECT_TRUE(command_executor_redo(&executor, &document));
+    EXPECT_INT_EQ(document.count, 2);
+
+    selection_set_shutdown(&pasted_selection);
+    command_executor_shutdown(&executor);
+    document_shutdown(&document);
+    object_destroy(clipboard[0]);
+    object_destroy(clipboard[1]);
+
+    document_init(&document);
+    command_executor_init(&executor);
+    clipboard[0] = make_rect(0.0f, 0.0f, 10.0f, 10.0f);
+    EXPECT_TRUE(clipboard[0] != NULL);
+
+    command = command_create_paste_objects(&document,
+                                           clipboard,
+                                           1,
+                                           vec2_make(0.0f, 0.0f),
+                                           1u,
+                                           NULL);
+    EXPECT_TRUE(command != NULL);
+    /* Occupy the predicted ID before execution to force append failure. */
+    EXPECT_TRUE(document_add_object(&document, make_rect(100.0f, 0.0f, 10.0f, 10.0f)));
+    EXPECT_FALSE(command_executor_execute(&executor, command, &document));
+    EXPECT_INT_EQ(document.count, 1);
+
+    command_executor_shutdown(&executor);
+    document_shutdown(&document);
+    object_destroy(clipboard[0]);
+    return 0;
+}
+
+static int test_move_multiple_objects_undo(void)
+{
+    Document document;
+    CommandExecutor executor;
+    ObjectId ids[3] = {1u, 2u, 3u};
+    float x1 = 0.0f;
+    float x2 = 0.0f;
+    float x3 = 0.0f;
+
+    document_init(&document);
+    command_executor_init(&executor);
+    EXPECT_TRUE(document_add_object(&document, make_rect(0.0f, 0.0f, 10.0f, 10.0f)));
+    EXPECT_TRUE(document_add_object(&document, make_rect(10.0f, 0.0f, 10.0f, 10.0f)));
+    EXPECT_TRUE(document_add_object(&document, make_rect(20.0f, 0.0f, 10.0f, 10.0f)));
+
+    EXPECT_TRUE(command_executor_execute(&executor,
+                                         command_create_move_objects(ids, 3, vec2_make(5.0f, -3.0f)),
+                                         &document));
+    EXPECT_TRUE(get_scalar(&document, 1u, "x", &x1));
+    EXPECT_TRUE(get_scalar(&document, 2u, "x", &x2));
+    EXPECT_TRUE(get_scalar(&document, 3u, "x", &x3));
+    EXPECT_FLOAT_EQ(x1, 5.0f);
+    EXPECT_FLOAT_EQ(x2, 15.0f);
+    EXPECT_FLOAT_EQ(x3, 25.0f);
+
+    EXPECT_TRUE(command_executor_undo(&executor, &document));
+    EXPECT_TRUE(get_scalar(&document, 1u, "x", &x1));
+    EXPECT_TRUE(get_scalar(&document, 2u, "x", &x2));
+    EXPECT_TRUE(get_scalar(&document, 3u, "x", &x3));
+    EXPECT_FLOAT_EQ(x1, 0.0f);
+    EXPECT_FLOAT_EQ(x2, 10.0f);
+    EXPECT_FLOAT_EQ(x3, 20.0f);
+
+    EXPECT_TRUE(command_executor_redo(&executor, &document));
+    EXPECT_TRUE(get_scalar(&document, 1u, "x", &x1));
+    EXPECT_TRUE(get_scalar(&document, 2u, "x", &x2));
+    EXPECT_TRUE(get_scalar(&document, 3u, "x", &x3));
+    EXPECT_FLOAT_EQ(x1, 5.0f);
+    EXPECT_FLOAT_EQ(x2, 15.0f);
+    EXPECT_FLOAT_EQ(x3, 25.0f);
+
+    command_executor_shutdown(&executor);
+    document_shutdown(&document);
+    return 0;
+}
+
+static int test_paste_on_locked_layer_rejected(void)
+{
+    Document document;
+    CommandExecutor executor;
+    GraphicObject* clipboard[1] = {NULL};
+    Command* command = NULL;
+    SelectionSet pasted_selection = {0};
+
+    document_init(&document);
+    command_executor_init(&executor);
+    clipboard[0] = make_rect(0.0f, 0.0f, 10.0f, 10.0f);
+    EXPECT_TRUE(clipboard[0] != NULL);
+
+    EXPECT_TRUE(document_set_layer_locked(&document, 1u, 1));
+    command = command_create_paste_objects(&document,
+                                           clipboard,
+                                           1,
+                                           vec2_make(0.0f, 0.0f),
+                                           1u,
+                                           &pasted_selection);
+    EXPECT_TRUE(command != NULL);
+    EXPECT_FALSE(command_can_execute(command, &document));
+    EXPECT_FALSE(command_executor_execute(&executor, command, &document));
+    EXPECT_INT_EQ(document.count, 0);
+
+    selection_set_shutdown(&pasted_selection);
+    command_executor_shutdown(&executor);
+    document_shutdown(&document);
+    object_destroy(clipboard[0]);
+    return 0;
+}
+
+static int test_paste_command_assigns_unique_ids(void)
+{
+    Document document;
+    CommandExecutor executor;
+    GraphicObject* clipboard[3] = {NULL, NULL, NULL};
+    Command* command = NULL;
+    SelectionSet pasted_selection = {0};
+
+    document_init(&document);
+    command_executor_init(&executor);
+    clipboard[0] = make_rect(0.0f, 0.0f, 10.0f, 10.0f);
+    clipboard[1] = make_rect(20.0f, 0.0f, 10.0f, 10.0f);
+    clipboard[2] = make_rect(40.0f, 0.0f, 10.0f, 10.0f);
+    EXPECT_TRUE(clipboard[0] && clipboard[1] && clipboard[2]);
+
+    command = command_create_paste_objects(&document,
+                                           clipboard,
+                                           3,
+                                           vec2_make(0.0f, 0.0f),
+                                           1u,
+                                           &pasted_selection);
+    EXPECT_TRUE(command != NULL);
+    EXPECT_INT_EQ(pasted_selection.count, 3);
+    EXPECT_TRUE(pasted_selection.ids[0] != pasted_selection.ids[1]);
+    EXPECT_TRUE(pasted_selection.ids[1] != pasted_selection.ids[2]);
+    EXPECT_TRUE(pasted_selection.ids[0] != pasted_selection.ids[2]);
+
+    EXPECT_TRUE(command_executor_execute(&executor, command, &document));
+    EXPECT_INT_EQ(document.count, 3);
+    EXPECT_TRUE(document_find_object(&document, pasted_selection.ids[0]) != NULL);
+    EXPECT_TRUE(document_find_object(&document, pasted_selection.ids[1]) != NULL);
+    EXPECT_TRUE(document_find_object(&document, pasted_selection.ids[2]) != NULL);
+
+    selection_set_shutdown(&pasted_selection);
+    command_executor_shutdown(&executor);
+    document_shutdown(&document);
+    object_destroy(clipboard[0]);
+    object_destroy(clipboard[1]);
+    object_destroy(clipboard[2]);
+    return 0;
+}
+
+static int test_execute_null_command_returns_failure(void)
+{
+    Document document;
+    CommandExecutor executor;
+
+    document_init(&document);
+    command_executor_init(&executor);
+    EXPECT_FALSE(command_executor_execute(&executor, NULL, &document));
+    EXPECT_FALSE(command_executor_can_undo(&executor));
+    EXPECT_FALSE(command_executor_undo(&executor, &document));
+    EXPECT_FALSE(command_executor_redo(&executor, &document));
+
+    command_executor_shutdown(&executor);
+    document_shutdown(&document);
+    return 0;
+}
+
 int main(void)
 {
+    extension_loader_register_all();
+
     if (test_create_object_command()) return 1;
     if (test_delete_selection_command()) return 1;
     if (test_move_objects_command_and_merge()) return 1;
@@ -563,6 +767,11 @@ int main(void)
     if (test_layer_commands_undo_redo()) return 1;
     if (test_command_execute_respects_locked_targets()) return 1;
     if (test_command_can_execute_reports_capability()) return 1;
+    if (test_paste_command_undo_redo_and_conflict_rollback()) return 1;
+    if (test_move_multiple_objects_undo()) return 1;
+    if (test_paste_on_locked_layer_rejected()) return 1;
+    if (test_paste_command_assigns_unique_ids()) return 1;
+    if (test_execute_null_command_returns_failure()) return 1;
 
     printf("[PASS] command executor core commands\n");
     return 0;

@@ -1,9 +1,9 @@
 #include <app/command_dispatcher.h>
+#include <app/extension_loader.h>
 #include <app/workspace.h>
 #include <base/math2d.h>
 #include <canvas/canvas_view.h>
 #include <commands/command.h>
-#include <document/history.h>
 #include <input/keymap.h>
 #include <ui/editor_action.h>
 #include <ui/editor_viewmodel.h>
@@ -68,15 +68,17 @@ static GraphicObject* make_rect(float x, float y, float w, float h)
     return object_create_rect((RectF){x, y, w, h}, object_default_style());
 }
 
+static EditorCommand tool_command(const char* command_id)
+{
+    const CommandDescriptor* descriptor = command_registry_find_by_id(command_id);
+    return descriptor ? descriptor->command : EDITOR_COMMAND_NONE;
+}
+
 static int init_workspace(Workspace* workspace)
 {
     memset(workspace, 0, sizeof(*workspace));
     document_init(&workspace->core.document);
-    if (!document_history_init(&workspace->core.history)) {
-        return 0;
-    }
     if (!command_executor_init(&workspace->core.commands)) {
-        document_history_shutdown(&workspace->core.history);
         return 0;
     }
     canvas_view_init(&workspace->core.canvas,
@@ -92,7 +94,8 @@ static void shutdown_workspace(Workspace* workspace)
     keymap_shutdown(&workspace->session.keymap);
     tool_controller_shutdown(&workspace->core.tools);
     command_executor_shutdown(&workspace->core.commands);
-    document_history_shutdown(&workspace->core.history);
+    workspace_clear_clipboard(workspace);
+    selection_set_shutdown(&workspace->session.selection);
     document_shutdown(&workspace->core.document);
 }
 
@@ -141,7 +144,7 @@ static int test_editor_viewmodel_builds_selection_properties(void)
     EXPECT_TRUE(view_model.tools[3].available == 0);
     EXPECT_TRUE(view_model.tools[4].available == 0);
     EXPECT_STR_EQ(editor_viewmodel_command_unavailable_reason(&view_model,
-                                                              EDITOR_COMMAND_TOOL_RECT),
+                                                              tool_command("tool.rect")),
                   "Active layer is locked.");
     EXPECT_SUBSTR(view_model.tools[2].tooltip, "Active layer is locked.");
     EXPECT_SUBSTR(view_model.tools[3].tooltip, "Active layer is locked.");
@@ -274,7 +277,6 @@ static int test_locked_layers_block_pick_and_shape_creation(void)
     memset(&context, 0, sizeof(context));
     context.workspace = &workspace;
     context.document = &workspace.core.document;
-    context.history = &workspace.core.history;
     context.canvas = &workspace.core.canvas;
     context.selection = &workspace.session.selection;
 
@@ -316,7 +318,6 @@ static int test_command_registry_respects_locked_layers(void)
     memset(&context, 0, sizeof(context));
     context.workspace = &workspace;
     context.document = &workspace.core.document;
-    context.history = &workspace.core.history;
     context.canvas = &workspace.core.canvas;
     context.selection = &workspace.session.selection;
 
@@ -325,14 +326,19 @@ static int test_command_registry_respects_locked_layers(void)
     EXPECT_TRUE(selection_set_contains(&workspace.session.selection, 2u));
     EXPECT_TRUE(selection_set_contains(&workspace.session.selection, 1u) == 0);
 
-    workspace.session.clipboard_objects[0] = object_clone(document_find_object(&workspace.core.document, 2u));
+    workspace.session.clipboard_objects =
+        (GraphicObject**)calloc(1u, sizeof(workspace.session.clipboard_objects[0]));
+    EXPECT_TRUE(workspace.session.clipboard_objects != NULL);
+    workspace.session.clipboard_capacity = 1;
+    workspace.session.clipboard_objects[0] =
+        object_clone(document_find_object(&workspace.core.document, 2u));
     EXPECT_TRUE(workspace.session.clipboard_objects[0] != NULL);
     workspace.session.clipboard_count = 1;
     EXPECT_TRUE(document_set_active_layer(&workspace.core.document, locked_layer));
-    EXPECT_TRUE(command_registry_is_available(&workspace, EDITOR_COMMAND_TOOL_RECT) == 0);
-    EXPECT_STR_EQ(command_registry_unavailable_reason(&workspace, EDITOR_COMMAND_TOOL_RECT),
+    EXPECT_TRUE(command_registry_is_available(&workspace, tool_command("tool.rect")) == 0);
+    EXPECT_STR_EQ(command_registry_unavailable_reason(&workspace, tool_command("tool.rect")),
                   "Active layer is locked.");
-    EXPECT_TRUE(command_registry_execute(&workspace, &context, EDITOR_COMMAND_TOOL_RECT) == 0);
+    EXPECT_TRUE(command_registry_execute(&workspace, &context, tool_command("tool.rect")) == 0);
     EXPECT_TRUE(command_registry_is_available(&workspace, EDITOR_COMMAND_EDIT_PASTE) == 0);
     EXPECT_STR_EQ(command_registry_unavailable_reason(&workspace, EDITOR_COMMAND_EDIT_PASTE),
                   "Active layer is locked.");
@@ -343,6 +349,8 @@ static int test_command_registry_respects_locked_layers(void)
 
 int main(void)
 {
+    extension_loader_register_all();
+
     if (test_editor_viewmodel_builds_selection_properties()) return 1;
     if (test_command_dispatcher_routes_actions()) return 1;
     if (test_locked_layers_block_pick_and_shape_creation()) return 1;

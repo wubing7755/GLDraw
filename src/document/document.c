@@ -9,11 +9,15 @@
 
 #define DOCUMENT_DEFAULT_LAYER_ID 1u
 #define DOCUMENT_DEFAULT_LAYER_NAME "Layer 1"
+#define DOCUMENT_DEFAULT_OBJECT_CAPACITY 16
+#define DOCUMENT_DEFAULT_LAYER_CAPACITY 4
 #define DOCUMENT_SPATIAL_CELL_SIZE 256.0f
 #define DOCUMENT_SPATIAL_MAX_AXIS_CELLS 64
 
 static void document_clear_objects(Document *document);
 static void document_reset_layers(Document *document);
+static int document_reserve_objects(Document *document, int needed);
+static int document_reserve_layers(Document *document, int needed);
 static void document_spatial_free(Document *document);
 static void document_spatial_invalidate(Document *document);
 static int document_spatial_add_entry(Document *document,
@@ -34,10 +38,12 @@ static void document_clear_objects(Document *document) {
 
   for (i = 0; i < document->count; ++i) {
     object_destroy(document->objects[i]);
-    document->objects[i] = NULL;
   }
 
+  free(document->objects);
+  document->objects = NULL;
   document->count = 0;
+  document->capacity = 0;
 }
 
 static void document_reset_layers(Document *document) {
@@ -45,8 +51,17 @@ static void document_reset_layers(Document *document) {
     return;
   }
 
-  memset(document->layers, 0, sizeof(document->layers));
+  free(document->layers);
+  document->layers = NULL;
+  document->layer_capacity = 0;
   document->layer_count = 1;
+  if (!document_reserve_layers(document, 1)) {
+    document->layer_count = 0;
+    document->active_layer_id = 0u;
+    document->next_layer_id = DOCUMENT_DEFAULT_LAYER_ID;
+    return;
+  }
+  memset(document->layers, 0, (size_t)document->layer_capacity * sizeof(document->layers[0]));
   document->layers[0].id = DOCUMENT_DEFAULT_LAYER_ID;
   snprintf(document->layers[0].name, sizeof(document->layers[0].name), "%s",
            DOCUMENT_DEFAULT_LAYER_NAME);
@@ -55,6 +70,66 @@ static void document_reset_layers(Document *document) {
   document->layers[0].blend_mode = DOCUMENT_LAYER_BLEND_NORMAL;
   document->active_layer_id = DOCUMENT_DEFAULT_LAYER_ID;
   document->next_layer_id = DOCUMENT_DEFAULT_LAYER_ID + 1u;
+}
+
+static int document_reserve_objects(Document *document, int needed) {
+  GraphicObject **objects = NULL;
+  int capacity = 0;
+
+  if (!document || needed <= 0) {
+    return document != NULL;
+  }
+  if (needed <= document->capacity) {
+    return 1;
+  }
+
+  capacity = document->capacity > 0 ? document->capacity : DOCUMENT_DEFAULT_OBJECT_CAPACITY;
+  while (capacity < needed) {
+    capacity *= 2;
+  }
+
+  objects = (GraphicObject **)realloc(document->objects,
+                                      (size_t)capacity * sizeof(document->objects[0]));
+  if (!objects) {
+    return 0;
+  }
+
+  document->objects = objects;
+  document->capacity = capacity;
+  return 1;
+}
+
+static int document_reserve_layers(Document *document, int needed) {
+  DocumentLayer *layers = NULL;
+  int capacity = 0;
+
+  if (!document || needed <= 0) {
+    return document != NULL;
+  }
+  if (needed <= document->layer_capacity) {
+    return 1;
+  }
+
+  capacity =
+      document->layer_capacity > 0 ? document->layer_capacity : DOCUMENT_DEFAULT_LAYER_CAPACITY;
+  while (capacity < needed) {
+    capacity *= 2;
+  }
+
+  layers = (DocumentLayer *)realloc(document->layers,
+                                    (size_t)capacity * sizeof(document->layers[0]));
+  if (!layers) {
+    return 0;
+  }
+
+  if (capacity > document->layer_capacity) {
+    memset(layers + document->layer_capacity,
+           0,
+           (size_t)(capacity - document->layer_capacity) * sizeof(layers[0]));
+  }
+  document->layers = layers;
+  document->layer_capacity = capacity;
+  return 1;
 }
 
 static void document_spatial_free(Document *document) {
@@ -77,6 +152,7 @@ static void document_spatial_free(Document *document) {
   document->spatial_query_token = 0u;
   document->spatial_bounds = (RectF){0.0f, 0.0f, 0.0f, 0.0f};
   document->spatial_cell_size = DOCUMENT_SPATIAL_CELL_SIZE;
+  document->spatial_mark_capacity = 0;
 }
 
 static void document_spatial_invalidate(Document *document) {
@@ -137,7 +213,7 @@ static int document_spatial_rebuild(Document *document) {
     }
     if (document->spatial_marks) {
       memset(document->spatial_marks, 0,
-             (size_t)DOCUMENT_MAX_OBJECTS * sizeof(document->spatial_marks[0]));
+             (size_t)document->spatial_mark_capacity * sizeof(document->spatial_marks[0]));
     }
     document->spatial_bounds = bounds;
     document->spatial_revision = document->revision;
@@ -205,7 +281,7 @@ static int document_spatial_rebuild(Document *document) {
                                     sizeof(document->spatial_heads[0]));
     unsigned int *marks =
         (unsigned int *)realloc(document->spatial_marks,
-                                (size_t)DOCUMENT_MAX_OBJECTS *
+                                (size_t)document->count *
                                     sizeof(document->spatial_marks[0]));
     if (!heads || !marks) {
       if (heads) {
@@ -219,12 +295,13 @@ static int document_spatial_rebuild(Document *document) {
     }
     document->spatial_heads = heads;
     document->spatial_marks = marks;
+    document->spatial_mark_capacity = document->count;
   }
 
   memset(document->spatial_heads, 0xff,
          (size_t)document->spatial_cell_count * sizeof(document->spatial_heads[0]));
   memset(document->spatial_marks, 0,
-         (size_t)DOCUMENT_MAX_OBJECTS * sizeof(document->spatial_marks[0]));
+         (size_t)document->spatial_mark_capacity * sizeof(document->spatial_marks[0]));
   document->spatial_query_token = 0u;
 
   for (i = 0; i < document->count; ++i) {
@@ -331,6 +408,12 @@ void document_shutdown(Document *document) {
 
   document_clear_objects(document);
   document_spatial_free(document);
+  free(document->layers);
+  document->layers = NULL;
+  document->layer_count = 0;
+  document->layer_capacity = 0;
+  document->active_layer_id = 0u;
+  document->next_layer_id = 0u;
   document->revision++;
 }
 
@@ -350,7 +433,7 @@ void document_reset(Document *document) {
 int document_add_object_to_layer(Document *document,
                                  GraphicObject *object,
                                  LayerId layer_id) {
-  if (!document || !object || document->count >= DOCUMENT_MAX_OBJECTS) {
+  if (!document || !object || !document_reserve_objects(document, document->count + 1)) {
     return 0;
   }
 
@@ -376,7 +459,8 @@ int document_append_object_with_id_to_layer(Document *document,
                                             GraphicObject *object,
                                             ObjectId id,
                                             LayerId layer_id) {
-  if (!document || !object || id == 0u || document->count >= DOCUMENT_MAX_OBJECTS) {
+  if (!document || !object || id == 0u ||
+      !document_reserve_objects(document, document->count + 1)) {
     return 0;
   }
   if (document_find_object(document, id)) {
@@ -443,8 +527,8 @@ int document_remove_object(Document *document, ObjectId id) {
       for (j = i; j < document->count - 1; ++j) {
         document->objects[j] = document->objects[j + 1];
       }
-      document->objects[document->count - 1] = NULL;
-      document->count--;
+  document->objects[document->count - 1] = NULL;
+  document->count--;
       document->revision++;
       document_spatial_invalidate(document);
       return 1;
@@ -555,7 +639,7 @@ int document_set_active_layer(Document *document, LayerId layer_id) {
 LayerId document_create_layer(Document *document, const char *name) {
   DocumentLayer *layer = NULL;
 
-  if (!document || document->layer_count >= DOCUMENT_MAX_LAYERS) {
+  if (!document || !document_reserve_layers(document, document->layer_count + 1)) {
     return 0u;
   }
 
@@ -577,7 +661,8 @@ LayerId document_create_layer_with_id(Document *document,
                                       LayerId layer_id) {
   DocumentLayer layer;
 
-  if (!document || layer_id == 0u || document->layer_count >= DOCUMENT_MAX_LAYERS ||
+  if (!document || layer_id == 0u ||
+      !document_reserve_layers(document, document->layer_count + 1) ||
       document_layer_find(document, layer_id)) {
     return 0u;
   }
@@ -601,7 +686,8 @@ int document_insert_layer_at(Document *document,
                              int index) {
   int i = 0;
 
-  if (!document || !layer || layer->id == 0u || document->layer_count >= DOCUMENT_MAX_LAYERS ||
+  if (!document || !layer || layer->id == 0u ||
+      !document_reserve_layers(document, document->layer_count + 1) ||
       document_layer_find(document, layer->id)) {
     return 0;
   }
@@ -767,7 +853,8 @@ int document_insert_object_clone_at(Document *document,
   GraphicObject *clone = NULL;
   int i = 0;
 
-  if (!document || !snapshot || document->count >= DOCUMENT_MAX_OBJECTS ||
+  if (!document || !snapshot ||
+      !document_reserve_objects(document, document->count + 1) ||
       snapshot->id == 0u || document_find_object(document, snapshot->id)) {
     return 0;
   }
@@ -825,7 +912,7 @@ int document_query_visible_indices(const Document *document,
 
   if (document->spatial_query_token == 0xffffffffu) {
     memset(document->spatial_marks, 0,
-           (size_t)DOCUMENT_MAX_OBJECTS * sizeof(document->spatial_marks[0]));
+           (size_t)document->spatial_mark_capacity * sizeof(document->spatial_marks[0]));
     mutable_document->spatial_query_token = 1u;
   } else {
     mutable_document->spatial_query_token++;

@@ -32,36 +32,47 @@ cmake --build build --parallel
 
 ## Architecture
 
-GLDraw is a canvas-oriented OpenGL drawing editor in C11. The central hub is **Workspace** (`include/app/workspace.h`), which owns:
+GLDraw is a canvas-oriented OpenGL drawing editor in C11. The central hub is **Workspace** (`include/app/workspace.h`), which contains:
 
 ```
-Workspace → Document + CanvasView + ToolController + DocumentHistory
+Workspace → EditorCore (Document + CommandExecutor + CanvasView + ToolController)
+          → EditorSession (Keymap, Layout, Selection, Clipboard)
+          → EditorServices (save/load/export callbacks)
 ```
 
 ### Core Systems
 
 | System | Purpose |
 |--------|---------|
-| **document** | Owns `GraphicObject` array (1024 max), selection set, revision tracking |
+| **document** | Owns dynamic `GraphicObject` array, layer system, spatial index, revision tracking |
+| **model** | `SelectionSet` (dynamic), `EditorSession` state |
 | **canvas** | Viewport, zoom/pan, world↔screen coordinate transforms |
-| **tools** | Routes pointer/key events to active tool via `ToolVTable` |
-| **render** | OpenGL drawing: grid, axes, objects, tool overlays |
-| **ui** | Nuklear toolbar, inspector panel, status bar |
+| **tools** | Routes pointer/key events to active tool via `ToolDescriptor` |
+| **commands** | `CommandExecutor` with undo/redo, transactions, memory budgeting |
+| **render** | `RenderDevice` abstraction, draw-list build, GL backend via factory |
+| **ui** | Nuklear toolbar, menu, inspector panel, status bar, dialogs |
 
 ### Key Patterns
 
-**VTable Polymorphism** — `GraphicObjectVTable` (`include/document/object.h`) lets object types (line, rect, ellipse) define their own hit_test, translate, get_bounds, etc. Adding a new shape type requires implementing this vtable and adding a type constant.
+**Object Descriptor Pattern** — `GraphicObjectDescriptor` (`include/document/object.h`) lets object types (line, rect, ellipse, extensions) define their own create/clone/destroy/translate/get_bounds/hit_test/serialize/deserialize methods. New shape types register via `register_object_type()` without modifying core files.
 
-**Tool VTable** — Tools (`include/tools/tool.h`) receive `ToolContext` with pointers to Workspace, Document, etc. Built-in tools: Select(V), Pan(H), Line(L), Rectangle(R), Ellipse(E).
+**Tool Descriptor Pattern** — Tools (`include/tools/tool.h`) register `ToolDescriptor` with create/activate/pointer/key handlers. Commands and menu items for tools are dynamically generated from the `ToolRegistry`. Extensions register tools the same way as built-ins.
 
-**Snapshot-Based Undo** — `DocumentHistory` (`include/document/history.h`) stores before/after `DocumentSnapshot` objects (up to 128 entries).
+**Command-Based Undo** — All document mutations go through `CommandExecutor` (`include/commands/command.h`). Commands implement execute/undo/redo/merge/destroy. The executor supports transactions with auto-rollback on failure. No external snapshot-based undo exists.
 
 ### Data Flow
 
 ```
-GLFW events → application.c callbacks → tool_controller_* → Document/Canvas update
-                                                           → render_system_draw → OpenGL frame
+GLFW events → application.c callbacks → input_router → command_registry_execute
+           → tool_controller_* → command_executor_execute → Document mutation
+           → render_system_draw → canvas_drawlist → canvas_renderer → OpenGL frame
 ```
+
+### Extension System
+
+- **Object types**: Register via `register_object_type()` in `extension_loader.c`. Core `object.c` never imports extension headers.
+- **Tools**: Register via `register_tool()`. Commands, shortcuts, and menu items are derived from `ToolDescriptor` metadata.
+- **Serialization**: Extensions serialize/deserialize via `GraphicObjectDescriptor` vtable — no core change needed.
 
 JSON persistence via `document_save_json()` / `document_load_json()`.
 
@@ -70,8 +81,10 @@ JSON persistence via `document_save_json()` / `document_load_json()`.
 ## Entry Points
 
 - `src/main.c` — single line calling `app_run()`
-- `src/app/application.c` — bootstrap, main loop, GLFW→workspace event wiring
-- `src/render/render_system.c` — OpenGL rendering
+- `src/app/application.c` — bootstrap, window, main loop, dependency injection
+- `src/app/extension_loader.c` — extension registration assembly point
+- `src/commands/command.c` — command types, executor, transactions
+- `src/render/render_system.c` — draw-list build, render submission
 - `src/tools/tool_controller.c` — tool routing and built-in tool implementations
 
 ## Documentation

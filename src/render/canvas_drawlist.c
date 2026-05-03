@@ -175,7 +175,8 @@ static int canvas_drawlist_append_grid(CanvasDrawList* draw_list, const CanvasVi
 static int canvas_drawlist_append_object(CanvasDrawList* draw_list,
                                          const CanvasView* canvas,
                                          const GraphicObject* object,
-                                         int selected)
+                                         int selected,
+                                         Vec2 preview_delta)
 {
     int point_count = 0;
     Vec2* points = NULL;
@@ -198,6 +199,7 @@ static int canvas_drawlist_append_object(CanvasDrawList* draw_list,
 
     object_write_path_points(object, points);
     for (i = 0; i < point_count; ++i) {
+        points[i] = vec2_add(points[i], preview_delta);
         points[i] = canvas_view_world_to_screen(canvas, points[i]);
     }
 
@@ -262,10 +264,12 @@ int canvas_drawlist_build(CanvasDrawList* draw_list,
                           const Document* document,
                           const SelectionSet* selection,
                           const CanvasView* canvas,
+                          int selection_preview_active,
+                          Vec2 selection_preview_delta,
                           const GraphicObject* overlay_object)
 {
     RectF visible_rect;
-    int visible_indices[DOCUMENT_MAX_OBJECTS];
+    int* visible_indices = NULL;
     int visible_count = 0;
     int layer_index = 0;
 
@@ -281,11 +285,18 @@ int canvas_drawlist_build(CanvasDrawList* draw_list,
         return 0;
     }
 
+    if (document->count > 0) {
+        visible_indices = (int*)malloc((size_t)document->count * sizeof(visible_indices[0]));
+        if (!visible_indices) {
+            return 0;
+        }
+    }
+
     visible_rect = canvas_view_visible_world_rect(canvas);
     visible_count = document_query_visible_indices(document,
                                                    visible_rect,
                                                    visible_indices,
-                                                   DOCUMENT_MAX_OBJECTS);
+                                                   document->count);
 
     if (visible_count <= 0 && document->count > 0) {
         int i = 0;
@@ -306,20 +317,34 @@ int canvas_drawlist_build(CanvasDrawList* draw_list,
         for (i = 0; i < visible_count; ++i) {
             const GraphicObject* object = document->objects[visible_indices[i]];
             int selected = object && selection && selection_set_contains(selection, object->id);
+            Vec2 preview_delta = (selection_preview_active && selected)
+                                     ? selection_preview_delta
+                                     : vec2_make(0.0f, 0.0f);
 
             if (!object || object->layer_id != layer->id) {
                 continue;
             }
-            if (!canvas_drawlist_append_object(draw_list, canvas, object, selected)) {
+            if (!canvas_drawlist_append_object(draw_list,
+                                               canvas,
+                                               object,
+                                               selected,
+                                               preview_delta)) {
+                free(visible_indices);
                 return 0;
             }
         }
     }
 
     if (overlay_object &&
-        !canvas_drawlist_append_object(draw_list, canvas, overlay_object, 0)) {
+        !canvas_drawlist_append_object(draw_list,
+                                       canvas,
+                                       overlay_object,
+                                       0,
+                                       vec2_make(0.0f, 0.0f))) {
+        free(visible_indices);
         return 0;
     }
 
+    free(visible_indices);
     return 1;
 }

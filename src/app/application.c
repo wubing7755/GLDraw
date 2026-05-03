@@ -16,6 +16,7 @@
 #include <app/command_dispatcher.h>
 #include <app/workspace_actions.h>
 #include <app/workspace.h>
+#include <app/workspace_service.h>
 #include <base/log.h>
 #include <base/math2d.h>
 #include <base/path_utils.h>
@@ -24,6 +25,7 @@
 #include <platform/file_dialog.h>
 #include <platform/window.h>
 #include "platform/window_internal.h"
+#include <render/render_device_factory.h>
 #include <render/render_system.h>
 #include <ui/ui_menu_actions.h>
 #include <ui/ui_menu_def.h>
@@ -45,6 +47,7 @@ typedef struct {
   CommandDispatcher dispatcher;
   RenderSystem *renderer;
   UiSystem *ui;
+  EditorViewModel view_model;
   Vec2 cursor_screen;
   int cursor_inside_canvas;
   int pending_export_png;
@@ -55,17 +58,17 @@ static int app_workspace_save(Workspace *workspace, void *user_data);
 static int app_workspace_save_as(Workspace *workspace, void *user_data);
 static int app_workspace_export_png(Workspace *workspace, void *user_data);
 static int app_workspace_load(Workspace *workspace, void *user_data);
+
+/* Convenience accessors — reduce direct field access spread across callbacks. */
+static Document* app_document(Application* app) {
+    return &app->workspace.core.document;
+}
+static CanvasView* app_canvas(Application* app) {
+    return &app->workspace.core.canvas;
+}
 static int app_workspace_execute_action(Workspace *workspace,
                                         WorkspaceActionType action,
                                         void *user_data);
-
-static void app_clear_clipboard(Application *app) {
-  if (!app) {
-    return;
-  }
-
-  workspace_clear_clipboard(&app->workspace);
-}
 
 /**
  * @brief Write formatted status text into workspace status buffer.
@@ -100,37 +103,11 @@ static void app_set_status(Application *app, const char *fmt, ...) {
  * @return `1` if the file exists, `0` otherwise.
  */
 static int app_file_exists(const char *path) {
-  FILE *file = NULL;
-
-  if (!path || path[0] == '\0') {
-    return 0;
-  }
-
-  file = fopen(path, "rb");
-  if (!file) {
-    return 0;
-  }
-
-  fclose(file);
-  return 1;
+  return workspace_service_file_exists(path);
 }
 
-/**
- * @brief Get the default document path.
- * @return Default document path string.
- */
-static const char *app_default_document_path(void) { return "document.json"; }
-
-/**
- * @brief Get the current document path from workspace state.
- * @param app Application instance.
- * @return Current document path string.
- */
 static const char *app_current_document_path(const Application *app) {
-  if (app->workspace.session.current_document_path[0] != '\0') {
-    return app->workspace.session.current_document_path;
-  }
-  return app_default_document_path();
+  return workspace_service_document_path(&app->workspace);
 }
 
 static void app_update_save_as_dialog_message(Application *app,
@@ -170,15 +147,7 @@ static void app_update_save_as_dialog_message(Application *app,
  * Time complexity: `O(min(len(path), capacity))`.
  */
 static void app_set_document_path(Application *app, const char *path) {
-  if (!app || !path) {
-    return;
-  }
-
-  strncpy(app->workspace.session.current_document_path, path,
-          sizeof(app->workspace.session.current_document_path) - 1u);
-  app->workspace.session
-      .current_document_path[sizeof(app->workspace.session.current_document_path) -
-                             1u] = '\0';
+  workspace_service_set_document_path(&app->workspace, path);
 }
 
 static void app_suggest_png_export_filename(const Application *app,
@@ -256,53 +225,16 @@ static int app_new_document(Application *app) {
     return 0;
   }
 
-  document_reset(&app->workspace.core.document);
-  selection_set_clear(&app->workspace.session.selection);
-  app_clear_clipboard(app);
-  document_history_shutdown(&app->workspace.core.history);
-  if (!document_history_init(&app->workspace.core.history)) {
-    LOG_ERROR("%s", "Failed to reinitialize history");
-    app_set_status(app, "History reset failed");
-    return 0;
-  }
-  command_executor_shutdown(&app->workspace.core.commands);
-  command_executor_init(&app->workspace.core.commands);
-
   app_reset_tool_state(app);
-  canvas_view_set_center_zoom(&app->workspace.core.canvas, vec2_make(0.0f, 0.0f),
-                              1.0f);
-  app->workspace.session.current_document_path[0] = '\0';
-  workspace_mark_saved(&app->workspace);
-  app_set_status(app, "New empty document");
-  return 1;
+  return workspace_service_new_document(&app->workspace);
 }
 
-/**
- * @brief Save current document to JSON and refresh dirty tracking.
- * @param app [in,out] Application state.
- * @return `1` on success, `0` on persistence failure.
- *
- * Edge cases:
- * - Fails if serializer or file I/O fails.
- *
- * Time complexity: dominated by serialization, roughly `O(object_count)`.
- */
 static int app_save_document_to_path(Application *app, const char *path) {
-  if (!document_save_json(&app->workspace.core.document, path)) {
-    LOG_ERROR("%s", "Save document failed");
-    app_set_status(app, "Save failed: %s", path);
-    return 0;
-  }
-
-  app_set_document_path(app, path);
-  workspace_mark_saved(&app->workspace);
-  app_set_status(app, "Saved document: %s", path);
-  LOG_INFO("Saved document: %s", path);
-  return 1;
+  return workspace_service_save_to_path(&app->workspace, path);
 }
 
 static int app_save_document(Application *app) {
-  return app_save_document_to_path(app, app_current_document_path(app));
+  return workspace_service_save(&app->workspace);
 }
 
 static int app_save_as_document(Application *app) {
@@ -335,53 +267,17 @@ static int app_save_as_document(Application *app) {
   return app_save_document_to_path(app, target_path);
 }
 
-/**
- * @brief Load document from current path and reset dependent runtime state.
- * @param app [in,out] Application state.
- * @return `1` on success, `0` on missing file/parse/init failure.
- *
- * Why this structure:
- * - History and tool state are rebuilt after load so stale snapshots/pointers
- *   cannot reference objects from the previous document.
- *
- * Time complexity: dominated by parse/build, roughly `O(file_size +
- * object_count)`.
- */
 static int app_load_document_from_path(Application *app, const char *path) {
-  if (!app_file_exists(path)) {
-    LOG_WARN("Document file not found: %s", path);
-    app_set_status(app, "Document not found: %s", path);
+  if (!app) {
     return 0;
   }
 
-  if (!document_load_json(&app->workspace.core.document, path)) {
-    LOG_ERROR("%s", "Load document failed");
-    app_set_status(app, "Load failed: %s", path);
-    return 0;
-  }
-
-  selection_set_clear(&app->workspace.session.selection);
-  /* Rebuild history against the newly loaded object graph.
-     Reusing old snapshots would leave dangling object pointers. */
-  app_clear_clipboard(app);
-  document_history_shutdown(&app->workspace.core.history);
-  if (!document_history_init(&app->workspace.core.history)) {
-    LOG_ERROR("%s", "Failed to reinitialize history after document load");
-    app_set_status(app, "History reset failed after load");
-    return 0;
-  }
-  command_executor_shutdown(&app->workspace.core.commands);
-  command_executor_init(&app->workspace.core.commands);
   app_reset_tool_state(app);
-  app_set_document_path(app, path);
-  workspace_mark_saved(&app->workspace);
-  app_set_status(app, "Loaded document: %s", path);
-  LOG_INFO("Loaded document: %s", path);
-  return 1;
+  return workspace_service_load_from_path(&app->workspace, path);
 }
 
 static int app_load_document(Application *app) {
-  return app_load_document_from_path(app, app_current_document_path(app));
+  return workspace_service_load(&app->workspace);
 }
 
 static int app_open_document_with_picker(Application *app) {
@@ -556,7 +452,6 @@ static ToolContext app_tool_context(Application *app) {
   ToolContext context;
   context.workspace = &app->workspace;
   context.document = &app->workspace.core.document;
-  context.history = &app->workspace.core.history;
   context.canvas = &app->workspace.core.canvas;
   context.selection = &app->workspace.session.selection;
   return context;
@@ -880,19 +775,11 @@ static int app_init(Application *app) {
     return -1;
   }
 
-  document_init(&app->workspace.core.document);
-  if (!document_history_init(&app->workspace.core.history)) {
-    LOG_ERROR("%s", "Failed to initialize document history");
+  if (!workspace_init(&app->workspace, viewport, APP_KEYMAP_SETTINGS_PATH)) {
+    LOG_ERROR("%s", "Failed to initialize workspace");
     return -1;
   }
-  if (!command_executor_init(&app->workspace.core.commands)) {
-    LOG_ERROR("%s", "Failed to initialize command executor");
-    return -1;
-  }
-  canvas_view_init(&app->workspace.core.canvas, &app->workspace.core.document, viewport);
-  tool_controller_init(&app->workspace.core.tools);
-  keymap_init(&app->workspace.session.keymap, APP_KEYMAP_SETTINGS_PATH);
-  app_set_document_path(app, app_default_document_path());
+  app_set_document_path(app, app_current_document_path(app));
   app->workspace.services.save_document = app_workspace_save;
   app->workspace.services.save_as_document = app_workspace_save_as;
   app->workspace.services.export_png = app_workspace_export_png;
@@ -906,7 +793,10 @@ static int app_init(Application *app) {
       vec2_make(app->window.width * 0.5f, app->window.height * 0.5f);
   app->cursor_inside_canvas = 1;
 
-  app->renderer = render_system_create(&app->window);
+  {
+    RenderDevice *device = render_device_factory_create_gl(&app->window);
+    app->renderer = render_system_create(device, &app->window);
+  }
   if (!app->renderer) {
     LOG_ERROR("%s", "Failed to initialize renderer");
     return -1;
@@ -962,12 +852,8 @@ static void app_shutdown(Application *app) {
 
   ui_system_destroy(app->ui);
   render_system_destroy(app->renderer);
-  tool_controller_shutdown(&app->workspace.core.tools);
-  command_executor_shutdown(&app->workspace.core.commands);
-  keymap_shutdown(&app->workspace.session.keymap);
-  app_clear_clipboard(app);
-  document_history_shutdown(&app->workspace.core.history);
-  document_shutdown(&app->workspace.core.document);
+  editor_viewmodel_shutdown(&app->view_model);
+  workspace_shutdown(&app->workspace);
   platform_window_shutdown(&app->window);
 }
 
@@ -997,7 +883,6 @@ int app_run(void) {
     int framebuffer_h = 0;
     GLFWwindow *native_window = platform_window_glfw_handle(&app->window);
     ToolContext tool_context;
-    EditorViewModel view_model;
 
     platform_window_poll_events();
     glfwGetFramebufferSize(native_window, &framebuffer_w, &framebuffer_h);
@@ -1008,14 +893,16 @@ int app_run(void) {
       continue;
     }
     ui_system_begin_frame(app->ui);
-    editor_viewmodel_build(&view_model, &app->workspace);
-    ui_system_build(app->ui, &view_model);
+    editor_viewmodel_build(&app->view_model, &app->workspace);
+    ui_system_build(app->ui, &app->view_model);
     update_canvas_viewport(app);
     tool_context = app_tool_context(app);
     render_system_draw(app->renderer,
                        &app->workspace.core.document,
                        &app->workspace.session.selection,
                        &app->workspace.core.canvas,
+                       app->workspace.session.selection_preview_active,
+                       app->workspace.session.selection_preview_delta,
                        tool_controller_overlay_object(&app->workspace.core.tools,
                                                       &tool_context));
     app_flush_pending_export_png(app);

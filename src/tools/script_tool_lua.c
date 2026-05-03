@@ -93,6 +93,8 @@ static const ToolDescriptor G_SCRIPT_TOOL_DESCRIPTOR = {
     NULL,
     "Execute Lua tool script",
     "Script",
+    NULL,
+    0,
     script_tool_create,
     script_tool_destroy,
     NULL,

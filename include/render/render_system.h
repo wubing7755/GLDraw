@@ -9,6 +9,7 @@
 #include <app/editor_session.h>
 #include <document/document.h>
 #include <platform/window.h>
+#include <render/render_device.h>
 
 typedef struct RenderSystem RenderSystem;
 
@@ -17,7 +18,7 @@ typedef struct RenderSystem RenderSystem;
  * @param window Already-initialized platform window and OpenGL context.
  * @return Renderer instance on success, or `NULL` on failure.
  */
-RenderSystem* render_system_create(PlatformWindow* window);
+RenderSystem* render_system_create(RenderDevice* device, const PlatformWindow* window);
 
 /**
  * @brief Destroy the rendering system and release GPU/heap resources.
@@ -57,6 +58,8 @@ void render_system_draw(RenderSystem* renderer,
                         const Document* document,
                         const SelectionSet* selection,
                         const CanvasView* canvas,
+                        int selection_preview_active,
+                        Vec2 selection_preview_delta,
                         const GraphicObject* overlay_object);
 
 /**

@@ -8,9 +8,6 @@
 #include <document/object.h>
 #include <model/selection.h>
 
-#define DOCUMENT_MAX_OBJECTS 8192
-#define DOCUMENT_MAX_LAYERS 64
-
 typedef enum {
   DOCUMENT_LAYER_BLEND_NORMAL = 0,
   DOCUMENT_LAYER_BLEND_MULTIPLY,
@@ -40,12 +37,14 @@ typedef struct DocumentSpatialEntry {
  * @member next_id Auto-assigned ID for new objects.
  */
 typedef struct Document {
-  GraphicObject *objects[DOCUMENT_MAX_OBJECTS];
+  GraphicObject **objects;
   int count;
+  int capacity;
   unsigned int revision;
   ObjectId next_id;
-  DocumentLayer layers[DOCUMENT_MAX_LAYERS];
+  DocumentLayer *layers;
   int layer_count;
+  int layer_capacity;
   LayerId active_layer_id;
   LayerId next_layer_id;
   RectF spatial_bounds;
@@ -60,6 +59,7 @@ typedef struct Document {
   unsigned int spatial_revision;
   unsigned int spatial_query_token;
   unsigned int *spatial_marks;
+  int spatial_mark_capacity;
 } Document;
 
 /**

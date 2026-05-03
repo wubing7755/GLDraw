@@ -1,6 +1,8 @@
 #include <document/document.h>
 #include <document/object.h>
 
+#include <app/extension_loader.h>
+
 #include <stdio.h>
 
 #define EXPECT_TRUE(expr)                                                     \
@@ -27,6 +29,8 @@ int main(void)
 {
     Document document;
     GraphicObject* object = NULL;
+
+    extension_loader_register_all();
 
     document_init(&document);
     object = object_create_rect((RectF){0.0f, 0.0f, 10.0f, 12.0f},

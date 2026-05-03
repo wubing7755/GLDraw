@@ -31,11 +31,6 @@ static const EditorCommandMapEntry g_command_map[] = {
     {EDITOR_COMMAND_VIEW_ZOOM_FIT, "view.zoom_fit", KEY_SCOPE_GLOBAL},
     {EDITOR_COMMAND_VIEW_TOGGLE_GRID, "view.toggle_grid", KEY_SCOPE_GLOBAL},
     {EDITOR_COMMAND_VIEW_TOGGLE_INSPECTOR, "view.toggle_inspector", KEY_SCOPE_GLOBAL},
-    {EDITOR_COMMAND_TOOL_SELECT, "tool.select", KEY_SCOPE_GLOBAL},
-    {EDITOR_COMMAND_TOOL_PAN, "tool.pan", KEY_SCOPE_GLOBAL},
-    {EDITOR_COMMAND_TOOL_LINE, "tool.line", KEY_SCOPE_GLOBAL},
-    {EDITOR_COMMAND_TOOL_RECT, "tool.rect", KEY_SCOPE_GLOBAL},
-    {EDITOR_COMMAND_TOOL_ELLIPSE, "tool.ellipse", KEY_SCOPE_GLOBAL},
     {EDITOR_COMMAND_HELP_SHORTCUTS, "help.shortcuts", KEY_SCOPE_GLOBAL},
     {EDITOR_COMMAND_HELP_ABOUT, "help.about", KEY_SCOPE_GLOBAL},
     {EDITOR_COMMAND_MODAL_CONFIRM, "modal.confirm", KEY_SCOPE_MODAL},
@@ -94,6 +89,23 @@ void editor_viewmodel_init(EditorViewModel* view_model)
     memset(view_model, 0, sizeof(*view_model));
 }
 
+void editor_viewmodel_shutdown(EditorViewModel* view_model)
+{
+    if (!view_model) {
+        return;
+    }
+
+    free(view_model->tools);
+    view_model->tools = NULL;
+    view_model->tool_count = 0;
+    view_model->tool_capacity = 0;
+
+    free(view_model->layers);
+    view_model->layers = NULL;
+    view_model->layer_count = 0;
+    view_model->layer_capacity = 0;
+}
+
 static void editor_viewmodel_build_commands(EditorViewModel* view_model,
                                             const Workspace* workspace)
 {
@@ -126,6 +138,34 @@ static void editor_viewmodel_build_commands(EditorViewModel* view_model,
     }
 }
 
+static int editor_viewmodel_reserve_tools(EditorViewModel* view_model, int needed)
+{
+    EditorToolView* tools = NULL;
+    int capacity = 0;
+
+    if (!view_model || needed <= 0) {
+        return view_model != NULL;
+    }
+    if (needed <= view_model->tool_capacity) {
+        return 1;
+    }
+
+    capacity = view_model->tool_capacity > 0 ? view_model->tool_capacity : 8;
+    while (capacity < needed) {
+        capacity *= 2;
+    }
+
+    tools = (EditorToolView*)realloc(view_model->tools,
+                                     (size_t)capacity * sizeof(view_model->tools[0]));
+    if (!tools) {
+        return 0;
+    }
+
+    view_model->tools = tools;
+    view_model->tool_capacity = capacity;
+    return 1;
+}
+
 static void editor_viewmodel_build_tools(EditorViewModel* view_model,
                                          const Workspace* workspace)
 {
@@ -139,8 +179,9 @@ static void editor_viewmodel_build_tools(EditorViewModel* view_model,
 
     active_id = tool_controller_active_id(&workspace->core.tools);
     tool_count = tool_controller_tool_count(&workspace->core.tools);
-    if (tool_count > TOOL_MAX_TYPES) {
-        tool_count = TOOL_MAX_TYPES;
+    if (!editor_viewmodel_reserve_tools(view_model, tool_count)) {
+        view_model->tool_count = 0;
+        return;
     }
 
     view_model->tool_count = tool_count;
@@ -161,27 +202,30 @@ static void editor_viewmodel_build_tools(EditorViewModel* view_model,
         tool_view->available = 1;
         tool_view->command = EDITOR_COMMAND_NONE;
         tool_view->shortcut[0] = '\0';
+        tool_view->unavailable_reason[0] = '\0';
 
         command_descriptor = descriptor->command_id
                                  ? command_registry_find_by_id(descriptor->command_id)
                                  : NULL;
         if (command_descriptor) {
             tool_view->command = command_descriptor->command;
-            tool_view->available =
-                editor_viewmodel_command_available(view_model, command_descriptor->command);
-            editor_copy_string(tool_view->shortcut,
-                               sizeof(tool_view->shortcut),
-                               editor_viewmodel_command_shortcut(view_model,
-                                                                 command_descriptor->command));
+            tool_view->available = command_registry_is_available(workspace,
+                                                                 command_descriptor->command);
+            keymap_format_command_shortcut(&workspace->session.keymap,
+                                           descriptor->command_id,
+                                           KEY_SCOPE_GLOBAL,
+                                           tool_view->shortcut,
+                                           sizeof(tool_view->shortcut));
+            editor_copy_string(tool_view->unavailable_reason,
+                               sizeof(tool_view->unavailable_reason),
+                               command_registry_unavailable_reason(workspace,
+                                                                   command_descriptor->command));
         }
 
         editor_build_tooltip(tool_view->tooltip,
                              sizeof(tool_view->tooltip),
                              descriptor->tooltip ? descriptor->tooltip : descriptor->name,
-                             tool_view->available
-                                 ? ""
-                                 : command_registry_unavailable_reason(workspace,
-                                                                       tool_view->command));
+                             tool_view->available ? "" : tool_view->unavailable_reason);
     }
 }
 
@@ -236,21 +280,52 @@ static void editor_viewmodel_build_properties(EditorViewModel* view_model,
     }
 }
 
+static int editor_viewmodel_reserve_layers(EditorViewModel* view_model, int needed)
+{
+    EditorLayerView* layers = NULL;
+    int capacity = 0;
+
+    if (!view_model || needed <= 0) {
+        return view_model != NULL;
+    }
+    if (needed <= view_model->layer_capacity) {
+        return 1;
+    }
+
+    capacity = view_model->layer_capacity > 0 ? view_model->layer_capacity : 8;
+    while (capacity < needed) {
+        capacity *= 2;
+    }
+
+    layers = (EditorLayerView*)realloc(view_model->layers,
+                                       (size_t)capacity * sizeof(view_model->layers[0]));
+    if (!layers) {
+        return 0;
+    }
+
+    view_model->layers = layers;
+    view_model->layer_capacity = capacity;
+    return 1;
+}
+
 static void editor_viewmodel_build_layers(EditorViewModel* view_model,
                                           const Workspace* workspace)
 {
     int i = 0;
     int j = 0;
+    int doc_layer_count = 0;
 
     if (!view_model || !workspace) {
         return;
     }
 
-    view_model->layer_count = document_layer_count(&workspace->core.document);
-    if (view_model->layer_count > DOCUMENT_MAX_LAYERS) {
-        view_model->layer_count = DOCUMENT_MAX_LAYERS;
+    doc_layer_count = document_layer_count(&workspace->core.document);
+    if (!editor_viewmodel_reserve_layers(view_model, doc_layer_count)) {
+        view_model->layer_count = 0;
+        return;
     }
 
+    view_model->layer_count = doc_layer_count;
     for (i = 0; i < view_model->layer_count; ++i) {
         const DocumentLayer* layer = document_layer_at(&workspace->core.document, i);
         EditorLayerView* layer_view = &view_model->layers[i];
@@ -284,10 +359,8 @@ int editor_viewmodel_build(EditorViewModel* view_model, const Workspace* workspa
     editor_viewmodel_init(view_model);
     view_model->summary.object_count = workspace->core.document.count;
     view_model->summary.selection_count = workspace->session.selection.count;
-    view_model->summary.undo_count =
-        (int)(workspace->core.commands.undo_count + (size_t)workspace->core.history.undo_count);
-    view_model->summary.redo_count =
-        (int)(workspace->core.commands.redo_count + (size_t)workspace->core.history.redo_count);
+    view_model->summary.undo_count = (int)workspace->core.commands.undo_count;
+    view_model->summary.redo_count = (int)workspace->core.commands.redo_count;
     view_model->summary.zoom_percent = canvas_view_zoom(&workspace->core.canvas) * 100.0f;
     view_model->summary.document_dirty = workspace->session.document_dirty;
     editor_copy_string(view_model->summary.current_document_path,
@@ -315,6 +388,20 @@ int editor_viewmodel_build(EditorViewModel* view_model, const Workspace* workspa
 int editor_viewmodel_command_available(const EditorViewModel* view_model,
                                        EditorCommand command)
 {
+    int i = 0;
+
+    if (command >= EDITOR_COMMAND_DYNAMIC_TOOL_BASE) {
+        if (!view_model) {
+            return 0;
+        }
+        for (i = 0; i < view_model->tool_count; ++i) {
+            if (view_model->tools[i].command == command) {
+                return view_model->tools[i].available;
+            }
+        }
+        return 0;
+    }
+
     if (!view_model || command <= EDITOR_COMMAND_NONE ||
         command >= (EditorCommand)EDITOR_VIEWMODEL_MAX_COMMANDS) {
         return 0;
@@ -326,6 +413,20 @@ int editor_viewmodel_command_available(const EditorViewModel* view_model,
 const char* editor_viewmodel_command_shortcut(const EditorViewModel* view_model,
                                               EditorCommand command)
 {
+    int i = 0;
+
+    if (command >= EDITOR_COMMAND_DYNAMIC_TOOL_BASE) {
+        if (!view_model) {
+            return "";
+        }
+        for (i = 0; i < view_model->tool_count; ++i) {
+            if (view_model->tools[i].command == command) {
+                return view_model->tools[i].shortcut;
+            }
+        }
+        return "";
+    }
+
     if (!view_model || command <= EDITOR_COMMAND_NONE ||
         command >= (EditorCommand)EDITOR_VIEWMODEL_MAX_COMMANDS) {
         return "";
@@ -337,6 +438,20 @@ const char* editor_viewmodel_command_shortcut(const EditorViewModel* view_model,
 const char* editor_viewmodel_command_unavailable_reason(const EditorViewModel* view_model,
                                                         EditorCommand command)
 {
+    int i = 0;
+
+    if (command >= EDITOR_COMMAND_DYNAMIC_TOOL_BASE) {
+        if (!view_model) {
+            return "";
+        }
+        for (i = 0; i < view_model->tool_count; ++i) {
+            if (view_model->tools[i].command == command) {
+                return view_model->tools[i].available ? "" : view_model->tools[i].unavailable_reason;
+            }
+        }
+        return "";
+    }
+
     if (!view_model || command <= EDITOR_COMMAND_NONE ||
         command >= (EditorCommand)EDITOR_VIEWMODEL_MAX_COMMANDS) {
         return "";

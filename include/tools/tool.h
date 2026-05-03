@@ -12,14 +12,28 @@
 struct Workspace;
 struct Document;
 struct CanvasView;
-struct DocumentHistory;
 
 #define TOOL_ID_SELECT "select"
 #define TOOL_ID_PAN "pan"
 #define TOOL_ID_LINE "line"
 #define TOOL_ID_RECT "rect"
 #define TOOL_ID_ELLIPSE "ellipse"
-#define TOOL_MAX_TYPES 32
+
+/* ShapeToolConfig: reusable configuration for shape-drawing tools.
+ * Extension tools can provide their own config and call register_shape_tool()
+ * to get a fully-functional drawing tool without reimplementing the
+ * pointer_down/move/up lifecycle. */
+typedef struct {
+    const char* object_type_id;
+    GraphicObject* (*create_object)(Vec2 anchor, Vec2 current, GraphicStyle style);
+    int (*update_object)(GraphicObject* object, Vec2 anchor, Vec2 current);
+} ShapeToolConfig;
+
+int register_shape_tool(const char* tool_id,
+                        const char* name,
+                        const char* shortcut,
+                        int requires_editable,
+                        const ShapeToolConfig* config);
 
 typedef struct {
     Vec2 screen_pos;
@@ -34,7 +48,6 @@ typedef struct {
 typedef struct {
     struct Workspace* workspace;
     struct Document* document;
-    struct DocumentHistory* history;
     struct CanvasView* canvas;
     SelectionSet* selection;
 } ToolContext;
@@ -58,6 +71,8 @@ struct ToolDescriptor {
     const char* command_id;
     const char* tooltip;
     const char* icon;
+    const char* default_shortcut;
+    int requires_editable_layer;
     ToolCreateFn create_tool;
     ToolDestroyFn destroy_tool;
     ToolActivateFn activate;

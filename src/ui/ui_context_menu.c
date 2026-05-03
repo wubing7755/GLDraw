@@ -100,10 +100,7 @@ static int ui_context_menu_item(UiSystem *ui, const char *label,
                                 const EditorViewModel *view_model,
                                 const EditorActionSink *sink) {
   char item_label[96];
-  struct nk_rect widget_bounds;
   int enabled = 0;
-  int hovered = 0;
-  char tooltip[128];
 
   if (!ui || !ui->ctx || !label || !view_model) {
     return 0;
@@ -115,20 +112,7 @@ static int ui_context_menu_item(UiSystem *ui, const char *label,
   if (!enabled) {
     nk_widget_disable_begin(ui->ctx);
   }
-  widget_bounds = nk_widget_bounds(ui->ctx);
   if (!nk_button_label(ui->ctx, item_label)) {
-    hovered = nk_input_is_mouse_hovering_rect(&ui->ctx->input, widget_bounds);
-    if (hovered) {
-      snprintf(tooltip,
-               sizeof(tooltip),
-               "%s%s%s",
-               label,
-               editor_viewmodel_command_unavailable_reason(view_model, command)[0] ? "\nUnavailable: " : "",
-               editor_viewmodel_command_unavailable_reason(view_model, command));
-      if (tooltip[0] != '\0') {
-        nk_tooltip(ui->ctx, tooltip);
-      }
-    }
     if (!enabled) {
       nk_widget_disable_end(ui->ctx);
     }
@@ -150,8 +134,6 @@ static int ui_context_menu_tool_item(UiSystem *ui,
                                      const EditorToolView *tool_view,
                                      const EditorActionSink *sink) {
   char item_label[96];
-  struct nk_rect widget_bounds;
-  int hovered = 0;
 
   if (!ui || !ui->ctx || !tool_view || !tool_view->name[0]) {
     return 0;
@@ -174,12 +156,7 @@ static int ui_context_menu_tool_item(UiSystem *ui,
   if (!tool_view->available) {
     nk_widget_disable_begin(ui->ctx);
   }
-  widget_bounds = nk_widget_bounds(ui->ctx);
   if (!nk_button_label(ui->ctx, item_label)) {
-    hovered = nk_input_is_mouse_hovering_rect(&ui->ctx->input, widget_bounds);
-    if (hovered && tool_view->tooltip[0] != '\0') {
-      nk_tooltip(ui->ctx, tool_view->tooltip);
-    }
     if (!tool_view->available) {
       nk_widget_disable_end(ui->ctx);
     }

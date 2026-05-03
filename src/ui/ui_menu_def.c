@@ -1,5 +1,10 @@
 #include "ui_menu_def.h"
 
+#include <tools/tool.h>
+
+#include <stdlib.h>
+#include <string.h>
+
 /**
  * @file ui_menu_def.c
  * @brief Menu item static configuration data.
@@ -15,7 +20,7 @@
  * Each entry defines one menu item with its type, label,
  * keyboard shortcut, ID, and parent menu ID.
  */
-static MenuItemDef g_menu_items[] = {
+static const MenuItemDef g_core_menu_items[] = {
     { MENU_ITEM_SUBMENU, "File", "", MENU_ID_FILE, -1 },
 
     { MENU_ITEM_ACTION, "New", "Ctrl+N", MENU_ID_FILE_NEW, MENU_ID_FILE },
@@ -69,6 +74,47 @@ static MenuItemDef g_menu_items[] = {
     { MENU_ITEM_ACTION, "About", "", MENU_ID_HELP_ABOUT, MENU_ID_HELP },
 };
 
+static MenuItemDef* g_menu_items = NULL;
+static int g_menu_item_count = 0;
+static int g_menu_item_capacity = 0;
+
+static void ui_menu_def_rebuild(void)
+{
+    int i = 0;
+    int tool_count = 0;
+    int needed = 0;
+    int core_count = (int)(sizeof(g_core_menu_items) / sizeof(g_core_menu_items[0]));
+
+    tool_count = tool_registry_count();
+    needed = core_count + tool_count;
+    if (needed > g_menu_item_capacity) {
+        MenuItemDef* new_items = (MenuItemDef*)realloc(g_menu_items,
+                                                       (size_t)needed * sizeof(g_menu_items[0]));
+        if (!new_items) {
+            return;
+        }
+        g_menu_items = new_items;
+        g_menu_item_capacity = needed;
+    }
+
+    memcpy(g_menu_items, g_core_menu_items, sizeof(g_core_menu_items));
+    g_menu_item_count = core_count;
+
+    for (i = 0; i < tool_count; ++i) {
+        const ToolDescriptor* descriptor = tool_registry_at(i);
+        if (!descriptor || !descriptor->command_id) {
+            continue;
+        }
+
+        g_menu_items[g_menu_item_count].type = MENU_ITEM_ACTION;
+        g_menu_items[g_menu_item_count].label = descriptor->name;
+        g_menu_items[g_menu_item_count].shortcut = "";
+        g_menu_items[g_menu_item_count].id = MENU_ID_TOOL_DYNAMIC_BASE + i;
+        g_menu_items[g_menu_item_count].parent_id = MENU_ID_EDIT;
+        g_menu_item_count++;
+    }
+}
+
 /**
  * @brief Get the number of menu item definitions.
  * @return Total count of entries in the menu definition table.
@@ -81,7 +127,8 @@ static MenuItemDef g_menu_items[] = {
  */
 int ui_menu_def_count(void)
 {
-    return (int)(sizeof(g_menu_items) / sizeof(g_menu_items[0]));
+    ui_menu_def_rebuild();
+    return g_menu_item_count;
 }
 
 /**
@@ -96,5 +143,6 @@ int ui_menu_def_count(void)
  */
 const MenuItemDef* ui_menu_def_items(void)
 {
+    ui_menu_def_rebuild();
     return g_menu_items;
 }

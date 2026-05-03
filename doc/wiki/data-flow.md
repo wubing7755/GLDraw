@@ -43,7 +43,7 @@ pointer_up (ShapeTool)
     -> build final object: build_shape_object(kind, anchor, current)
     -> add_object(document, object)  [assigns ObjectId via next_id]
     -> document_touch()
-    -> tool_commit_document_change()  [push HISTORY_ENTRY_SNAPSHOT]
+    -> tool_commit_document_change()  [command_executor_execute with AddObject command]
 ```
 
 ## Selection Flow
@@ -52,16 +52,16 @@ pointer_up (ShapeTool)
 pointer_down (SelectTool)
     -> canvas_view_pick_object()
     -> if hit: document_selection_add/remove/toggle()
-    -> tool_commit_document_change()  [push HISTORY_ENTRY_SNAPSHOT]
+    -> tool_commit_document_change()  [command_executor_execute with AddObject command]
     -> state->dragging = 1, state->drag_object_ids = selection
 
 pointer_move (SelectTool, while dragging)
     -> for each drag_object_id: object_translate(object, delta_world)
     -> state->drag_delta_total += delta_world
-    -> NO history push (avoids flooding undo stack)
+    -> NO command execute (avoids flooding undo stack)
 
 pointer_up (SelectTool, after drag)
-    -> document_history_push_translate_edit()
+    -> command_executor_execute(move_objects)  [via command_create_move_objects]
     -> tool_commit_document_change()
 ```
 
@@ -89,7 +89,7 @@ render_system_draw()
 ```
 Inspector widget change (ui_system.c)
     -> ui_commit_scalar_edit()
-        -> document_history_push_scalar_edit(object_id, key, before, after)
+        -> command_executor_execute(set_property)  [via command_create_set_property]
         -> object_set_scalar(object, key, after)
         -> document_touch()
 ```
@@ -104,7 +104,7 @@ Ctrl+S / Menu Save
 Ctrl+O / Menu Load
     -> application.c: app_on_open()
     -> document_load_json(path)
-    -> document_history_reset()
+    -> command_executor_shutdown() / command_executor_init()  [reset undo stack]
     -> tool_controller_reset_active_tool()
     -> CanvasView state preserved (zoom, pan, viewport)
 ```

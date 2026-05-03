@@ -1,5 +1,6 @@
 #include <commands/command.h>
 
+#include <base/log.h>
 #include <base/math2d.h>
 
 #include <stdio.h>
@@ -36,6 +37,14 @@ typedef struct MoveObjectsCommand {
   int object_count;
   Vec2 delta;
 } MoveObjectsCommand;
+
+typedef struct PasteObjectsCommand {
+  Command base;
+  GraphicObject **object_snapshots;
+  ObjectId *object_ids;
+  int object_count;
+  LayerId layer_id;
+} PasteObjectsCommand;
 
 typedef struct SetPropertyCommand {
   Command base;
@@ -96,6 +105,7 @@ typedef struct TransactionCommand {
 static const CommandVTable CREATE_OBJECT_VTABLE;
 static const CommandVTable DELETE_SELECTION_VTABLE;
 static const CommandVTable MOVE_OBJECTS_VTABLE;
+static const CommandVTable PASTE_OBJECTS_VTABLE;
 static const CommandVTable SET_PROPERTY_VTABLE;
 static const CommandVTable SET_ACTIVE_LAYER_VTABLE;
 static const CommandVTable SET_LAYER_VISIBILITY_VTABLE;
@@ -115,6 +125,7 @@ static size_t command_measure(const Command *command) {
   const CreateObjectCommand *create_command = (const CreateObjectCommand *)command;
   const DeleteSelectionCommand *delete_command = (const DeleteSelectionCommand *)command;
   const MoveObjectsCommand *move_command = (const MoveObjectsCommand *)command;
+  const PasteObjectsCommand *paste_command = (const PasteObjectsCommand *)command;
   const SetPropertyCommand *property_command = (const SetPropertyCommand *)command;
   const SetActiveLayerCommand *active_layer_command =
       (const SetActiveLayerCommand *)command;
@@ -152,6 +163,13 @@ static size_t command_measure(const Command *command) {
   if (command->vtable == &MOVE_OBJECTS_VTABLE) {
     bytes = sizeof(*move_command);
     bytes += (size_t)move_command->object_count * sizeof(move_command->object_ids[0]);
+    return bytes;
+  }
+  if (command->vtable == &PASTE_OBJECTS_VTABLE) {
+    bytes = sizeof(*paste_command);
+    bytes += (size_t)paste_command->object_count * sizeof(paste_command->object_snapshots[0]);
+    bytes += (size_t)paste_command->object_count * sizeof(paste_command->object_ids[0]);
+    bytes += (size_t)paste_command->object_count * (sizeof(GraphicObject) + sizeof(GraphicPropertyBag));
     return bytes;
   }
   if (command->vtable == &SET_PROPERTY_VTABLE) {
@@ -431,6 +449,29 @@ static CommandExecuteCheck move_objects_check(const Document *document,
   return COMMAND_EXECUTE_CHECK_OK;
 }
 
+static CommandExecuteCheck paste_objects_check(const Document *document,
+                                               const PasteObjectsCommand *command) {
+  int i = 0;
+
+  if (!document || !command || command->object_count <= 0 || command->layer_id == 0u) {
+    return COMMAND_EXECUTE_CHECK_INVALID_ARGUMENT;
+  }
+  if (document_layer_is_locked(document, command->layer_id)) {
+    return COMMAND_EXECUTE_CHECK_TARGET_LAYER_LOCKED;
+  }
+
+  for (i = 0; i < command->object_count; ++i) {
+    if (!command->object_snapshots[i] || command->object_ids[i] == 0u) {
+      return COMMAND_EXECUTE_CHECK_INVALID_ARGUMENT;
+    }
+    if (document_find_object(document, command->object_ids[i])) {
+      return COMMAND_EXECUTE_CHECK_INVALID_ARGUMENT;
+    }
+  }
+
+  return COMMAND_EXECUTE_CHECK_OK;
+}
+
 static CommandExecuteCheck set_property_check(const Document *document,
                                              const SetPropertyCommand *command) {
   if (!document || !command) {
@@ -461,6 +502,9 @@ CommandExecuteCheck command_check_execute(const Command *command,
   }
   if (command->vtable == &MOVE_OBJECTS_VTABLE) {
     return move_objects_check(document, (const MoveObjectsCommand *)command);
+  }
+  if (command->vtable == &PASTE_OBJECTS_VTABLE) {
+    return paste_objects_check(document, (const PasteObjectsCommand *)command);
   }
   if (command->vtable == &SET_PROPERTY_VTABLE) {
     return set_property_check(document, (const SetPropertyCommand *)command);
@@ -571,9 +615,6 @@ static int delete_selection_undo(void *cmd, Document *document) {
   int i = 0;
 
   if (!command || !document) {
-    return 0;
-  }
-  if (document->count + command->object_count > DOCUMENT_MAX_OBJECTS) {
     return 0;
   }
 
@@ -692,6 +733,89 @@ static void move_objects_destroy(void *cmd) {
 static const CommandVTable MOVE_OBJECTS_VTABLE = {move_objects_execute, move_objects_undo,
                                                   move_objects_execute, move_objects_merge,
                                                   move_objects_destroy};
+
+static int paste_objects_execute(void *cmd, Document *document) {
+  PasteObjectsCommand *command = (PasteObjectsCommand *)cmd;
+  int i = 0;
+
+  if (!command || !document) {
+    return 0;
+  }
+
+  for (i = 0; i < command->object_count; ++i) {
+    GraphicObject *clone = object_clone(command->object_snapshots[i]);
+    if (!clone) {
+      break;
+    }
+
+    if (!document_append_object_with_id_to_layer(document,
+                                                 clone,
+                                                 command->object_ids[i],
+                                                 command->layer_id)) {
+      object_destroy(clone);
+      break;
+    }
+  }
+
+  if (i == command->object_count) {
+    return 1;
+  }
+
+  /* Best-effort rollback: undo objects already inserted. If any removal
+   * fails the document is already in an inconsistent state. Log the failure,
+   * destroy the command, and return failure. */
+  while (i > 0) {
+    --i;
+    if (!document_remove_object(document, command->object_ids[i])) {
+      LOG_WARN("paste_objects_execute rollback: failed to remove object %u",
+               (unsigned)command->object_ids[i]);
+    }
+  }
+  return 0;
+}
+
+static int paste_objects_undo(void *cmd, Document *document) {
+  PasteObjectsCommand *command = (PasteObjectsCommand *)cmd;
+  int i = 0;
+
+  if (!command || !document) {
+    return 0;
+  }
+
+  for (i = command->object_count - 1; i >= 0; --i) {
+    if (!document_remove_object(document, command->object_ids[i])) {
+      return 0;
+    }
+  }
+
+  return 1;
+}
+
+static int paste_objects_merge(void *cmd, const void *next) {
+  (void)cmd;
+  (void)next;
+  return 0;
+}
+
+static void paste_objects_destroy(void *cmd) {
+  PasteObjectsCommand *command = (PasteObjectsCommand *)cmd;
+  int i = 0;
+
+  if (!command) {
+    return;
+  }
+
+  for (i = 0; i < command->object_count; ++i) {
+    object_destroy(command->object_snapshots[i]);
+  }
+  g_allocator.free_fn(command->object_snapshots);
+  g_allocator.free_fn(command->object_ids);
+  g_allocator.free_fn(command);
+}
+
+static const CommandVTable PASTE_OBJECTS_VTABLE = {paste_objects_execute, paste_objects_undo,
+                                                   paste_objects_execute, paste_objects_merge,
+                                                   paste_objects_destroy};
 
 static int set_property_apply(Document *document, const SetPropertyCommand *command,
                               float value) {
@@ -1142,7 +1266,10 @@ int command_executor_execute(CommandExecutor *executor, Command *command,
 
   if (!command_executor_append_internal(executor, command)) {
     if (command->vtable->undo) {
-      command->vtable->undo(command, document);
+      if (!command->vtable->undo(command, document)) {
+        LOG_ERROR("%s", "command_executor_execute: undo after append failure also "
+                         "failed - document may be in inconsistent state");
+      }
     }
     command_destroy(command);
     return 0;
@@ -1285,7 +1412,10 @@ void command_executor_rollback_transaction(CommandExecutor *executor, Document *
     for (i = executor->transaction_count; i > 0u; --i) {
       Command *command = executor->transaction_commands[i - 1u];
       if (command && command->vtable && command->vtable->undo) {
-        command->vtable->undo(command, document);
+        if (!command->vtable->undo(command, document)) {
+          LOG_ERROR("%s", "command_executor_rollback_transaction: undo failed during "
+                           "transaction rollback - document may be in inconsistent state");
+        }
       }
     }
   }
@@ -1377,8 +1507,7 @@ Command *command_create_move_objects(const ObjectId *object_ids, int object_coun
                                      Vec2 delta) {
   MoveObjectsCommand *command = NULL;
 
-  if (!object_ids || object_count <= 0 || object_count > DOCUMENT_MAX_SELECTION ||
-      vec2_length_sq(delta) <= 1e-6f) {
+  if (!object_ids || object_count <= 0 || vec2_length_sq(delta) <= 1e-6f) {
     return NULL;
   }
 
@@ -1398,6 +1527,66 @@ Command *command_create_move_objects(const ObjectId *object_ids, int object_coun
   memcpy(command->object_ids, object_ids, (size_t)object_count * sizeof(object_ids[0]));
   command->object_count = object_count;
   command->delta = delta;
+  return (Command *)command;
+}
+
+Command *command_create_paste_objects(const Document *document,
+                                      GraphicObject *const *object_snapshots,
+                                      int object_count,
+                                      Vec2 delta,
+                                      LayerId layer_id,
+                                      SelectionSet *out_selection) {
+  PasteObjectsCommand *command = NULL;
+  int i = 0;
+
+  if (!document || !object_snapshots || object_count <= 0 || layer_id == 0u) {
+    return NULL;
+  }
+
+  command = (PasteObjectsCommand *)g_allocator.calloc_fn(1u, sizeof(*command));
+  if (!command) {
+    return NULL;
+  }
+
+  command->object_snapshots =
+      (GraphicObject **)g_allocator.calloc_fn((size_t)object_count,
+                                              sizeof(command->object_snapshots[0]));
+  command->object_ids =
+      (ObjectId *)g_allocator.calloc_fn((size_t)object_count, sizeof(command->object_ids[0]));
+  if (!command->object_snapshots || !command->object_ids) {
+    paste_objects_destroy(command);
+    return NULL;
+  }
+
+  command->base.vtable = &PASTE_OBJECTS_VTABLE;
+  command->object_count = object_count;
+  command->layer_id = layer_id;
+  if (out_selection) {
+    selection_set_clear(out_selection);
+    if (!selection_set_reserve(out_selection, object_count)) {
+      paste_objects_destroy(command);
+      return NULL;
+    }
+  }
+
+  for (i = 0; i < object_count; ++i) {
+    command->object_snapshots[i] = object_clone(object_snapshots[i]);
+    if (!command->object_snapshots[i]) {
+      paste_objects_destroy(command);
+      return NULL;
+    }
+
+    object_translate(command->object_snapshots[i], delta);
+    command->object_snapshots[i]->layer_id = layer_id;
+    command->object_snapshots[i]->id = document->next_id + (ObjectId)i;
+    command->object_ids[i] = command->object_snapshots[i]->id;
+
+    if (out_selection) {
+      out_selection->ids[i] = command->object_ids[i];
+      out_selection->count++;
+    }
+  }
+
   return (Command *)command;
 }
 

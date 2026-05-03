@@ -245,7 +245,7 @@ static const GraphicPropertyDef g_fake_star_schema[] = {
 };
 
 static const GraphicObjectDescriptor g_fake_star_descriptor = {
-    100u,
+    GRAPHIC_OBJECT_INVALID, /* auto-assigned by registry */
     "fake_star",
     "Fake Star",
     fake_star_create,
@@ -264,12 +264,11 @@ static const GraphicObjectDescriptor g_fake_star_descriptor = {
     (int)(sizeof(g_fake_star_schema) / sizeof(g_fake_star_schema[0]))
 };
 
-void object_register_builtin_extensions(void)
+int register_fake_star_object_extension(void)
 {
-    static int registered = 0;
-
-    if (!registered) {
-        register_object_type(&g_fake_star_descriptor);
-        registered = 1;
+    if (object_registry_lookup("fake_star")) {
+        return 1;
     }
+
+    return register_object_type(&g_fake_star_descriptor);
 }

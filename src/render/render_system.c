@@ -1,7 +1,5 @@
 #include <render/render_system.h>
 
-#include "render_device_gl.h"
-
 #include <image/png_writer.h>
 #include <render/canvas_renderer.h>
 
@@ -18,8 +16,10 @@ struct RenderSystem {
     unsigned int cached_document_revision;
     unsigned int cached_overlay_revision;
     int cached_selection_count;
+    int cached_selection_preview_active;
     RectF cached_viewport;
     Vec2 cached_center;
+    Vec2 cached_selection_preview_delta;
     float cached_zoom;
     int draw_list_valid;
 };
@@ -43,11 +43,11 @@ static RenderTransform render_system_make_transform(const RenderSystem* renderer
     return transform;
 }
 
-RenderSystem* render_system_create(PlatformWindow* window)
+RenderSystem* render_system_create(RenderDevice* device, const PlatformWindow* window)
 {
     RenderSystem* renderer = NULL;
 
-    if (!window) {
+    if (!device || !window) {
         return NULL;
     }
 
@@ -56,12 +56,7 @@ RenderSystem* render_system_create(PlatformWindow* window)
         return NULL;
     }
 
-    renderer->device = gl_render_device_create(window);
-    if (!renderer->device) {
-        free(renderer);
-        return NULL;
-    }
-
+    renderer->device = device;
     renderer->logical_width = window->width;
     renderer->logical_height = window->height;
     renderer->framebuffer_width = window->framebuffer_width;
@@ -107,6 +102,8 @@ void render_system_draw(RenderSystem* renderer,
                         const Document* document,
                         const SelectionSet* selection,
                         const CanvasView* canvas,
+                        int selection_preview_active,
+                        Vec2 selection_preview_delta,
                         const GraphicObject* overlay_object)
 {
     RenderFrameDesc frame_desc;
@@ -119,6 +116,9 @@ void render_system_draw(RenderSystem* renderer,
         renderer->cached_document_revision != document->revision ||
         renderer->cached_overlay_revision != (overlay_object ? overlay_object->revision : 0u) ||
         renderer->cached_selection_count != (selection ? selection->count : 0) ||
+        renderer->cached_selection_preview_active != selection_preview_active ||
+        renderer->cached_selection_preview_delta.x != selection_preview_delta.x ||
+        renderer->cached_selection_preview_delta.y != selection_preview_delta.y ||
         renderer->cached_zoom != canvas_view_zoom(canvas) ||
         renderer->cached_center.x != canvas_view_center(canvas).x ||
         renderer->cached_center.y != canvas_view_center(canvas).y ||
@@ -130,12 +130,16 @@ void render_system_draw(RenderSystem* renderer,
                                    document,
                                    selection,
                                    canvas,
+                                   selection_preview_active,
+                                   selection_preview_delta,
                                    overlay_object)) {
             return;
         }
         renderer->cached_document_revision = document->revision;
         renderer->cached_overlay_revision = overlay_object ? overlay_object->revision : 0u;
         renderer->cached_selection_count = selection ? selection->count : 0;
+        renderer->cached_selection_preview_active = selection_preview_active;
+        renderer->cached_selection_preview_delta = selection_preview_delta;
         renderer->cached_viewport = canvas_view_viewport(canvas);
         renderer->cached_center = canvas_view_center(canvas);
         renderer->cached_zoom = canvas_view_zoom(canvas);
