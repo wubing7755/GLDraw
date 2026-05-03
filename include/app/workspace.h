@@ -8,6 +8,7 @@
 #include <app/editor_session.h>
 #include <base/path_utils.h>
 #include <canvas/canvas_view.h>
+#include <commands/command.h>
 #include <document/history.h>
 #include <input/keymap.h>
 #include <tools/tool_controller.h>
@@ -164,6 +165,7 @@ typedef struct WorkspaceLayout {
 typedef struct EditorCore {
     Document document;
     DocumentHistory history;
+    CommandExecutor commands;
     CanvasView canvas;
     ToolController tools;
 } EditorCore;

@@ -13,6 +13,7 @@
 #include <app/application.h>
 
 #include <app/command_registry.h>
+#include <app/command_dispatcher.h>
 #include <app/workspace_actions.h>
 #include <app/workspace.h>
 #include <base/log.h>
@@ -22,9 +23,11 @@
 #include <input/input_router.h>
 #include <platform/file_dialog.h>
 #include <platform/window.h>
+#include "platform/window_internal.h"
 #include <render/render_system.h>
 #include <ui/ui_menu_actions.h>
 #include <ui/ui_menu_def.h>
+#include <ui/editor_viewmodel.h>
 #include <ui/ui_system.h>
 
 #include <GLFW/glfw3.h>
@@ -39,6 +42,7 @@
 typedef struct {
   PlatformWindow window;
   Workspace workspace;
+  CommandDispatcher dispatcher;
   RenderSystem *renderer;
   UiSystem *ui;
   Vec2 cursor_screen;
@@ -261,6 +265,8 @@ static int app_new_document(Application *app) {
     app_set_status(app, "History reset failed");
     return 0;
   }
+  command_executor_shutdown(&app->workspace.core.commands);
+  command_executor_init(&app->workspace.core.commands);
 
   app_reset_tool_state(app);
   canvas_view_set_center_zoom(&app->workspace.core.canvas, vec2_make(0.0f, 0.0f),
@@ -364,6 +370,8 @@ static int app_load_document_from_path(Application *app, const char *path) {
     app_set_status(app, "History reset failed after load");
     return 0;
   }
+  command_executor_shutdown(&app->workspace.core.commands);
+  command_executor_init(&app->workspace.core.commands);
   app_reset_tool_state(app);
   app_set_document_path(app, path);
   workspace_mark_saved(&app->workspace);
@@ -455,11 +463,13 @@ static void app_flush_pending_export_png(Application *app) {
 }
 
 static int app_exit_application(Application *app) {
-  if (!app || !app->window.handle) {
+  GLFWwindow *handle = app ? platform_window_glfw_handle(&app->window) : NULL;
+
+  if (!app || !handle) {
     return 0;
   }
 
-  glfwSetWindowShouldClose(app->window.handle, GLFW_TRUE);
+  glfwSetWindowShouldClose(handle, GLFW_TRUE);
   app_set_status(app, "Closing application");
   return 1;
 }
@@ -623,6 +633,7 @@ static void update_canvas_viewport(Application *app) {
   if (app->ui) {
     viewport = ui_system_content_bounds(app->ui);
     fallback_window = ui_system_window_bounds(app->ui);
+    app->workspace.session.layout = ui_system_layout(app->ui);
   } else {
     viewport = app->workspace.session.layout.canvas_content_bounds;
     fallback_window.w = (float)app->window.width;
@@ -747,8 +758,8 @@ static void mouse_button_callback(GLFWwindow *handle, int button, int action,
 
   if (action == GLFW_PRESS) {
     if (app->ui &&
-        ui_system_handle_mouse_button(app->ui, &app->workspace,
-                                      app->cursor_screen, button, action)) {
+        ui_system_handle_mouse_button(app->ui, app->cursor_screen, button,
+                                      action)) {
       return;
     }
     if (!app->workspace.core.tools.pointer_captured &&
@@ -862,6 +873,7 @@ static void window_close_callback(GLFWwindow *handle) {
  */
 static int app_init(Application *app) {
   RectF viewport = {0.0f, 0.0f, 1440.0f, 900.0f};
+  GLFWwindow *native_window = NULL;
 
   if (platform_window_init(&app->window, 1440, 900, "GLDraw Canvas") != 0) {
     LOG_ERROR("%s", "Failed to create window");
@@ -871,6 +883,10 @@ static int app_init(Application *app) {
   document_init(&app->workspace.core.document);
   if (!document_history_init(&app->workspace.core.history)) {
     LOG_ERROR("%s", "Failed to initialize document history");
+    return -1;
+  }
+  if (!command_executor_init(&app->workspace.core.commands)) {
+    LOG_ERROR("%s", "Failed to initialize command executor");
     return -1;
   }
   canvas_view_init(&app->workspace.core.canvas, &app->workspace.core.document, viewport);
@@ -883,6 +899,7 @@ static int app_init(Application *app) {
   app->workspace.services.load_document = app_workspace_load;
   app->workspace.services.execute_action = app_workspace_execute_action;
   app->workspace.services.command_user_data = app;
+  command_dispatcher_init(&app->dispatcher, &app->workspace);
   workspace_mark_saved(&app->workspace);
   app_set_status(app, "Initializing editor");
   app->cursor_screen =
@@ -900,14 +917,21 @@ static int app_init(Application *app) {
     LOG_ERROR("%s", "Failed to initialize UI");
     return -1;
   }
+  {
+    EditorActionSink sink;
+    sink.callback = command_dispatcher_action_callback;
+    sink.user_data = &app->dispatcher;
+    ui_system_set_action_sink(app->ui, &sink);
+  }
 
-  glfwSetWindowUserPointer(app->window.handle, app);
-  glfwSetFramebufferSizeCallback(app->window.handle, framebuffer_size_callback);
-  glfwSetCursorPosCallback(app->window.handle, cursor_pos_callback);
-  glfwSetMouseButtonCallback(app->window.handle, mouse_button_callback);
-  glfwSetKeyCallback(app->window.handle, key_callback);
-  glfwSetScrollCallback(app->window.handle, scroll_callback);
-  glfwSetWindowCloseCallback(app->window.handle, window_close_callback);
+  native_window = platform_window_glfw_handle(&app->window);
+  glfwSetWindowUserPointer(native_window, app);
+  glfwSetFramebufferSizeCallback(native_window, framebuffer_size_callback);
+  glfwSetCursorPosCallback(native_window, cursor_pos_callback);
+  glfwSetMouseButtonCallback(native_window, mouse_button_callback);
+  glfwSetKeyCallback(native_window, key_callback);
+  glfwSetScrollCallback(native_window, scroll_callback);
+  glfwSetWindowCloseCallback(native_window, window_close_callback);
 
   render_system_resize(app->renderer,
                        app->window.width,
@@ -939,6 +963,7 @@ static void app_shutdown(Application *app) {
   ui_system_destroy(app->ui);
   render_system_destroy(app->renderer);
   tool_controller_shutdown(&app->workspace.core.tools);
+  command_executor_shutdown(&app->workspace.core.commands);
   keymap_shutdown(&app->workspace.session.keymap);
   app_clear_clipboard(app);
   document_history_shutdown(&app->workspace.core.history);
@@ -970,9 +995,12 @@ int app_run(void) {
   while (!platform_window_should_close(&app->window)) {
     int framebuffer_w = 0;
     int framebuffer_h = 0;
+    GLFWwindow *native_window = platform_window_glfw_handle(&app->window);
+    ToolContext tool_context;
+    EditorViewModel view_model;
 
     platform_window_poll_events();
-    glfwGetFramebufferSize(app->window.handle, &framebuffer_w, &framebuffer_h);
+    glfwGetFramebufferSize(native_window, &framebuffer_w, &framebuffer_h);
     if (framebuffer_w <= 0 || framebuffer_h <= 0) {
       /* During monitor/fullscreen transitions some platforms briefly report
          zero-sized framebuffers. Avoid busy rendering loops in that state. */
@@ -980,13 +1008,16 @@ int app_run(void) {
       continue;
     }
     ui_system_begin_frame(app->ui);
-    ui_system_build(app->ui, &app->workspace);
+    editor_viewmodel_build(&view_model, &app->workspace);
+    ui_system_build(app->ui, &view_model);
     update_canvas_viewport(app);
+    tool_context = app_tool_context(app);
     render_system_draw(app->renderer,
                        &app->workspace.core.document,
                        &app->workspace.session.selection,
                        &app->workspace.core.canvas,
-                       tool_controller_overlay_object(&app->workspace.core.tools));
+                       tool_controller_overlay_object(&app->workspace.core.tools,
+                                                      &tool_context));
     app_flush_pending_export_png(app);
     ui_system_render(app->ui);
     platform_window_swap_buffers(&app->window);

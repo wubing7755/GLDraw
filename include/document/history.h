@@ -5,8 +5,8 @@
 #ifndef GLDRAW_DOCUMENT_HISTORY_H
 #define GLDRAW_DOCUMENT_HISTORY_H
 
-#include <app/editor_session.h>
 #include <document/document.h>
+#include <model/selection.h>
 
 #define DOCUMENT_HISTORY_MAX_ENTRIES 128
 
@@ -27,6 +27,10 @@ typedef struct {
     int count;
     unsigned int revision;
     ObjectId next_id;
+    DocumentLayer layers[DOCUMENT_MAX_LAYERS];
+    int layer_count;
+    LayerId active_layer_id;
+    LayerId next_layer_id;
     SelectionSet selection;
 } DocumentSnapshot;
 

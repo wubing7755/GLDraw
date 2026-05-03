@@ -385,6 +385,8 @@ GraphicObject* canvas_view_pick_object(const CanvasView* canvas, Vec2 screen_poi
 {
     Vec2 world_point = {0.0f, 0.0f};
     float tolerance_world = 0.0f;
+    int indices[DOCUMENT_MAX_OBJECTS];
+    int candidate_count = 0;
     int i = 0;
 
     if (!canvas || !canvas->document) {
@@ -394,9 +396,23 @@ GraphicObject* canvas_view_pick_object(const CanvasView* canvas, Vec2 screen_poi
     world_point = canvas_view_screen_to_world(canvas, screen_point);
     tolerance_world = canvas_view_world_tolerance_for_pixels(canvas, tolerance_pixels);
 
-    for (i = canvas->document->count - 1; i >= 0; --i) {
-        GraphicObject* object = canvas->document->objects[i];
-        if (object && object_hit_test(object, world_point, tolerance_world)) {
+    candidate_count = document_query_point_indices(canvas->document,
+                                                   world_point,
+                                                   tolerance_world,
+                                                   indices,
+                                                   DOCUMENT_MAX_OBJECTS);
+    if (candidate_count <= 0) {
+        candidate_count = canvas->document->count;
+        for (i = 0; i < candidate_count; ++i) {
+            indices[i] = i;
+        }
+    }
+
+    for (i = candidate_count - 1; i >= 0; --i) {
+        GraphicObject* object = canvas->document->objects[indices[i]];
+        if (object &&
+            !document_layer_is_locked(canvas->document, object->layer_id) &&
+            object_hit_test(object, world_point, tolerance_world)) {
             return object;
         }
     }

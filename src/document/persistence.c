@@ -56,7 +56,9 @@ typedef struct {
 typedef struct {
     ObjectId id;
     int has_id;
-    GraphicObjectType type;
+    LayerId layer_id;
+    int has_layer_id;
+    const GraphicObjectDescriptor* descriptor;
     int has_type;
     GraphicStyle style;
     int has_stroke_r;
@@ -80,25 +82,31 @@ typedef struct {
     int has_y;
     int has_width;
     int has_height;
+    GraphicPropertyBag properties;
 } LoadedObjectData;
 
-/**
- * @brief Gets the type tag string for an object.
- * @param type Object type.
- * @return Type tag string.
- */
-static const char* object_type_tag(GraphicObjectType type)
+static const char* layer_blend_mode_name(DocumentLayerBlendMode blend_mode)
 {
-    switch (type) {
-    case GRAPHIC_OBJECT_LINE:
-        return "line";
-    case GRAPHIC_OBJECT_RECT:
-        return "rect";
-    case GRAPHIC_OBJECT_ELLIPSE:
-        return "ellipse";
+    switch (blend_mode) {
+    case DOCUMENT_LAYER_BLEND_MULTIPLY:
+        return "multiply";
+    case DOCUMENT_LAYER_BLEND_SCREEN:
+        return "screen";
+    case DOCUMENT_LAYER_BLEND_NORMAL:
     default:
-        return "unknown";
+        return "normal";
     }
+}
+
+static DocumentLayerBlendMode layer_blend_mode_from_name(const char* name)
+{
+    if (name && strcmp(name, "multiply") == 0) {
+        return DOCUMENT_LAYER_BLEND_MULTIPLY;
+    }
+    if (name && strcmp(name, "screen") == 0) {
+        return DOCUMENT_LAYER_BLEND_SCREEN;
+    }
+    return DOCUMENT_LAYER_BLEND_NORMAL;
 }
 
 /**
@@ -119,15 +127,32 @@ static int write_document_json(FILE* file, const Document* document)
 
     fprintf(file, "{\n");
     fprintf(file, "  \"format\": \"gldraw-document\",\n");
-    fprintf(file, "  \"version\": 1,\n");
+    fprintf(file, "  \"version\": 2,\n");
     fprintf(file, "  \"next_id\": %u,\n", document->next_id);
+    fprintf(file, "  \"active_layer_id\": %u,\n", document->active_layer_id);
+    fprintf(file, "  \"layers\": [\n");
+
+    for (i = 0; i < document->layer_count; ++i) {
+        const DocumentLayer* layer = &document->layers[i];
+        fprintf(file, "    {\n");
+        fprintf(file, "      \"id\": %u,\n", layer->id);
+        fprintf(file, "      \"name\": \"%s\",\n", layer->name);
+        fprintf(file, "      \"visible\": %s,\n", layer->visible ? "true" : "false");
+        fprintf(file, "      \"locked\": %s,\n", layer->locked ? "true" : "false");
+        fprintf(file, "      \"blend_mode\": \"%s\"\n",
+                layer_blend_mode_name(layer->blend_mode));
+        fprintf(file, "    }%s\n", (i + 1 < document->layer_count) ? "," : "");
+    }
+
+    fprintf(file, "  ],\n");
     fprintf(file, "  \"objects\": [\n");
 
     for (i = 0; i < document->count; ++i) {
         const GraphicObject* object = document->objects[i];
         fprintf(file, "    {\n");
         fprintf(file, "      \"id\": %u,\n", object->id);
-        fprintf(file, "      \"type\": \"%s\",\n", object_type_tag(object->type));
+        fprintf(file, "      \"layer_id\": %u,\n", object->layer_id);
+        fprintf(file, "      \"type\": \"%s\",\n", object_type_id(object));
         fprintf(file,
                 "      \"stroke\": { \"r\": %.9g, \"g\": %.9g, \"b\": %.9g, \"a\": %.9g, \"width\": %.9g },\n",
                 object->style.stroke_color.r,
@@ -135,25 +160,25 @@ static int write_document_json(FILE* file, const Document* document)
                 object->style.stroke_color.b,
                 object->style.stroke_color.a,
                 object->style.stroke_width);
+        {
+            GraphicPropertyBag properties;
+            int property_index = 0;
 
-        if (object->type == GRAPHIC_OBJECT_LINE) {
-            float x1 = 0.0f, y1 = 0.0f, x2 = 0.0f, y2 = 0.0f;
-            object_get_scalar(object, "x1", &x1);
-            object_get_scalar(object, "y1", &y1);
-            object_get_scalar(object, "x2", &x2);
-            object_get_scalar(object, "y2", &y2);
-            fprintf(file,
-                    "      \"geometry\": { \"x1\": %.9g, \"y1\": %.9g, \"x2\": %.9g, \"y2\": %.9g }\n",
-                    x1, y1, x2, y2);
-        } else {
-            float x = 0.0f, y = 0.0f, width = 0.0f, height = 0.0f;
-            object_get_scalar(object, "x", &x);
-            object_get_scalar(object, "y", &y);
-            object_get_scalar(object, "width", &width);
-            object_get_scalar(object, "height", &height);
-            fprintf(file,
-                    "      \"geometry\": { \"x\": %.9g, \"y\": %.9g, \"width\": %.9g, \"height\": %.9g }\n",
-                    x, y, width, height);
+            graphic_property_bag_init(&properties);
+            if (!object->descriptor || !object->descriptor->serialize ||
+                !object->descriptor->serialize(object, &properties)) {
+                return 0;
+            }
+
+            fprintf(file, "      \"properties\": {");
+            for (property_index = 0; property_index < properties.count; ++property_index) {
+                fprintf(file,
+                        "%s \"%s\": %.9g",
+                        property_index == 0 ? "" : ",",
+                        properties.values[property_index].name,
+                        properties.values[property_index].value);
+            }
+            fprintf(file, " }\n");
         }
 
         fprintf(file, "    }%s\n", (i + 1 < document->count) ? "," : "");
@@ -606,10 +631,10 @@ static int parse_stroke_object(JsonParser* parser, LoadedObjectData* data)
  * @param data Loaded object data.
  * @return 1 on success, 0 on failure.
  */
-static int parse_geometry_object(JsonParser* parser, LoadedObjectData* data)
+static int parse_properties_object(JsonParser* parser, LoadedObjectData* data)
 {
     if (!json_expect(parser, JSON_TOKEN_LBRACE)) {
-        LOG_ERROR("%s", "[persistence][parse][geometry] expected object");
+        LOG_ERROR("%s", "[persistence][parse][properties] expected object");
         return 0;
     }
 
@@ -620,65 +645,38 @@ static int parse_geometry_object(JsonParser* parser, LoadedObjectData* data)
     }
 
     while (1) {
+        char property_name[32];
+        size_t token_length = 0u;
+        float value = 0.0f;
+
         if (parser->type != JSON_TOKEN_STRING) {
-            LOG_ERROR("%s", "[persistence][parse][geometry] expected key");
+            LOG_ERROR("%s", "[persistence][parse][properties] expected key");
             return 0;
         }
 
-        if (json_token_is_string(parser, "x1")) {
-            json_parser_next(parser);
-            if (!json_expect(parser, JSON_TOKEN_COLON)) return 0;
-            json_parser_next(parser);
-            if (!json_parse_float(parser, &data->x1)) return 0;
-            data->has_x1 = 1;
-        } else if (json_token_is_string(parser, "y1")) {
-            json_parser_next(parser);
-            if (!json_expect(parser, JSON_TOKEN_COLON)) return 0;
-            json_parser_next(parser);
-            if (!json_parse_float(parser, &data->y1)) return 0;
-            data->has_y1 = 1;
-        } else if (json_token_is_string(parser, "x2")) {
-            json_parser_next(parser);
-            if (!json_expect(parser, JSON_TOKEN_COLON)) return 0;
-            json_parser_next(parser);
-            if (!json_parse_float(parser, &data->x2)) return 0;
-            data->has_x2 = 1;
-        } else if (json_token_is_string(parser, "y2")) {
-            json_parser_next(parser);
-            if (!json_expect(parser, JSON_TOKEN_COLON)) return 0;
-            json_parser_next(parser);
-            if (!json_parse_float(parser, &data->y2)) return 0;
-            data->has_y2 = 1;
-        } else if (json_token_is_string(parser, "x")) {
-            json_parser_next(parser);
-            if (!json_expect(parser, JSON_TOKEN_COLON)) return 0;
-            json_parser_next(parser);
-            if (!json_parse_float(parser, &data->x)) return 0;
-            data->has_x = 1;
-        } else if (json_token_is_string(parser, "y")) {
-            json_parser_next(parser);
-            if (!json_expect(parser, JSON_TOKEN_COLON)) return 0;
-            json_parser_next(parser);
-            if (!json_parse_float(parser, &data->y)) return 0;
-            data->has_y = 1;
-        } else if (json_token_is_string(parser, "width")) {
-            json_parser_next(parser);
-            if (!json_expect(parser, JSON_TOKEN_COLON)) return 0;
-            json_parser_next(parser);
-            if (!json_parse_float(parser, &data->width)) return 0;
-            data->has_width = 1;
-        } else if (json_token_is_string(parser, "height")) {
-            json_parser_next(parser);
-            if (!json_expect(parser, JSON_TOKEN_COLON)) return 0;
-            json_parser_next(parser);
-            if (!json_parse_float(parser, &data->height)) return 0;
-            data->has_height = 1;
-        } else {
-            json_parser_next(parser);
-            if (!json_expect(parser, JSON_TOKEN_COLON)) return 0;
-            json_parser_next(parser);
-            if (!json_skip_value(parser)) return 0;
+        token_length = parser->token_length;
+        if (token_length >= sizeof(property_name)) {
+            return 0;
         }
+        memcpy(property_name, parser->token_start, token_length);
+        property_name[token_length] = '\0';
+
+        json_parser_next(parser);
+        if (!json_expect(parser, JSON_TOKEN_COLON)) return 0;
+        json_parser_next(parser);
+        if (!json_parse_float(parser, &value)) return 0;
+        if (!graphic_property_bag_set(&data->properties, property_name, value)) {
+            return 0;
+        }
+
+        if (strcmp(property_name, "x1") == 0) { data->x1 = value; data->has_x1 = 1; }
+        if (strcmp(property_name, "y1") == 0) { data->y1 = value; data->has_y1 = 1; }
+        if (strcmp(property_name, "x2") == 0) { data->x2 = value; data->has_x2 = 1; }
+        if (strcmp(property_name, "y2") == 0) { data->y2 = value; data->has_y2 = 1; }
+        if (strcmp(property_name, "x") == 0) { data->x = value; data->has_x = 1; }
+        if (strcmp(property_name, "y") == 0) { data->y = value; data->has_y = 1; }
+        if (strcmp(property_name, "width") == 0) { data->width = value; data->has_width = 1; }
+        if (strcmp(property_name, "height") == 0) { data->height = value; data->has_height = 1; }
 
         if (parser->type == JSON_TOKEN_COMMA) {
             json_parser_next(parser);
@@ -688,7 +686,7 @@ static int parse_geometry_object(JsonParser* parser, LoadedObjectData* data)
             json_parser_next(parser);
             return 1;
         }
-        LOG_ERROR("%s", "[persistence][parse][geometry] malformed object");
+        LOG_ERROR("%s", "[persistence][parse][properties] malformed object");
         return 0;
     }
 }
@@ -701,25 +699,171 @@ static int parse_geometry_object(JsonParser* parser, LoadedObjectData* data)
  */
 static int parse_object_type(JsonParser* parser, LoadedObjectData* data)
 {
+    char type_name[32];
+    size_t token_length = 0u;
+
     if (!json_expect(parser, JSON_TOKEN_STRING)) {
         return 0;
     }
 
-    if (json_token_is_string(parser, "line")) {
-        data->type = GRAPHIC_OBJECT_LINE;
-        data->has_type = 1;
-    } else if (json_token_is_string(parser, "rect")) {
-        data->type = GRAPHIC_OBJECT_RECT;
-        data->has_type = 1;
-    } else if (json_token_is_string(parser, "ellipse")) {
-        data->type = GRAPHIC_OBJECT_ELLIPSE;
-        data->has_type = 1;
-    } else {
+    token_length = parser->token_length;
+    if (token_length >= sizeof(type_name)) {
+        return 0;
+    }
+    memcpy(type_name, parser->token_start, token_length);
+    type_name[token_length] = '\0';
+
+    data->descriptor = object_registry_lookup(type_name);
+    if (!data->descriptor) {
+        return 0;
+    }
+    data->has_type = 1;
+
+    json_parser_next(parser);
+    return 1;
+}
+
+static int json_parse_bool(JsonParser* parser, int* out_value);
+
+static int parse_string_value(JsonParser* parser, char* buffer, size_t buffer_size)
+{
+    if (!parser || !buffer || buffer_size == 0u || !json_expect(parser, JSON_TOKEN_STRING) ||
+        parser->token_length >= buffer_size) {
+        return 0;
+    }
+
+    memcpy(buffer, parser->token_start, parser->token_length);
+    buffer[parser->token_length] = '\0';
+    json_parser_next(parser);
+    return 1;
+}
+
+static int parse_layer_entry(JsonParser* parser, Document* document)
+{
+    unsigned int id = 0u;
+    int visible = 1;
+    int locked = 0;
+    char name[32] = {0};
+    char blend_mode[16] = {0};
+    int has_id = 0;
+    int has_name = 0;
+
+    if (!parser || !document || !json_expect(parser, JSON_TOKEN_LBRACE)) {
         return 0;
     }
 
     json_parser_next(parser);
+    while (parser->type != JSON_TOKEN_RBRACE) {
+        if (parser->type != JSON_TOKEN_STRING) {
+            return 0;
+        }
+
+        if (json_token_is_string(parser, "id")) {
+            json_parser_next(parser);
+            if (!json_expect(parser, JSON_TOKEN_COLON)) return 0;
+            json_parser_next(parser);
+            if (!json_parse_u32(parser, &id)) return 0;
+            has_id = 1;
+        } else if (json_token_is_string(parser, "name")) {
+            json_parser_next(parser);
+            if (!json_expect(parser, JSON_TOKEN_COLON)) return 0;
+            json_parser_next(parser);
+            if (!parse_string_value(parser, name, sizeof(name))) return 0;
+            has_name = 1;
+        } else if (json_token_is_string(parser, "visible")) {
+            json_parser_next(parser);
+            if (!json_expect(parser, JSON_TOKEN_COLON)) return 0;
+            json_parser_next(parser);
+            if (!json_parse_bool(parser, &visible)) return 0;
+        } else if (json_token_is_string(parser, "locked")) {
+            json_parser_next(parser);
+            if (!json_expect(parser, JSON_TOKEN_COLON)) return 0;
+            json_parser_next(parser);
+            if (!json_parse_bool(parser, &locked)) return 0;
+        } else if (json_token_is_string(parser, "blend_mode")) {
+            json_parser_next(parser);
+            if (!json_expect(parser, JSON_TOKEN_COLON)) return 0;
+            json_parser_next(parser);
+            if (!parse_string_value(parser, blend_mode, sizeof(blend_mode))) return 0;
+        } else {
+            json_parser_next(parser);
+            if (!json_expect(parser, JSON_TOKEN_COLON)) return 0;
+            json_parser_next(parser);
+            if (!json_skip_value(parser)) return 0;
+        }
+
+        if (parser->type == JSON_TOKEN_COMMA) {
+            json_parser_next(parser);
+        } else if (parser->type != JSON_TOKEN_RBRACE) {
+            return 0;
+        }
+    }
+
+    json_parser_next(parser);
+    if (!has_id || !has_name || id == 0u || document->layer_count >= DOCUMENT_MAX_LAYERS) {
+        return 0;
+    }
+
+    document->layers[document->layer_count].id = id;
+    snprintf(document->layers[document->layer_count].name,
+             sizeof(document->layers[document->layer_count].name),
+             "%s",
+             name);
+    document->layers[document->layer_count].visible = visible ? 1 : 0;
+    document->layers[document->layer_count].locked = locked ? 1 : 0;
+    document->layers[document->layer_count].blend_mode = layer_blend_mode_from_name(blend_mode);
+    document->layer_count++;
+    if (document->next_layer_id <= id) {
+        document->next_layer_id = id + 1u;
+    }
     return 1;
+}
+
+static int parse_layers_array(JsonParser* parser, Document* document)
+{
+    if (!parser || !document || !json_expect(parser, JSON_TOKEN_LBRACKET)) {
+        return 0;
+    }
+
+    document->layer_count = 0;
+    json_parser_next(parser);
+    if (parser->type == JSON_TOKEN_RBRACKET) {
+        json_parser_next(parser);
+        return 1;
+    }
+
+    while (1) {
+        if (!parse_layer_entry(parser, document)) {
+            return 0;
+        }
+        if (parser->type == JSON_TOKEN_COMMA) {
+            json_parser_next(parser);
+            continue;
+        }
+        if (parser->type == JSON_TOKEN_RBRACKET) {
+            json_parser_next(parser);
+            return 1;
+        }
+        return 0;
+    }
+}
+
+static int json_parse_bool(JsonParser* parser, int* out_value)
+{
+    if (!parser || !out_value) {
+        return 0;
+    }
+    if (parser->type == JSON_TOKEN_TRUE) {
+        *out_value = 1;
+        json_parser_next(parser);
+        return 1;
+    }
+    if (parser->type == JSON_TOKEN_FALSE) {
+        *out_value = 0;
+        json_parser_next(parser);
+        return 1;
+    }
+    return 0;
 }
 
 /**
@@ -746,41 +890,11 @@ static GraphicObject* build_loaded_object(const LoadedObjectData* data)
         return NULL;
     }
 
-    switch (data->type) {
-    case GRAPHIC_OBJECT_LINE:
-        if (!data->has_x1 || !data->has_y1 || !data->has_x2 || !data->has_y2) {
-            return NULL;
-        }
-        return object_create_line((Vec2){data->x1, data->y1},
-                                  (Vec2){data->x2, data->y2},
-                                  data->style);
-    case GRAPHIC_OBJECT_RECT:
-        if (!data->has_x || !data->has_y || !data->has_width || !data->has_height) {
-            return NULL;
-        }
-        if (data->width <= 0.0f || data->height <= 0.0f) {
-            LOG_ERROR("[persistence][parse][geometry] invalid rect size w=%.3f h=%.3f",
-                      data->width,
-                      data->height);
-            return NULL;
-        }
-        return object_create_rect((RectF){data->x, data->y, data->width, data->height},
-                                  data->style);
-    case GRAPHIC_OBJECT_ELLIPSE:
-        if (!data->has_x || !data->has_y || !data->has_width || !data->has_height) {
-            return NULL;
-        }
-        if (data->width <= 0.0f || data->height <= 0.0f) {
-            LOG_ERROR("[persistence][parse][geometry] invalid ellipse size w=%.3f h=%.3f",
-                      data->width,
-                      data->height);
-            return NULL;
-        }
-        return object_create_ellipse((RectF){data->x, data->y, data->width, data->height},
-                                     data->style);
-    default:
+    if (!data->descriptor || !data->descriptor->deserialize) {
         return NULL;
     }
+
+    return data->descriptor->deserialize(&data->properties, data->style);
 }
 
 /**
@@ -806,6 +920,7 @@ static int parse_object_entry(JsonParser* parser, Document* document)
 
     memset(&data, 0, sizeof(data));
     data.style = object_default_style();
+    graphic_property_bag_init(&data.properties);
 
     if (!json_expect(parser, JSON_TOKEN_LBRACE)) {
         LOG_ERROR("%s", "[persistence][parse][object entry] expected object");
@@ -831,6 +946,13 @@ static int parse_object_entry(JsonParser* parser, Document* document)
             if (!json_parse_u32(parser, &id_value)) return 0;
             data.id = id_value;
             data.has_id = 1;
+        } else if (json_token_is_string(parser, "layer_id")) {
+            json_parser_next(parser);
+            if (!json_expect(parser, JSON_TOKEN_COLON)) return 0;
+            json_parser_next(parser);
+            if (!json_parse_u32(parser, &id_value)) return 0;
+            data.layer_id = id_value;
+            data.has_layer_id = 1;
         } else if (json_token_is_string(parser, "type")) {
             json_parser_next(parser);
             if (!json_expect(parser, JSON_TOKEN_COLON)) return 0;
@@ -844,12 +966,13 @@ static int parse_object_entry(JsonParser* parser, Document* document)
                 LOG_ERROR("%s", "[persistence][parse][object entry] failed parsing stroke");
                 return 0;
             }
-        } else if (json_token_is_string(parser, "geometry")) {
+        } else if (json_token_is_string(parser, "geometry") ||
+                   json_token_is_string(parser, "properties")) {
             json_parser_next(parser);
             if (!json_expect(parser, JSON_TOKEN_COLON)) return 0;
             json_parser_next(parser);
-            if (!parse_geometry_object(parser, &data)) {
-                LOG_ERROR("%s", "[persistence][parse][object entry] failed parsing geometry");
+            if (!parse_properties_object(parser, &data)) {
+                LOG_ERROR("%s", "[persistence][parse][object entry] failed parsing properties");
                 return 0;
             }
         } else {
@@ -877,7 +1000,11 @@ static int parse_object_entry(JsonParser* parser, Document* document)
         return 0;
     }
 
-    if (!document_append_object_with_id(document, object, data.id)) {
+    object->layer_id = data.has_layer_id ? data.layer_id : document_active_layer_id(document);
+    if (!document_append_object_with_id_to_layer(document,
+                                                 object,
+                                                 data.id,
+                                                 object->layer_id)) {
         object_destroy(object);
         return 0;
     }
@@ -934,8 +1061,11 @@ static int parse_document_root(JsonParser* parser, Document* document)
     int got_version = 0;
     int got_objects = 0;
     int got_next_id = 0;
+    int got_layers = 0;
+    int got_active_layer_id = 0;
     unsigned int version = 0;
     unsigned int next_id = 0;
+    unsigned int active_layer_id = 0;
 
     if (!json_expect(parser, JSON_TOKEN_LBRACE)) {
         LOG_ERROR("%s", "[persistence][parse][top-level] expected root object");
@@ -976,6 +1106,18 @@ static int parse_document_root(JsonParser* parser, Document* document)
             json_parser_next(parser);
             if (!json_parse_u32(parser, &next_id)) return 0;
             got_next_id = 1;
+        } else if (json_token_is_string(parser, "active_layer_id")) {
+            json_parser_next(parser);
+            if (!json_expect(parser, JSON_TOKEN_COLON)) return 0;
+            json_parser_next(parser);
+            if (!json_parse_u32(parser, &active_layer_id)) return 0;
+            got_active_layer_id = 1;
+        } else if (json_token_is_string(parser, "layers")) {
+            json_parser_next(parser);
+            if (!json_expect(parser, JSON_TOKEN_COLON)) return 0;
+            json_parser_next(parser);
+            if (!parse_layers_array(parser, document)) return 0;
+            got_layers = 1;
         } else if (json_token_is_string(parser, "objects")) {
             json_parser_next(parser);
             if (!json_expect(parser, JSON_TOKEN_COLON)) return 0;
@@ -1000,9 +1142,24 @@ static int parse_document_root(JsonParser* parser, Document* document)
         return 0;
     }
 
-    if (!got_format || !got_version || version != 1 || !got_objects) {
+    if (!got_format || !got_version || (version != 1 && version != 2) || !got_objects) {
         LOG_ERROR("%s", "[persistence][parse][top-level] missing or invalid required keys (format/version/objects)");
         return 0;
+    }
+
+    if (version == 1 || !got_layers || document->layer_count <= 0) {
+        document->layer_count = 1;
+        document->layers[0].id = 1u;
+        snprintf(document->layers[0].name, sizeof(document->layers[0].name), "%s", "Layer 1");
+        document->layers[0].visible = 1;
+        document->layers[0].locked = 0;
+        document->layers[0].blend_mode = DOCUMENT_LAYER_BLEND_NORMAL;
+        document->next_layer_id = 2u;
+    }
+    if (got_active_layer_id && document_layer_find_const(document, active_layer_id)) {
+        document->active_layer_id = active_layer_id;
+    } else if (document->layer_count > 0) {
+        document->active_layer_id = document->layers[0].id;
     }
 
     /* Selection is editor-session state and intentionally not serialized. */

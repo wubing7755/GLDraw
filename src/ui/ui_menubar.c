@@ -16,7 +16,6 @@
 #include "ui_menu_actions.h"
 
 #include <app/command_registry.h>
-#include <app/workspace.h>
 
 #include <glad/glad.h>
 
@@ -34,6 +33,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #define MENU_BAR_HEIGHT 30.0f
 #define MENU_PARENT_THEME 900
@@ -80,7 +80,7 @@ static const UiQuickActionDef g_quick_actions[] = {
  * @param item Menu item definition.
  * @return None.
  */
-static void ui_build_menu_item_text(const Workspace* workspace,
+static void ui_build_menu_item_text(const EditorViewModel* view_model,
                                     char* out_text,
                                     size_t out_size,
                                     const MenuItemDef* item)
@@ -92,8 +92,15 @@ static void ui_build_menu_item_text(const Workspace* workspace,
     }
 
     shortcut[0] = '\0';
-    if (workspace && item->type == MENU_ITEM_ACTION) {
-        command_registry_format_menu_shortcut(workspace, item->id, shortcut, sizeof(shortcut));
+    if (view_model && item->type == MENU_ITEM_ACTION) {
+        const CommandDescriptor* descriptor = command_registry_find_by_menu_id(item->id);
+
+        if (descriptor) {
+            snprintf(shortcut,
+                     sizeof(shortcut),
+                     "%s",
+                     editor_viewmodel_command_shortcut(view_model, descriptor->command));
+        }
     }
 
     if (shortcut[0] != '\0') {
@@ -102,6 +109,43 @@ static void ui_build_menu_item_text(const Workspace* workspace,
         snprintf(out_text, out_size, "%-20s %s", item->label, item->shortcut);
     } else {
         snprintf(out_text, out_size, "%s", item->label);
+    }
+}
+
+static void ui_build_command_tooltip(const EditorViewModel* view_model,
+                                     EditorCommand command,
+                                     const char* label,
+                                     char* buffer,
+                                     size_t buffer_size)
+{
+    const char* shortcut = "";
+    const char* reason = "";
+
+    if (!buffer || buffer_size == 0u) {
+        return;
+    }
+
+    buffer[0] = '\0';
+    if (!label) {
+        return;
+    }
+
+    if (view_model && command > EDITOR_COMMAND_NONE) {
+        shortcut = editor_viewmodel_command_shortcut(view_model, command);
+        reason = editor_viewmodel_command_unavailable_reason(view_model, command);
+    }
+
+    if (shortcut && shortcut[0] != '\0') {
+        snprintf(buffer, buffer_size, "%s (%s)", label, shortcut);
+    } else {
+        snprintf(buffer, buffer_size, "%s", label);
+    }
+
+    if (reason && reason[0] != '\0') {
+        snprintf(buffer + strlen(buffer),
+                 buffer_size - strlen(buffer),
+                 "\nUnavailable: %s",
+                 reason);
     }
 }
 
@@ -272,7 +316,9 @@ int ui_menubar_take_theme_reload_request(UiMenuBar* menubar)
  * @param parent_id [in] Parent menu ID to render children for.
  * @return Clicked menu item ID, or `-1` if no item was clicked.
  */
-static int ui_render_dropdown(struct nk_context* ctx, Workspace* workspace, int parent_id)
+static int ui_render_dropdown(struct nk_context* ctx,
+                              const EditorViewModel* view_model,
+                              int parent_id)
 {
     int clicked_id = -1;
     const MenuItemDef* items = ui_menu_def_items();
@@ -300,15 +346,32 @@ static int ui_render_dropdown(struct nk_context* ctx, Workspace* workspace, int 
 
         case MENU_ITEM_ACTION: {
             char menu_text[96];
-            int enabled = ui_menu_is_action_available(workspace, (MenuId)item->id);
+            int enabled = ui_menu_is_action_available(view_model, (MenuId)item->id);
+            struct nk_rect widget_bounds;
+            int hovered = 0;
+            char tooltip[128];
+            const CommandDescriptor* descriptor =
+                command_registry_find_by_menu_id(item->id);
 
-            ui_build_menu_item_text(workspace, menu_text, sizeof(menu_text), item);
+            ui_build_menu_item_text(view_model, menu_text, sizeof(menu_text), item);
 
             if (!enabled) {
                 nk_widget_disable_begin(ctx);
             }
+            widget_bounds = nk_widget_bounds(ctx);
             if (nk_menu_item_label(ctx, menu_text, NK_TEXT_LEFT) && enabled) {
                 clicked_id = item->id;
+            }
+            hovered = nk_input_is_mouse_hovering_rect(&ctx->input, widget_bounds);
+            if (hovered && descriptor) {
+                ui_build_command_tooltip(view_model,
+                                         descriptor->command,
+                                         item->label,
+                                         tooltip,
+                                         sizeof(tooltip));
+                if (tooltip[0] != '\0') {
+                    nk_tooltip(ctx, tooltip);
+                }
             }
             if (!enabled) {
                 nk_widget_disable_end(ctx);
@@ -371,7 +434,9 @@ static int ui_render_theme_dropdown(UiMenuBar* menubar)
  * @param menu Top-level menu definition.
  * @return Clicked menu item id, or `-1` if no action was triggered.
  */
-static int ui_render_top_menu(UiMenuBar* menubar, Workspace* workspace, const UiTopMenuDef* menu)
+static int ui_render_top_menu(UiMenuBar* menubar,
+                              const EditorViewModel* view_model,
+                              const UiTopMenuDef* menu)
 {
     struct nk_context* ctx = NULL;
     int clicked_id = -1;
@@ -393,7 +458,7 @@ static int ui_render_top_menu(UiMenuBar* menubar, Workspace* workspace, const Ui
                 menubar->requested_theme_index = theme_index;
             }
         } else {
-            clicked_id = ui_render_dropdown(ctx, workspace, menu->parent_id);
+            clicked_id = ui_render_dropdown(ctx, view_model, menu->parent_id);
         }
         nk_menu_end(ctx);
     }
@@ -408,9 +473,11 @@ static int ui_render_top_menu(UiMenuBar* menubar, Workspace* workspace, const Ui
  * @param clicked_id Clicked menu action id.
  * @return None.
  */
-static void ui_dispatch_menu_action(UiMenuBar* menubar, Workspace* workspace, int clicked_id)
+static void ui_dispatch_menu_action(UiMenuBar* menubar,
+                                    const EditorActionSink* sink,
+                                    int clicked_id)
 {
-    if (!menubar || !workspace || clicked_id == -1) {
+    if (!menubar || clicked_id == -1) {
         return;
     }
 
@@ -419,10 +486,13 @@ static void ui_dispatch_menu_action(UiMenuBar* menubar, Workspace* workspace, in
         return;
     }
 
-    ui_menu_execute(workspace, (MenuId)clicked_id);
+    ui_menu_execute(sink, (MenuId)clicked_id);
 }
 
-void ui_menubar_build(UiMenuBar* menubar, Workspace* workspace, int window_width)
+void ui_menubar_build(UiMenuBar* menubar,
+                      const EditorViewModel* view_model,
+                      const EditorActionSink* sink,
+                      int window_width)
 {
     struct nk_context* ctx;
     int clicked_id = -1;
@@ -435,7 +505,7 @@ void ui_menubar_build(UiMenuBar* menubar, Workspace* workspace, int window_width
     float row_height;
     int columns;
 
-    if (!menubar || !workspace) {
+    if (!menubar || !view_model) {
         return;
     }
 
@@ -476,7 +546,7 @@ void ui_menubar_build(UiMenuBar* menubar, Workspace* workspace, int window_width
         for (size_t i = 0; i < menu_count; i++) {
             int id;
             nk_layout_row_push(ctx, g_top_menus[i].item_width);
-            id = ui_render_top_menu(menubar, workspace, &g_top_menus[i]);
+            id = ui_render_top_menu(menubar, view_model, &g_top_menus[i]);
             if (id != -1) {
                 clicked_id = id;
             }
@@ -487,9 +557,10 @@ void ui_menubar_build(UiMenuBar* menubar, Workspace* workspace, int window_width
 
         for (size_t i = 0; i < quick_count; i++) {
             char tooltip[96];
-            char shortcut[64];
             struct nk_rect widget_bounds;
-            int enabled = ui_menu_is_action_available(workspace, g_quick_actions[i].menu_id);
+            const CommandDescriptor* descriptor =
+                command_registry_find_by_menu_id(g_quick_actions[i].menu_id);
+            int enabled = ui_menu_is_action_available(view_model, g_quick_actions[i].menu_id);
             int hovered = 0;
             nk_layout_row_push(ctx, g_quick_actions[i].width);
             if (!enabled) {
@@ -501,15 +572,12 @@ void ui_menubar_build(UiMenuBar* menubar, Workspace* workspace, int window_width
             }
             hovered = nk_input_is_mouse_hovering_rect(&ctx->input, widget_bounds);
             tooltip[0] = '\0';
-            shortcut[0] = '\0';
-            command_registry_format_menu_shortcut(workspace,
-                                                  g_quick_actions[i].menu_id,
-                                                  shortcut,
-                                                  sizeof(shortcut));
-            if (shortcut[0] != '\0') {
-                snprintf(tooltip, sizeof(tooltip), "%s (%s)", g_quick_actions[i].label, shortcut);
-            } else {
-                snprintf(tooltip, sizeof(tooltip), "%s", g_quick_actions[i].label);
+            if (descriptor) {
+                ui_build_command_tooltip(view_model,
+                                         descriptor->command,
+                                         g_quick_actions[i].label,
+                                         tooltip,
+                                         sizeof(tooltip));
             }
             if (hovered) {
                 nk_tooltip(ctx, tooltip);
@@ -525,5 +593,5 @@ void ui_menubar_build(UiMenuBar* menubar, Workspace* workspace, int window_width
     nk_end(ctx);
 
     /* Execute clicked action */
-    ui_dispatch_menu_action(menubar, workspace, clicked_id);
+    ui_dispatch_menu_action(menubar, sink, clicked_id);
 }

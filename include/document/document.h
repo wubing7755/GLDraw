@@ -6,21 +6,29 @@
 #define GLDRAW_DOCUMENT_DOCUMENT_H
 
 #include <document/object.h>
+#include <model/selection.h>
 
-#define DOCUMENT_MAX_OBJECTS 1024
-#define DOCUMENT_MAX_SELECTION 128
+#define DOCUMENT_MAX_OBJECTS 8192
+#define DOCUMENT_MAX_LAYERS 64
 
-/**
- * @struct SelectionSet
- * @brief Document selection set (based on object IDs).
- *
- * @member ids Selected object ID list.
- * @member count Current selection count.
- */
-typedef struct {
-  ObjectId ids[DOCUMENT_MAX_SELECTION];
-  int count;
-} SelectionSet;
+typedef enum {
+  DOCUMENT_LAYER_BLEND_NORMAL = 0,
+  DOCUMENT_LAYER_BLEND_MULTIPLY,
+  DOCUMENT_LAYER_BLEND_SCREEN
+} DocumentLayerBlendMode;
+
+typedef struct DocumentLayer {
+  LayerId id;
+  char name[32];
+  int visible;
+  int locked;
+  DocumentLayerBlendMode blend_mode;
+} DocumentLayer;
+
+typedef struct DocumentSpatialEntry {
+  int object_index;
+  int next;
+} DocumentSpatialEntry;
 
 /**
  * @struct Document
@@ -36,6 +44,22 @@ typedef struct Document {
   int count;
   unsigned int revision;
   ObjectId next_id;
+  DocumentLayer layers[DOCUMENT_MAX_LAYERS];
+  int layer_count;
+  LayerId active_layer_id;
+  LayerId next_layer_id;
+  RectF spatial_bounds;
+  float spatial_cell_size;
+  int spatial_cols;
+  int spatial_rows;
+  int spatial_cell_count;
+  int *spatial_heads;
+  DocumentSpatialEntry *spatial_entries;
+  int spatial_entry_count;
+  int spatial_entry_capacity;
+  unsigned int spatial_revision;
+  unsigned int spatial_query_token;
+  unsigned int *spatial_marks;
 } Document;
 
 /**
@@ -68,6 +92,10 @@ void document_reset(Document *document);
  */
 int document_add_object(Document *document, GraphicObject *object);
 
+int document_add_object_to_layer(Document *document,
+                                 GraphicObject *object,
+                                 LayerId layer_id);
+
 /**
  * @brief Append an object to the document with a specified ID.
  * @param document Target document.
@@ -77,6 +105,11 @@ int document_add_object(Document *document, GraphicObject *object);
  */
 int document_append_object_with_id(Document *document, GraphicObject *object,
                                    ObjectId id);
+
+int document_append_object_with_id_to_layer(Document *document,
+                                            GraphicObject *object,
+                                            ObjectId id,
+                                            LayerId layer_id);
 
 /**
  * @brief Find an object by its ID.
@@ -115,5 +148,45 @@ void document_touch(Document *document);
  * @return Maximum ID; returns `0` if the document is empty or parameters are invalid.
  */
 ObjectId document_max_id(const Document *document);
+
+int document_layer_count(const Document *document);
+const DocumentLayer *document_layer_at(const Document *document, int index);
+int document_layer_index(const Document *document, LayerId layer_id);
+DocumentLayer *document_layer_find(Document *document, LayerId layer_id);
+const DocumentLayer *document_layer_find_const(const Document *document,
+                                               LayerId layer_id);
+int document_layer_is_locked(const Document *document, LayerId layer_id);
+int document_object_is_locked(const Document *document, ObjectId object_id);
+LayerId document_active_layer_id(const Document *document);
+int document_set_active_layer(Document *document, LayerId layer_id);
+LayerId document_create_layer(Document *document, const char *name);
+LayerId document_create_layer_with_id(Document *document,
+                                      const char *name,
+                                      LayerId layer_id);
+int document_insert_layer_at(Document *document,
+                             const DocumentLayer *layer,
+                             int index);
+int document_delete_layer(Document *document, LayerId layer_id);
+int document_rename_layer(Document *document, LayerId layer_id, const char *name);
+int document_move_layer(Document *document, LayerId layer_id, int target_index);
+int document_set_layer_visibility(Document *document,
+                                  LayerId layer_id,
+                                  int visible);
+int document_set_layer_locked(Document *document, LayerId layer_id, int locked);
+int document_set_layer_blend_mode(Document *document,
+                                  LayerId layer_id,
+                                  DocumentLayerBlendMode blend_mode);
+int document_insert_object_clone_at(Document *document,
+                                    const GraphicObject *snapshot,
+                                    int index);
+int document_query_visible_indices(const Document *document,
+                                   RectF visible_rect,
+                                   int *out_indices,
+                                   int max_indices);
+int document_query_point_indices(const Document *document,
+                                 Vec2 point,
+                                 float tolerance,
+                                 int *out_indices,
+                                 int max_indices);
 
 #endif /* GLDRAW_DOCUMENT_DOCUMENT_H */

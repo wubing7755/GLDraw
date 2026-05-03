@@ -1,27 +1,14 @@
 /**
  * @file ui_system.c
  * @brief Nuklear UI system implementation (menu, tool rail, inspector, status).
- *
- * Role in project:
- * - Builds all editor UI panels and theme behavior each frame.
- * - Publishes layout bounds that drive canvas viewport and pointer blocking.
- *
- * Module relationships:
- * - Uses workspace/document/tools for editable UI actions.
- * - Cooperates with application input loop and theme subsystem.
  */
 #include <ui/ui_system.h>
 #include <ui/ui_menubar.h>
 #include <ui/ui_dialog.h>
 
-#include <app/workspace.h>
-#include <app/workspace_actions.h>
 #include <base/math2d.h>
-#include <canvas/canvas_view.h>
-#include <document/document.h>
-#include <document/history.h>
 #include <glad/glad.h>
-#include <tools/tool_controller.h>
+#include "platform/window_internal.h"
 
 #define NK_INCLUDE_FIXED_TYPES
 #define NK_INCLUDE_STANDARD_IO
@@ -41,6 +28,7 @@
 #include <ui/ui_theme.h>
 
 #include <math.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -58,16 +46,8 @@ typedef enum UiThemeReloadReason {
   UI_THEME_RELOAD_REASON_MANUAL
 } UiThemeReloadReason;
 
-static ToolContext ui_tool_context(Workspace *workspace);
 static int ui_hover_overlays_allowed(const UiSystem *ui);
 
-/**
- * @brief Clamps a float value.
- * @param value Value to clamp.
- * @param min_value Minimum value.
- * @param max_value Maximum value.
- * @return Clamped value.
- */
 static float ui_clampf(float value, float min_value, float max_value) {
   if (value < min_value) {
     return min_value;
@@ -78,11 +58,31 @@ static float ui_clampf(float value, float min_value, float max_value) {
   return value;
 }
 
-/**
- * @brief Gets label for theme reload reason.
- * @param reason Reload reason enum.
- * @return Reason label string.
- */
+static void ui_system_emit_action(UiSystem *ui, const EditorAction *action) {
+  if (!ui || !action) {
+    return;
+  }
+
+  editor_action_emit(&ui->action_sink, action);
+}
+
+static void ui_system_emit_status(UiSystem *ui, const char *fmt, ...) {
+  char buffer[EDITOR_ACTION_STATUS_CAPACITY];
+  va_list args;
+  EditorAction action;
+
+  if (!ui || !fmt) {
+    return;
+  }
+
+  va_start(args, fmt);
+  vsnprintf(buffer, sizeof(buffer), fmt, args);
+  va_end(args);
+
+  action = editor_action_make_set_status_message(buffer);
+  ui_system_emit_action(ui, &action);
+}
+
 static const char *ui_theme_reload_reason_label(UiThemeReloadReason reason) {
   switch (reason) {
   case UI_THEME_RELOAD_REASON_MANUAL:
@@ -95,11 +95,6 @@ static const char *ui_theme_reload_reason_label(UiThemeReloadReason reason) {
   }
 }
 
-/**
- * @brief Syncs theme registry with menu bar.
- * @param ui UI system instance.
- * @return None.
- */
 static void ui_system_sync_menubar_themes(UiSystem *ui) {
   int theme_count = 0;
   int active_theme_index = 0;
@@ -134,13 +129,6 @@ static void ui_system_sync_menubar_themes(UiSystem *ui) {
   ui_menubar_set_active_theme_index(ui->menu_bar, active_theme_index);
 }
 
-/**
- * @brief Sets the active theme.
- * @param ui UI system instance.
- * @param theme_id Theme ID to activate.
- * @param persist_selection Whether to persist selection.
- * @return 1 on success, 0 on failure.
- */
 static int ui_system_set_theme(UiSystem *ui, const char *theme_id,
                                int persist_selection) {
   int theme_index = -1;
@@ -177,16 +165,7 @@ static int ui_system_set_theme(UiSystem *ui, const char *theme_id,
   return 1;
 }
 
-/**
- * @brief Reloads external themes.
- * @param ui UI system instance.
- * @param workspace Workspace instance.
- * @param notify_status Whether to notify status bar.
- * @param reason Reload reason.
- * @return None.
- */
-static void ui_system_reload_themes(UiSystem *ui, Workspace *workspace,
-                                    int notify_status,
+static void ui_system_reload_themes(UiSystem *ui, int notify_status,
                                     UiThemeReloadReason reason) {
   char previous_theme_id[UI_THEME_ID_CAPACITY];
   int custom_theme_count = 0;
@@ -202,39 +181,32 @@ static void ui_system_reload_themes(UiSystem *ui, Workspace *workspace,
   if (custom_theme_count < 0) {
     ui->theme_directory_signature =
         ui_theme_external_signature(UI_THEME_DIRECTORY_PATH);
-    if (notify_status && workspace) {
+    if (notify_status) {
       const char *error_summary = ui_theme_last_reload_error();
-      snprintf(workspace->session.status_message,
-               sizeof(workspace->session.status_message),
-               "Theme reload failed: %s",
-               (error_summary && error_summary[0] != '\0')
-                   ? error_summary
-                   : "invalid theme file");
+      ui_system_emit_status(ui,
+                            "Theme reload failed: %s",
+                            (error_summary && error_summary[0] != '\0')
+                                ? error_summary
+                                : "invalid theme file");
     }
     return;
   }
 
   ui->theme_directory_signature =
       ui_theme_external_signature(UI_THEME_DIRECTORY_PATH);
-
-  /* Keep current theme id if still present; otherwise fall back through
-   * ui_system_set_theme. */
   ui_system_set_theme(ui, previous_theme_id, 0);
   fallback_to_default = (strcmp(previous_theme_id, ui->active_theme_id) != 0);
 
-  if (notify_status && workspace) {
+  if (notify_status) {
     const char *reason_label = ui_theme_reload_reason_label(reason);
     if (fallback_to_default) {
-      snprintf(
-          workspace->session.status_message,
-          sizeof(workspace->session.status_message),
+      ui_system_emit_status(
+          ui,
           "Themes %s reloaded (%d custom), active theme missing -> fallback",
           reason_label, custom_theme_count);
     } else {
-      snprintf(workspace->session.status_message,
-               sizeof(workspace->session.status_message),
-               "Themes %s reloaded (%d custom)", reason_label,
-               custom_theme_count);
+      ui_system_emit_status(ui, "Themes %s reloaded (%d custom)", reason_label,
+                            custom_theme_count);
     }
   }
 }
@@ -256,8 +228,7 @@ static void ui_system_load_theme_from_settings(UiSystem *ui) {
   ui_system_set_theme(ui, ui_theme_default_id(), 0);
 }
 
-static void ui_system_poll_theme_hot_reload(UiSystem *ui, Workspace *workspace,
-                                            double now_seconds) {
+static void ui_system_poll_theme_hot_reload(UiSystem *ui, double now_seconds) {
   unsigned long long signature = 0ull;
 
   if (!ui) {
@@ -275,7 +246,7 @@ static void ui_system_poll_theme_hot_reload(UiSystem *ui, Workspace *workspace,
     return;
   }
 
-  ui_system_reload_themes(ui, workspace, 1, UI_THEME_RELOAD_REASON_AUTO);
+  ui_system_reload_themes(ui, 1, UI_THEME_RELOAD_REASON_AUTO);
 }
 
 static float ui_smoothstep(float t) {
@@ -329,13 +300,12 @@ static RectF ui_clamp_rect_to_window(RectF rect, RectF window_bounds) {
   return rect;
 }
 
-static void ui_publish_layout(UiSystem *ui, Workspace *workspace, int width,
-                              int height) {
+static void ui_publish_layout(UiSystem *ui, int width, int height) {
   WorkspaceLayout next_layout;
   RectF window_bounds;
   int changed = 0;
 
-  if (!ui || !workspace) {
+  if (!ui) {
     return;
   }
 
@@ -344,7 +314,7 @@ static void ui_publish_layout(UiSystem *ui, Workspace *workspace, int width,
   window_bounds.w = (float)width;
   window_bounds.h = (float)height;
 
-  next_layout = workspace->session.layout;
+  next_layout = ui->layout_snapshot;
   next_layout.window_bounds = window_bounds;
   next_layout.appbar_bounds =
       ui_clamp_rect_to_window(ui->appbar_bounds, window_bounds);
@@ -357,167 +327,23 @@ static void ui_publish_layout(UiSystem *ui, Workspace *workspace, int width,
   next_layout.canvas_content_bounds =
       ui_clamp_rect_to_window(ui->content_bounds, window_bounds);
 
-  changed = !ui_rectf_equals(workspace->session.layout.window_bounds,
+  changed = !ui_rectf_equals(ui->layout_snapshot.window_bounds,
                              next_layout.window_bounds) ||
-            !ui_rectf_equals(workspace->session.layout.appbar_bounds,
+            !ui_rectf_equals(ui->layout_snapshot.appbar_bounds,
                              next_layout.appbar_bounds) ||
-            !ui_rectf_equals(workspace->session.layout.rail_bounds,
+            !ui_rectf_equals(ui->layout_snapshot.rail_bounds,
                              next_layout.rail_bounds) ||
-            !ui_rectf_equals(workspace->session.layout.panel_bounds,
+            !ui_rectf_equals(ui->layout_snapshot.panel_bounds,
                              next_layout.panel_bounds) ||
-            !ui_rectf_equals(workspace->session.layout.status_bounds,
+            !ui_rectf_equals(ui->layout_snapshot.status_bounds,
                              next_layout.status_bounds) ||
-            !ui_rectf_equals(workspace->session.layout.canvas_content_bounds,
+            !ui_rectf_equals(ui->layout_snapshot.canvas_content_bounds,
                              next_layout.canvas_content_bounds);
 
   if (changed) {
-    next_layout.layout_revision = workspace->session.layout.layout_revision + 1u;
-    workspace->session.layout = next_layout;
+    next_layout.layout_revision = ui->layout_snapshot.layout_revision + 1u;
   }
-
-  ui->layout_snapshot = workspace->session.layout;
-}
-
-static ToolContext ui_tool_context(Workspace *workspace) {
-  ToolContext context;
-  context.workspace = workspace;
-  context.document = &workspace->core.document;
-  context.history = &workspace->core.history;
-  context.canvas = &workspace->core.canvas;
-  context.selection = &workspace->session.selection;
-  return context;
-}
-
-static void ui_reset_inspector_edit_session(UiSystem *ui) {
-  if (!ui) {
-    return;
-  }
-
-  document_snapshot_free(&ui->inspector_edit_before_snapshot);
-  document_snapshot_init(&ui->inspector_edit_before_snapshot);
-  selection_set_clear(&ui->inspector_edit_before_selection);
-  ui->inspector_edit_active = 0;
-}
-
-static int ui_begin_inspector_edit_session(UiSystem *ui, Workspace *workspace) {
-  if (!ui || !workspace) {
-    return 0;
-  }
-
-  if (ui->inspector_edit_active) {
-    return 1;
-  }
-
-  document_snapshot_init(&ui->inspector_edit_before_snapshot);
-  ui->inspector_edit_before_selection = workspace->session.selection;
-  if (!document_snapshot_capture(&ui->inspector_edit_before_snapshot,
-                                 &workspace->core.document)) {
-    ui_reset_inspector_edit_session(ui);
-    return 0;
-  }
-
-  ui->inspector_edit_active = 1;
-  return 1;
-}
-
-static void ui_finalize_inspector_edit_session(UiSystem *ui,
-                                               Workspace *workspace) {
-  if (!ui || !workspace || !ui->inspector_edit_active) {
-    return;
-  }
-
-  if (workspace->core.document.revision !=
-      ui->inspector_edit_before_snapshot.revision) {
-    if (!document_history_push(&workspace->core.history,
-                               &ui->inspector_edit_before_snapshot,
-                               &ui->inspector_edit_before_selection,
-                               &workspace->core.document,
-                               &workspace->session.selection)) {
-      ui_reset_inspector_edit_session(ui);
-      workspace_sync_document_dirty(workspace);
-      return;
-    }
-  } else {
-    document_snapshot_free(&ui->inspector_edit_before_snapshot);
-    document_snapshot_init(&ui->inspector_edit_before_snapshot);
-  }
-
-  ui->inspector_edit_active = 0;
-  workspace_sync_document_dirty(workspace);
-}
-
-static void ui_apply_scalar_edit(UiSystem *ui, Workspace *workspace,
-                                 GraphicObject *object, const char *key,
-                                 float before_value, float after_value) {
-
-  if (!ui || !workspace || !object || !key || key[0] == '\0') {
-    return;
-  }
-  if (fabsf(after_value - before_value) <= 1e-6f) {
-    return;
-  }
-
-  if (!ui_begin_inspector_edit_session(ui, workspace)) {
-    return;
-  }
-
-  if (!object_set_scalar(object, key, after_value)) {
-    return;
-  }
-
-  workspace_sync_document_dirty(workspace);
-}
-
-static void ui_apply_stroke_color(UiSystem *ui, Workspace *workspace,
-                                  GraphicObject *object,
-                                  Color color) {
-  Color before;
-
-  if (!ui || !workspace || !object) {
-    return;
-  }
-
-  before = object->style.stroke_color;
-  if (fabsf(color.r - before.r) > 1e-6f) {
-    ui_apply_scalar_edit(ui, workspace, object, "stroke_r", before.r, color.r);
-  }
-  if (fabsf(color.g - before.g) > 1e-6f) {
-    ui_apply_scalar_edit(ui, workspace, object, "stroke_g", before.g, color.g);
-  }
-  if (fabsf(color.b - before.b) > 1e-6f) {
-    ui_apply_scalar_edit(ui, workspace, object, "stroke_b", before.b, color.b);
-  }
-  if (fabsf(color.a - before.a) > 1e-6f) {
-    ui_apply_scalar_edit(ui, workspace, object, "stroke_a", before.a, color.a);
-  }
-}
-
-static void ui_apply_stroke_width(UiSystem *ui, Workspace *workspace,
-                                  GraphicObject *object, float stroke_width) {
-  float before = 0.0f;
-
-  if (!ui || !workspace || !object) {
-    return;
-  }
-
-  before = object->style.stroke_width;
-  ui_apply_scalar_edit(ui, workspace, object, "stroke_width", before,
-                       stroke_width);
-}
-
-static void ui_property_apply_float(UiSystem *ui, struct nk_context *ctx,
-                                    Workspace *workspace, GraphicObject *object,
-                                    const char *label, const char *key,
-                                    float min_value, float *value,
-                                    float max_value, float step,
-                                    float inc_per_pixel) {
-  float before = *value;
-
-  nk_property_float(ctx, label, min_value, value, max_value, step,
-                    inc_per_pixel);
-  if (fabsf(*value - before) > 1e-6f) {
-    ui_apply_scalar_edit(ui, workspace, object, key, before, *value);
-  }
+  ui->layout_snapshot = next_layout;
 }
 
 static int ui_hover_overlays_allowed(const UiSystem *ui) {
@@ -573,13 +399,13 @@ static int ui_tool_button(UiSystem *ui, const char *label, int active,
   return pressed;
 }
 
-static void ui_tool_rail(UiSystem *ui, Workspace *workspace, RectF bounds) {
+static void ui_tool_rail(UiSystem *ui, const EditorViewModel *view_model,
+                         RectF bounds) {
   struct nk_context *ctx = ui->ctx;
-  ToolContext context = ui_tool_context(workspace);
-  ToolKind active = workspace->core.tools.active_kind;
+  int i = 0;
 
   ui->rail_bounds = bounds;
-  if (bounds.w <= 0.0f || bounds.h <= 0.0f) {
+  if (!ctx || !view_model || bounds.w <= 0.0f || bounds.h <= 0.0f) {
     return;
   }
 
@@ -591,38 +417,51 @@ static void ui_tool_rail(UiSystem *ui, Workspace *workspace, RectF bounds) {
     }
 
     nk_layout_row_dynamic(ctx, ui->theme.row_height, 1);
+    for (i = 0; i < view_model->tool_count; ++i) {
+      const EditorToolView *tool_view = &view_model->tools[i];
+      char button_label[96];
 
-    if (ui_tool_button(ui, "Select (V)", active == TOOL_KIND_SELECT,
-                       "Select and edit objects") &&
-        !ui->modal_active) {
-      tool_controller_set_active(&workspace->core.tools, &context, TOOL_KIND_SELECT);
-    }
-    if (ui_tool_button(ui, "Hand (H)", active == TOOL_KIND_PAN,
-                       "Pan canvas view") &&
-        !ui->modal_active) {
-      tool_controller_set_active(&workspace->core.tools, &context, TOOL_KIND_PAN);
-    }
-    if (ui_tool_button(ui, "Line (L)", active == TOOL_KIND_LINE, "Draw line") &&
-        !ui->modal_active) {
-      tool_controller_set_active(&workspace->core.tools, &context, TOOL_KIND_LINE);
-    }
-    if (ui_tool_button(ui, "Rect (R)", active == TOOL_KIND_RECT,
-                       "Draw rectangle") &&
-        !ui->modal_active) {
-      tool_controller_set_active(&workspace->core.tools, &context, TOOL_KIND_RECT);
-    }
-    if (ui_tool_button(ui, "Ellipse (E)", active == TOOL_KIND_ELLIPSE,
-                       "Draw ellipse") &&
-        !ui->modal_active) {
-      tool_controller_set_active(&workspace->core.tools, &context,
-                                 TOOL_KIND_ELLIPSE);
+      if (!tool_view->id[0]) {
+        continue;
+      }
+
+      if (tool_view->shortcut[0] != '\0') {
+        size_t name_len = strlen(tool_view->name);
+        size_t shortcut_len = strlen(tool_view->shortcut);
+        if (name_len + shortcut_len + 4u < sizeof(button_label)) {
+          memcpy(button_label, tool_view->name, name_len);
+          button_label[name_len] = ' ';
+          button_label[name_len + 1u] = '(';
+          memcpy(button_label + name_len + 2u, tool_view->shortcut, shortcut_len);
+          button_label[name_len + shortcut_len + 2u] = ')';
+          button_label[name_len + shortcut_len + 3u] = '\0';
+        } else {
+          snprintf(button_label, sizeof(button_label), "%s", tool_view->name);
+        }
+      } else {
+        snprintf(button_label, sizeof(button_label), "%s", tool_view->name);
+      }
+
+      if (!tool_view->available && !ui->modal_active) {
+        nk_widget_disable_begin(ctx);
+      }
+      if (ui_tool_button(ui,
+                         button_label,
+                         tool_view->active,
+                         tool_view->tooltip[0] ? tool_view->tooltip : tool_view->name) &&
+          !ui->modal_active && tool_view->available) {
+        EditorAction action = editor_action_make_set_tool(tool_view->id);
+        ui_system_emit_action(ui, &action);
+      }
+      if (!tool_view->available && !ui->modal_active) {
+        nk_widget_disable_end(ctx);
+      }
     }
 
     nk_layout_row_dynamic(ctx, ui->theme.row_height * 0.9f, 1);
     nk_label(ctx, "", NK_TEXT_LEFT);
     nk_labelf(ctx, NK_TEXT_LEFT, "Active:");
-    nk_label(ctx, tool_controller_active_label(&workspace->core.tools),
-             NK_TEXT_LEFT);
+    nk_label(ctx, view_model->summary.active_tool_label, NK_TEXT_LEFT);
 
     if (ui->modal_active) {
       nk_widget_disable_end(ctx);
@@ -640,104 +479,233 @@ static void ui_inspector_empty_hint(struct nk_context *ctx) {
 }
 
 static void ui_inspector_overview(struct nk_context *ctx,
-                                  const SelectionSet *selection,
-                                  const Document *document,
-                                  const GraphicObject *object) {
-  if (!ctx || !selection || !document || !object) {
+                                  const EditorViewModel *view_model) {
+  if (!ctx || !view_model || !view_model->has_selection) {
     return;
   }
 
   nk_layout_row_dynamic(ctx, 20.0f, 1);
-  nk_labelf(ctx, NK_TEXT_LEFT, "Type: %s", object_type_name(object->type));
-  nk_labelf(ctx, NK_TEXT_LEFT, "Selected: %d", selection->count);
+  nk_labelf(ctx, NK_TEXT_LEFT, "Type: %s",
+            view_model->summary.selection_type_name);
+  nk_labelf(ctx, NK_TEXT_LEFT, "Selected: %d",
+            view_model->summary.selection_count);
 }
 
-static void ui_inspector_style(UiSystem *ui, struct nk_context *ctx,
-                               Workspace *workspace,
-                               GraphicObject *object) {
-  Color stroke;
-  float stroke_width;
+static void ui_property_apply_float(UiSystem *ui, struct nk_context *ctx,
+                                    const EditorPropertyView *property_view) {
+  float value = 0.0f;
+  char value_text[96];
 
-  if (!ctx || !workspace || !object) {
+  if (!ui || !ctx || !property_view) {
     return;
   }
 
-  stroke = object->style.stroke_color;
-  stroke_width = object->style.stroke_width;
+  if (!property_view->editable) {
+    snprintf(value_text, sizeof(value_text), "%s: %.2f",
+             property_view->name, property_view->value);
+    nk_label(ctx, value_text, NK_TEXT_LEFT);
+    return;
+  }
+
+  value = property_view->value;
+  nk_property_float(ctx,
+                    property_view->name,
+                    property_view->min_value,
+                    &value,
+                    property_view->max_value,
+                    property_view->step > 0.0f ? property_view->step : 1.0f,
+                    property_view->inc_per_pixel > 0.0f
+                        ? property_view->inc_per_pixel
+                        : 0.5f);
+  if (fabsf(value - property_view->value) > 1e-6f) {
+    EditorAction action =
+        editor_action_make_modify_property(property_view->object_id,
+                                           property_view->name,
+                                           value);
+    ui_system_emit_action(ui, &action);
+  }
+}
+
+static void ui_inspector_properties(UiSystem *ui, struct nk_context *ctx,
+                                    const EditorViewModel *view_model) {
+  int i = 0;
+
+  if (!ctx || !view_model || view_model->property_count <= 0) {
+    return;
+  }
 
   nk_layout_row_dynamic(ctx, 20.0f, 1);
-  nk_label(ctx, "Style", NK_TEXT_LEFT);
-  nk_layout_row_dynamic(ctx, 22.0f, 2);
-  nk_label(ctx, "Stroke R", NK_TEXT_LEFT);
-  if (nk_slider_float(ctx, 0.0f, &stroke.r, 1.0f, 0.01f))
-    ui_apply_stroke_color(ui, workspace, object, stroke);
-  nk_label(ctx, "Stroke G", NK_TEXT_LEFT);
-  if (nk_slider_float(ctx, 0.0f, &stroke.g, 1.0f, 0.01f))
-    ui_apply_stroke_color(ui, workspace, object, stroke);
-  nk_label(ctx, "Stroke B", NK_TEXT_LEFT);
-  if (nk_slider_float(ctx, 0.0f, &stroke.b, 1.0f, 0.01f))
-    ui_apply_stroke_color(ui, workspace, object, stroke);
-  nk_label(ctx, "Stroke A", NK_TEXT_LEFT);
-  if (nk_slider_float(ctx, 0.1f, &stroke.a, 1.0f, 0.01f))
-    ui_apply_stroke_color(ui, workspace, object, stroke);
-  nk_label(ctx, "Line Width", NK_TEXT_LEFT);
-  if (nk_slider_float(ctx, 1.0f, &stroke_width, 12.0f, 0.1f))
-    ui_apply_stroke_width(ui, workspace, object, stroke_width);
+  nk_label(ctx, "Properties", NK_TEXT_LEFT);
+  nk_layout_row_dynamic(ctx, 24.0f, 1);
+
+  for (i = 0; i < view_model->property_count; ++i) {
+    ui_property_apply_float(ui, ctx, &view_model->properties[i]);
+  }
 }
 
-static void ui_inspector_geometry(UiSystem *ui, struct nk_context *ctx,
-                                  Workspace *workspace,
-                                  GraphicObject *object) {
-  if (!ctx || !workspace || !object) {
+static const EditorLayerView *ui_find_active_layer_view(const EditorViewModel *view_model) {
+  int i = 0;
+
+  if (!view_model) {
+    return NULL;
+  }
+
+  for (i = 0; i < view_model->layer_count; ++i) {
+    if (view_model->layers[i].active) {
+      return &view_model->layers[i];
+    }
+  }
+
+  return NULL;
+}
+
+static void ui_sync_layer_name_edit(UiSystem *ui, const EditorLayerView *layer_view) {
+  if (!ui || !layer_view) {
     return;
   }
 
-  if (object->type == GRAPHIC_OBJECT_LINE) {
-    float x1 = 0.0f, y1 = 0.0f, x2 = 0.0f, y2 = 0.0f;
-    object_get_scalar(object, "x1", &x1);
-    object_get_scalar(object, "y1", &y1);
-    object_get_scalar(object, "x2", &x2);
-    object_get_scalar(object, "y2", &y2);
+  if (ui->editing_layer_id == layer_view->id) {
+    return;
+  }
+
+  ui->editing_layer_id = layer_view->id;
+  snprintf(ui->layer_name_buffer, sizeof(ui->layer_name_buffer), "%s",
+           layer_view->name);
+}
+
+static void ui_submit_layer_rename(UiSystem *ui, const EditorLayerView *layer_view) {
+  EditorAction action;
+
+  if (!ui || !layer_view || ui->modal_active || ui->layer_name_buffer[0] == '\0' ||
+      strcmp(ui->layer_name_buffer, layer_view->name) == 0) {
+    return;
+  }
+
+  action = editor_action_make_rename_layer(layer_view->id, ui->layer_name_buffer);
+  ui_system_emit_action(ui, &action);
+}
+
+static void ui_layers_panel(UiSystem *ui, struct nk_context *ctx,
+                            const EditorViewModel *view_model) {
+  int i = 0;
+  const EditorLayerView *active_layer = NULL;
+
+  if (!ui || !ctx || !view_model) {
+    return;
+  }
+
+  active_layer = ui_find_active_layer_view(view_model);
+  if (active_layer) {
+    ui_sync_layer_name_edit(ui, active_layer);
+  }
+
+  nk_layout_row_dynamic(ctx, 20.0f, 1);
+  nk_label(ctx, "Layers", NK_TEXT_LEFT);
+  nk_layout_row_begin(ctx, NK_DYNAMIC, 24.0f, 2);
+  nk_layout_row_push(ctx, 0.72f);
+  nk_label(ctx, "Active layer controls", NK_TEXT_LEFT);
+  nk_layout_row_push(ctx, 0.28f);
+  if (nk_button_label(ctx, "+ Layer") && !ui->modal_active) {
+    EditorAction action = editor_action_make_create_layer("Layer");
+    ui_system_emit_action(ui, &action);
+  }
+  nk_layout_row_end(ctx);
+
+  if (active_layer) {
     nk_layout_row_dynamic(ctx, 20.0f, 1);
-    nk_label(ctx, "Geometry", NK_TEXT_LEFT);
-    nk_layout_row_dynamic(ctx, 24.0f, 1);
-    ui_property_apply_float(ui, ctx, workspace, object, "#X1", "x1", -5000.0f, &x1,
-                            5000.0f, 1.0f, 0.5f);
-    ui_property_apply_float(ui, ctx, workspace, object, "#Y1", "y1", -5000.0f, &y1,
-                            5000.0f, 1.0f, 0.5f);
-    ui_property_apply_float(ui, ctx, workspace, object, "#X2", "x2", -5000.0f, &x2,
-                            5000.0f, 1.0f, 0.5f);
-    ui_property_apply_float(ui, ctx, workspace, object, "#Y2", "y2", -5000.0f, &y2,
-                            5000.0f, 1.0f, 0.5f);
-  } else {
-    float x = 0.0f, y = 0.0f, width = 0.0f, height = 0.0f;
-    object_get_scalar(object, "x", &x);
-    object_get_scalar(object, "y", &y);
-    object_get_scalar(object, "width", &width);
-    object_get_scalar(object, "height", &height);
-    nk_layout_row_dynamic(ctx, 20.0f, 1);
-    nk_label(ctx, "Bounds", NK_TEXT_LEFT);
-    nk_layout_row_dynamic(ctx, 24.0f, 1);
-    ui_property_apply_float(ui, ctx, workspace, object, "#X", "x", -5000.0f, &x,
-                            5000.0f, 1.0f, 0.5f);
-    ui_property_apply_float(ui, ctx, workspace, object, "#Y", "y", -5000.0f, &y,
-                            5000.0f, 1.0f, 0.5f);
-    ui_property_apply_float(ui, ctx, workspace, object, "#W", "width", 1.0f, &width,
-                            5000.0f, 1.0f, 0.5f);
-    ui_property_apply_float(ui, ctx, workspace, object, "#H", "height", 1.0f,
-                            &height, 5000.0f, 1.0f, 0.5f);
+    nk_labelf(ctx, NK_TEXT_LEFT, "Active: %s", active_layer->name);
+
+    nk_layout_row_begin(ctx, NK_DYNAMIC, 24.0f, 4);
+    nk_layout_row_push(ctx, 0.16f);
+    if (nk_button_label(ctx, active_layer->visible ? "Visible" : "Hidden") &&
+        !ui->modal_active) {
+      EditorAction action =
+          editor_action_make_set_layer_visibility(active_layer->id,
+                                                  active_layer->visible ? 0 : 1);
+      ui_system_emit_action(ui, &action);
+    }
+    nk_layout_row_push(ctx, 0.16f);
+    if (nk_button_label(ctx, active_layer->locked ? "Locked" : "Unlocked") &&
+        !ui->modal_active) {
+      EditorAction action =
+          editor_action_make_set_layer_locked(active_layer->id,
+                                              active_layer->locked ? 0 : 1);
+      ui_system_emit_action(ui, &action);
+    }
+    nk_layout_row_push(ctx, 0.48f);
+    if (!ui->modal_active) {
+      nk_flags edit_result = nk_edit_string_zero_terminated(
+          ctx, NK_EDIT_FIELD | NK_EDIT_SIG_ENTER | NK_EDIT_CLIPBOARD,
+          ui->layer_name_buffer, (int)sizeof(ui->layer_name_buffer) - 1,
+          nk_filter_default);
+      if ((edit_result & NK_EDIT_COMMITED) != 0) {
+        ui_submit_layer_rename(ui, active_layer);
+      }
+    } else {
+      nk_label(ctx, ui->layer_name_buffer, NK_TEXT_LEFT);
+    }
+    nk_layout_row_push(ctx, 0.20f);
+    if (nk_button_label(ctx, "Apply") && !ui->modal_active) {
+      ui_submit_layer_rename(ui, active_layer);
+    }
+    nk_layout_row_end(ctx);
+  }
+
+  for (i = 0; i < view_model->layer_count; ++i) {
+    const EditorLayerView* layer_view = &view_model->layers[i];
+    char label[96];
+    char count_label[24];
+    const char* eye = layer_view->visible ? "Hide" : "Show";
+    const char* lock = layer_view->locked ? "Unlock" : "Lock";
+
+    snprintf(label, sizeof(label), "%s%s",
+             layer_view->active ? "* " : "",
+             layer_view->name);
+    snprintf(count_label, sizeof(count_label), "%d", layer_view->object_count);
+
+    nk_layout_row_begin(ctx, NK_DYNAMIC, 24.0f, 6);
+    nk_layout_row_push(ctx, 0.16f);
+    if (nk_button_label(ctx, eye) && !ui->modal_active) {
+      EditorAction action =
+          editor_action_make_set_layer_visibility(layer_view->id,
+                                                  layer_view->visible ? 0 : 1);
+      ui_system_emit_action(ui, &action);
+    }
+    nk_layout_row_push(ctx, 0.16f);
+    if (nk_button_label(ctx, lock) && !ui->modal_active) {
+      EditorAction action =
+          editor_action_make_set_layer_locked(layer_view->id,
+                                              layer_view->locked ? 0 : 1);
+      ui_system_emit_action(ui, &action);
+    }
+    nk_layout_row_push(ctx, 0.36f);
+    if (nk_button_label(ctx, label) && !ui->modal_active) {
+      EditorAction action = editor_action_make_set_active_layer(layer_view->id);
+      ui_system_emit_action(ui, &action);
+    }
+    nk_layout_row_push(ctx, 0.12f);
+    nk_label(ctx, count_label, NK_TEXT_RIGHT);
+    nk_layout_row_push(ctx, 0.10f);
+    if (nk_button_label(ctx, "Up") && !ui->modal_active && i > 0) {
+      EditorAction action = editor_action_make_move_layer(layer_view->id, i - 1);
+      ui_system_emit_action(ui, &action);
+    }
+    nk_layout_row_push(ctx, 0.10f);
+    if (nk_button_label(ctx, "Dn") && !ui->modal_active &&
+        i + 1 < view_model->layer_count) {
+      EditorAction action = editor_action_make_move_layer(layer_view->id, i + 1);
+      ui_system_emit_action(ui, &action);
+    }
+    nk_layout_row_end(ctx);
   }
 }
 
-static void ui_selection_panel(UiSystem *ui, Workspace *workspace,
+static void ui_selection_panel(UiSystem *ui, const EditorViewModel *view_model,
                                RectF bounds) {
   struct nk_context *ctx = ui->ctx;
-  Document *document = &workspace->core.document;
-  GraphicObject *object =
-      selection_set_primary_object(&workspace->session.selection, document);
 
   ui->panel_bounds = bounds;
-  if (bounds.w <= 0.0f || bounds.h <= 0.0f) {
+  if (!ctx || !view_model || bounds.w <= 0.0f || bounds.h <= 0.0f) {
     return;
   }
 
@@ -749,13 +717,13 @@ static void ui_selection_panel(UiSystem *ui, Workspace *workspace,
     }
 
     nk_layout_row_dynamic(ctx, 20.0f, 1);
-    if (!object) {
+    if (!view_model->has_selection) {
       ui_inspector_empty_hint(ctx);
     } else {
-      ui_inspector_overview(ctx, &workspace->session.selection, document, object);
-      ui_inspector_style(ui, ctx, workspace, object);
-      ui_inspector_geometry(ui, ctx, workspace, object);
+      ui_inspector_overview(ctx, view_model);
+      ui_inspector_properties(ui, ctx, view_model);
     }
+    ui_layers_panel(ui, ctx, view_model);
 
     if (ui->modal_active) {
       nk_widget_disable_end(ctx);
@@ -764,14 +732,16 @@ static void ui_selection_panel(UiSystem *ui, Workspace *workspace,
   nk_end(ctx);
 }
 
-static void ui_status_bar(UiSystem *ui, Workspace *workspace, int window_width,
-                          int window_height) {
+static void ui_status_bar(UiSystem *ui, const EditorViewModel *view_model,
+                          int window_width, int window_height) {
   struct nk_context *ctx = ui->ctx;
   const float status_h = ui->theme.status_height;
-  const char *status_text =
-      workspace->session.status_message[0] ? workspace->session.status_message : "Ready";
   float status_row_h = ui->theme.row_height * 0.65f;
   char zoom_text[24];
+
+  if (!ctx || !view_model) {
+    return;
+  }
 
   ui->status_bounds.x = 0.0f;
   ui->status_bounds.w = (float)window_width;
@@ -783,7 +753,7 @@ static void ui_status_bar(UiSystem *ui, Workspace *workspace, int window_width,
   }
 
   snprintf(zoom_text, sizeof(zoom_text), "Zoom: %.0f%%",
-           canvas_view_zoom(&workspace->core.canvas) * 100.0f);
+           view_model->summary.zoom_percent);
 
   if (nk_begin(ctx, "Status",
                nk_rect(ui->status_bounds.x, ui->status_bounds.y,
@@ -791,45 +761,56 @@ static void ui_status_bar(UiSystem *ui, Workspace *workspace, int window_width,
                NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_BORDER)) {
     nk_layout_row_begin(ctx, NK_DYNAMIC, status_row_h, 5);
     nk_layout_row_push(ctx, 0.12f);
-    nk_labelf(ctx, NK_TEXT_LEFT, "Objects: %d", workspace->core.document.count);
+    nk_labelf(ctx, NK_TEXT_LEFT, "Objects: %d", view_model->summary.object_count);
     nk_layout_row_push(ctx, 0.13f);
     nk_label(ctx, zoom_text, NK_TEXT_LEFT);
     nk_layout_row_push(ctx, 0.35f);
     nk_labelf(ctx, NK_TEXT_LEFT, "File: %s%s",
-              workspace->session.current_document_path[0]
-                  ? workspace->session.current_document_path
-                  : "(default)",
-              workspace->session.document_dirty ? " *" : "");
+              view_model->summary.current_document_path,
+              view_model->summary.document_dirty ? " *" : "");
     nk_layout_row_push(ctx, 0.18f);
     nk_labelf(ctx, NK_TEXT_LEFT, "Undo:%d Redo:%d",
-              workspace->core.history.undo_count, workspace->core.history.redo_count);
+              view_model->summary.undo_count,
+              view_model->summary.redo_count);
     nk_layout_row_push(ctx, 0.22f);
-    nk_label(ctx, status_text, NK_TEXT_RIGHT);
+    nk_label(ctx, view_model->summary.status_message, NK_TEXT_RIGHT);
     nk_layout_row_end(ctx);
   }
   nk_end(ctx);
 }
 
-/**
- * @brief Render active reusable workspace dialogs and route the result back into workspace state.
- * @param ui UI system instance.
- * @param workspace Workspace instance.
- * @param window_width Window width in pixels.
- * @param window_height Window height in pixels.
- * @return None.
- */
-static void ui_modal_dialogs(UiSystem *ui, Workspace *workspace,
+static void ui_modal_dialogs(UiSystem *ui, const EditorViewModel *view_model,
                              int window_width, int window_height) {
+  UiDialogState dialog;
   UiDialogResult result = UI_DIALOG_RESULT_NONE;
 
-  if (!ui || !workspace || !workspace_modal_is_active(workspace) || !ui->ctx) {
+  if (!ui || !view_model || view_model->active_dialog.kind == UI_DIALOG_NONE ||
+      !ui->ctx) {
     return;
   }
 
-  result =
-      ui_dialog_show(ui->ctx, &workspace->session.active_dialog, window_width, window_height);
+  dialog = view_model->active_dialog;
+  if (dialog.kind == UI_DIALOG_SAVE_AS) {
+    if (ui->dialog_kind_snapshot != dialog.kind) {
+      snprintf(ui->dialog_input_buffer, sizeof(ui->dialog_input_buffer), "%s",
+               dialog.payload.text);
+      ui->dialog_kind_snapshot = dialog.kind;
+    }
+    snprintf(dialog.payload.text, sizeof(dialog.payload.text), "%s",
+             ui->dialog_input_buffer);
+  } else {
+    ui->dialog_kind_snapshot = dialog.kind;
+  }
+
+  result = ui_dialog_show(ui->ctx, &dialog, window_width, window_height);
+  if (dialog.kind == UI_DIALOG_SAVE_AS) {
+    snprintf(ui->dialog_input_buffer, sizeof(ui->dialog_input_buffer), "%s",
+             dialog.payload.text);
+  }
   if (result != UI_DIALOG_RESULT_NONE) {
-    workspace_resolve_active_dialog(workspace, result);
+    EditorAction action =
+        editor_action_make_resolve_dialog(result, dialog.payload.text);
+    ui_system_emit_action(ui, &action);
   }
 }
 
@@ -841,7 +822,7 @@ UiSystem *ui_system_create(PlatformWindow *window) {
     return NULL;
   }
 
-  ui->ctx = nk_glfw3_init(&ui->glfw, window->handle, 0);
+  ui->ctx = nk_glfw3_init(&ui->glfw, platform_window_glfw_handle(window), 0);
   if (!ui->ctx) {
     free(ui);
     return NULL;
@@ -853,7 +834,7 @@ UiSystem *ui_system_create(PlatformWindow *window) {
   snprintf(ui->theme_settings_path, sizeof(ui->theme_settings_path), "%s",
            UI_THEME_SETTINGS_PATH);
 
-  ui_system_reload_themes(ui, NULL, 0, UI_THEME_RELOAD_REASON_STARTUP);
+  ui_system_reload_themes(ui, 0, UI_THEME_RELOAD_REASON_STARTUP);
   ui->theme_watch_last_check_seconds = glfwGetTime();
 
   ui->menu_bar = ui_menubar_create(ui->ctx);
@@ -865,9 +846,8 @@ UiSystem *ui_system_create(PlatformWindow *window) {
   ui->inspector_anim_t = 1.0f;
   ui->inspector_target_visible = 1;
   ui->inspector_anim_initialized = 0;
-  document_snapshot_init(&ui->inspector_edit_before_snapshot);
   ui->last_frame_seconds = glfwGetTime();
-  ui->window_handle = window->handle;
+  ui->window_handle = platform_window_glfw_handle(window);
 
   return ui;
 }
@@ -880,7 +860,6 @@ void ui_system_destroy(UiSystem *ui) {
     ui_menubar_destroy(ui->menu_bar);
     ui->menu_bar = NULL;
   }
-  document_snapshot_free(&ui->inspector_edit_before_snapshot);
   nk_glfw3_shutdown(&ui->glfw);
   free(ui);
 }
@@ -891,7 +870,19 @@ void ui_system_begin_frame(UiSystem *ui) {
   }
 }
 
-void ui_system_build(UiSystem *ui, Workspace *workspace) {
+void ui_system_set_action_sink(UiSystem *ui, const EditorActionSink *sink) {
+  if (!ui) {
+    return;
+  }
+
+  if (sink) {
+    ui->action_sink = *sink;
+  } else {
+    memset(&ui->action_sink, 0, sizeof(ui->action_sink));
+  }
+}
+
+void ui_system_build(UiSystem *ui, const EditorViewModel *view_model) {
   int width = 0;
   int height = 0;
   float content_top = 0.0f;
@@ -910,13 +901,17 @@ void ui_system_build(UiSystem *ui, Workspace *workspace) {
   float inspector_hidden_x;
   float inspector_shown_x;
 
-  if (!ui || !workspace) {
+  if (!ui || !view_model) {
     return;
   }
 
-  ui->modal_active = workspace_modal_is_active(workspace);
+  ui->last_selection_count = view_model->summary.selection_count;
+  ui->modal_active = view_model->active_dialog.kind != UI_DIALOG_NONE &&
+                     view_model->active_dialog.modal;
   if (ui->modal_active) {
     ui_context_menu_reset(ui);
+  } else {
+    ui->dialog_kind_snapshot = UI_DIALOG_NONE;
   }
 
   if (ui->window_handle) {
@@ -930,16 +925,15 @@ void ui_system_build(UiSystem *ui, Workspace *workspace) {
   }
 
   if (width <= 0 || height <= 0) {
-    if (workspace) {
-      ui_publish_layout(ui, workspace, 1, 1);
-    }
+    ui_publish_layout(ui, 1, 1);
     return;
   }
+
   now_seconds = glfwGetTime();
   dt_seconds = (float)(now_seconds - ui->last_frame_seconds);
   ui->last_frame_seconds = now_seconds;
   dt_seconds = ui_clampf(dt_seconds, 0.0f, 0.10f);
-  ui_system_poll_theme_hot_reload(ui, workspace, now_seconds);
+  ui_system_poll_theme_hot_reload(ui, now_seconds);
 
   if (ui->menu_bar && !ui->modal_active) {
     int requested_theme_index = -1;
@@ -947,22 +941,20 @@ void ui_system_build(UiSystem *ui, Workspace *workspace) {
     const UiThemeDescriptor *requested_theme = NULL;
 
     ui_menubar_set_height(ui->menu_bar, ui->theme.menu_height);
-    ui_menubar_build(ui->menu_bar, workspace, width);
+    ui_menubar_build(ui->menu_bar, view_model, &ui->action_sink, width);
 
     requested_theme_reload = ui_menubar_take_theme_reload_request(ui->menu_bar);
     if (requested_theme_reload) {
-      ui_system_reload_themes(ui, workspace, 1, UI_THEME_RELOAD_REASON_MANUAL);
+      ui_system_reload_themes(ui, 1, UI_THEME_RELOAD_REASON_MANUAL);
     }
 
     requested_theme_index = ui_menubar_take_theme_request(ui->menu_bar);
     if (requested_theme_index >= 0) {
       requested_theme = ui_theme_descriptor_at(requested_theme_index);
       if (requested_theme && ui_system_set_theme(ui, requested_theme->id, 1)) {
-        snprintf(workspace->session.status_message,
-                 sizeof(workspace->session.status_message),
-                 "Theme: %s",
-                 requested_theme->label ? requested_theme->label
-                                        : requested_theme->id);
+        ui_system_emit_status(ui, "Theme: %s",
+                              requested_theme->label ? requested_theme->label
+                                                     : requested_theme->id);
       }
     }
   }
@@ -984,7 +976,7 @@ void ui_system_build(UiSystem *ui, Workspace *workspace) {
   rail_bounds.w = ui->theme.tool_rail_width;
   rail_bounds.h = content_height;
   ui->rail_bounds = rail_bounds;
-  ui_tool_rail(ui, workspace, rail_bounds);
+  ui_tool_rail(ui, view_model, rail_bounds);
 
   inspector_requested = ui_menubar_inspector_visible(ui->menu_bar);
   needed_width = ui->theme.tool_rail_width + UI_MIN_CANVAS_WIDTH;
@@ -1024,7 +1016,7 @@ void ui_system_build(UiSystem *ui, Workspace *workspace) {
         (inspector_shown_x - inspector_hidden_x) * inspector_eased_t;
     inspector_bounds.y = content_top;
     ui->panel_bounds = inspector_bounds;
-    ui_selection_panel(ui, workspace, inspector_bounds);
+    ui_selection_panel(ui, view_model, inspector_bounds);
   } else {
     ui->panel_bounds.x = 0.0f;
     ui->panel_bounds.y = 0.0f;
@@ -1032,8 +1024,8 @@ void ui_system_build(UiSystem *ui, Workspace *workspace) {
     ui->panel_bounds.h = 0.0f;
   }
 
-  ui_status_bar(ui, workspace, width, height);
-  ui_modal_dialogs(ui, workspace, width, height);
+  ui_status_bar(ui, view_model, width, height);
+  ui_modal_dialogs(ui, view_model, width, height);
 
   ui->content_bounds.x = ui->rail_bounds.x + ui->rail_bounds.w;
   ui->content_bounds.y = ui->appbar_bounds.y + ui->appbar_bounds.h;
@@ -1052,24 +1044,19 @@ void ui_system_build(UiSystem *ui, Workspace *workspace) {
   }
 
   if (!ui->modal_active) {
-    ui_context_menu_build(ui, workspace);
+    ui_context_menu_build(ui, view_model, &ui->action_sink);
   }
 
-  ui_publish_layout(ui, workspace, width, height);
-
-  if (ui->inspector_edit_active && !ui_system_has_active_interaction(ui)) {
-    ui_finalize_inspector_edit_session(ui, workspace);
-  }
+  ui_publish_layout(ui, width, height);
 }
 
 int ui_system_handle_key(UiSystem *ui, int key, int action) {
   return ui_context_menu_handle_key(ui, key, action);
 }
 
-int ui_system_handle_mouse_button(UiSystem *ui, Workspace *workspace,
-                                  Vec2 screen_pos, int button, int action) {
-  return ui_context_menu_handle_mouse_button(ui, workspace, screen_pos, button,
-                                             action);
+int ui_system_handle_mouse_button(UiSystem *ui, Vec2 screen_pos, int button,
+                                  int action) {
+  return ui_context_menu_handle_mouse_button(ui, screen_pos, button, action);
 }
 
 void ui_system_render(UiSystem *ui) {
@@ -1159,4 +1146,15 @@ Color ui_system_canvas_background(const UiSystem *ui) {
   background.b = (float)ui->theme.canvas_background.b / 255.0f;
   background.a = (float)ui->theme.canvas_background.a / 255.0f;
   return background;
+}
+
+WorkspaceLayout ui_system_layout(const UiSystem *ui) {
+  WorkspaceLayout layout;
+
+  memset(&layout, 0, sizeof(layout));
+  if (!ui) {
+    return layout;
+  }
+
+  return ui->layout_snapshot;
 }

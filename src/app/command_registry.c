@@ -10,6 +10,7 @@
 #include <base/math2d.h>
 #include <base/path_utils.h>
 #include <canvas/canvas_view.h>
+#include <commands/command.h>
 #include <document/document.h>
 #include <document/history.h>
 #include <tools/tool_controller.h>
@@ -43,35 +44,110 @@ static int command_registry_open_save_as_dialog(Workspace* workspace)
                                          directory);
 }
 
+static void command_registry_prune_noneditable_selection(Workspace* workspace)
+{
+    int i = 0;
+
+    if (!workspace) {
+        return;
+    }
+
+    while (i < workspace->session.selection.count) {
+        ObjectId id = workspace->session.selection.ids[i];
+        if (!document_find_object(&workspace->core.document, id) ||
+            document_object_is_locked(&workspace->core.document, id)) {
+            selection_set_remove(&workspace->session.selection, id);
+            continue;
+        }
+        ++i;
+    }
+}
+
+static int command_registry_editable_selection_count(const Workspace* workspace)
+{
+    int editable_count = 0;
+    int i = 0;
+
+    if (!workspace) {
+        return 0;
+    }
+
+    for (i = 0; i < workspace->session.selection.count; ++i) {
+        ObjectId id = workspace->session.selection.ids[i];
+        if (document_find_object(&workspace->core.document, id) &&
+            !document_object_is_locked(&workspace->core.document, id)) {
+            editable_count++;
+        }
+    }
+
+    return editable_count;
+}
+
+static int command_registry_active_layer_editable(const Workspace* workspace)
+{
+    if (!workspace) {
+        return 0;
+    }
+
+    return !document_layer_is_locked(&workspace->core.document,
+                                     document_active_layer_id(&workspace->core.document));
+}
+
 static const CommandDescriptor g_commands[] = {
-    {EDITOR_COMMAND_FILE_NEW, "file.new", "New", KEY_SCOPE_GLOBAL, MENU_ID_FILE_NEW},
-    {EDITOR_COMMAND_FILE_OPEN, "file.open", "Open", KEY_SCOPE_GLOBAL, MENU_ID_FILE_OPEN},
-    {EDITOR_COMMAND_FILE_SAVE, "file.save", "Save", KEY_SCOPE_GLOBAL, MENU_ID_FILE_SAVE},
-    {EDITOR_COMMAND_FILE_SAVE_AS, "file.save_as", "Save As", KEY_SCOPE_GLOBAL, MENU_ID_FILE_SAVE_AS},
-    {EDITOR_COMMAND_FILE_EXPORT_PNG, "file.export_png", "Export as PNG", KEY_SCOPE_GLOBAL, MENU_ID_FILE_EXPORT_PNG},
-    {EDITOR_COMMAND_FILE_EXIT, "file.exit", "Exit", KEY_SCOPE_GLOBAL, MENU_ID_FILE_EXIT},
-    {EDITOR_COMMAND_EDIT_UNDO, "edit.undo", "Undo", KEY_SCOPE_GLOBAL, MENU_ID_EDIT_UNDO},
-    {EDITOR_COMMAND_EDIT_REDO, "edit.redo", "Redo", KEY_SCOPE_GLOBAL, MENU_ID_EDIT_REDO},
-    {EDITOR_COMMAND_EDIT_CUT, "edit.cut", "Cut", KEY_SCOPE_GLOBAL, MENU_ID_EDIT_CUT},
-    {EDITOR_COMMAND_EDIT_COPY, "edit.copy", "Copy", KEY_SCOPE_GLOBAL, MENU_ID_EDIT_COPY},
-    {EDITOR_COMMAND_EDIT_PASTE, "edit.paste", "Paste", KEY_SCOPE_GLOBAL, MENU_ID_EDIT_PASTE},
-    {EDITOR_COMMAND_EDIT_DELETE, "edit.delete", "Delete", KEY_SCOPE_GLOBAL, MENU_ID_EDIT_DELETE},
-    {EDITOR_COMMAND_EDIT_SELECT_ALL, "edit.select_all", "Select All", KEY_SCOPE_GLOBAL, MENU_ID_EDIT_SELECT_ALL},
-    {EDITOR_COMMAND_VIEW_ZOOM_IN, "view.zoom_in", "Zoom In", KEY_SCOPE_GLOBAL, MENU_ID_VIEW_ZOOM_IN},
-    {EDITOR_COMMAND_VIEW_ZOOM_OUT, "view.zoom_out", "Zoom Out", KEY_SCOPE_GLOBAL, MENU_ID_VIEW_ZOOM_OUT},
-    {EDITOR_COMMAND_VIEW_ZOOM_FIT, "view.zoom_fit", "Zoom to Fit", KEY_SCOPE_GLOBAL, MENU_ID_VIEW_ZOOM_FIT},
-    {EDITOR_COMMAND_VIEW_TOGGLE_GRID, "view.toggle_grid", "Toggle Grid", KEY_SCOPE_GLOBAL, MENU_ID_VIEW_TOGGLE_GRID},
-    {EDITOR_COMMAND_VIEW_TOGGLE_INSPECTOR, "view.toggle_inspector", "Toggle Inspector", KEY_SCOPE_GLOBAL, MENU_ID_VIEW_TOGGLE_INSPECTOR},
-    {EDITOR_COMMAND_TOOL_SELECT, "tool.select", "Select Tool", KEY_SCOPE_GLOBAL, MENU_ID_EDIT},
-    {EDITOR_COMMAND_TOOL_PAN, "tool.pan", "Pan Tool", KEY_SCOPE_GLOBAL, MENU_ID_EDIT},
-    {EDITOR_COMMAND_TOOL_LINE, "tool.line", "Line Tool", KEY_SCOPE_GLOBAL, MENU_ID_EDIT},
-    {EDITOR_COMMAND_TOOL_RECT, "tool.rect", "Rectangle Tool", KEY_SCOPE_GLOBAL, MENU_ID_EDIT},
-    {EDITOR_COMMAND_TOOL_ELLIPSE, "tool.ellipse", "Ellipse Tool", KEY_SCOPE_GLOBAL, MENU_ID_EDIT},
-    {EDITOR_COMMAND_HELP_SHORTCUTS, "help.shortcuts", "Keyboard Shortcuts", KEY_SCOPE_GLOBAL, MENU_ID_HELP_SHORTCUTS},
-    {EDITOR_COMMAND_HELP_ABOUT, "help.about", "About", KEY_SCOPE_GLOBAL, MENU_ID_HELP_ABOUT},
-    {EDITOR_COMMAND_MODAL_CONFIRM, "modal.confirm", "Confirm", KEY_SCOPE_MODAL, MENU_ID_HELP},
-    {EDITOR_COMMAND_MODAL_CANCEL, "modal.cancel", "Cancel", KEY_SCOPE_MODAL, MENU_ID_HELP}
+    {EDITOR_COMMAND_FILE_NEW, "file.new", "New", KEY_SCOPE_GLOBAL, MENU_ID_FILE_NEW, NULL},
+    {EDITOR_COMMAND_FILE_OPEN, "file.open", "Open", KEY_SCOPE_GLOBAL, MENU_ID_FILE_OPEN, NULL},
+    {EDITOR_COMMAND_FILE_SAVE, "file.save", "Save", KEY_SCOPE_GLOBAL, MENU_ID_FILE_SAVE, NULL},
+    {EDITOR_COMMAND_FILE_SAVE_AS, "file.save_as", "Save As", KEY_SCOPE_GLOBAL, MENU_ID_FILE_SAVE_AS, NULL},
+    {EDITOR_COMMAND_FILE_EXPORT_PNG, "file.export_png", "Export as PNG", KEY_SCOPE_GLOBAL, MENU_ID_FILE_EXPORT_PNG, NULL},
+    {EDITOR_COMMAND_FILE_EXIT, "file.exit", "Exit", KEY_SCOPE_GLOBAL, MENU_ID_FILE_EXIT, NULL},
+    {EDITOR_COMMAND_EDIT_UNDO, "edit.undo", "Undo", KEY_SCOPE_GLOBAL, MENU_ID_EDIT_UNDO, NULL},
+    {EDITOR_COMMAND_EDIT_REDO, "edit.redo", "Redo", KEY_SCOPE_GLOBAL, MENU_ID_EDIT_REDO, NULL},
+    {EDITOR_COMMAND_EDIT_CUT, "edit.cut", "Cut", KEY_SCOPE_GLOBAL, MENU_ID_EDIT_CUT, NULL},
+    {EDITOR_COMMAND_EDIT_COPY, "edit.copy", "Copy", KEY_SCOPE_GLOBAL, MENU_ID_EDIT_COPY, NULL},
+    {EDITOR_COMMAND_EDIT_PASTE, "edit.paste", "Paste", KEY_SCOPE_GLOBAL, MENU_ID_EDIT_PASTE, NULL},
+    {EDITOR_COMMAND_EDIT_DELETE, "edit.delete", "Delete", KEY_SCOPE_GLOBAL, MENU_ID_EDIT_DELETE, NULL},
+    {EDITOR_COMMAND_EDIT_SELECT_ALL, "edit.select_all", "Select All", KEY_SCOPE_GLOBAL, MENU_ID_EDIT_SELECT_ALL, NULL},
+    {EDITOR_COMMAND_VIEW_ZOOM_IN, "view.zoom_in", "Zoom In", KEY_SCOPE_GLOBAL, MENU_ID_VIEW_ZOOM_IN, NULL},
+    {EDITOR_COMMAND_VIEW_ZOOM_OUT, "view.zoom_out", "Zoom Out", KEY_SCOPE_GLOBAL, MENU_ID_VIEW_ZOOM_OUT, NULL},
+    {EDITOR_COMMAND_VIEW_ZOOM_FIT, "view.zoom_fit", "Zoom to Fit", KEY_SCOPE_GLOBAL, MENU_ID_VIEW_ZOOM_FIT, NULL},
+    {EDITOR_COMMAND_VIEW_TOGGLE_GRID, "view.toggle_grid", "Toggle Grid", KEY_SCOPE_GLOBAL, MENU_ID_VIEW_TOGGLE_GRID, NULL},
+    {EDITOR_COMMAND_VIEW_TOGGLE_INSPECTOR, "view.toggle_inspector", "Toggle Inspector", KEY_SCOPE_GLOBAL, MENU_ID_VIEW_TOGGLE_INSPECTOR, NULL},
+    {EDITOR_COMMAND_TOOL_SELECT, "tool.select", "Select Tool", KEY_SCOPE_GLOBAL, MENU_ID_EDIT, TOOL_ID_SELECT},
+    {EDITOR_COMMAND_TOOL_PAN, "tool.pan", "Pan Tool", KEY_SCOPE_GLOBAL, MENU_ID_EDIT, TOOL_ID_PAN},
+    {EDITOR_COMMAND_TOOL_LINE, "tool.line", "Line Tool", KEY_SCOPE_GLOBAL, MENU_ID_EDIT, TOOL_ID_LINE},
+    {EDITOR_COMMAND_TOOL_RECT, "tool.rect", "Rectangle Tool", KEY_SCOPE_GLOBAL, MENU_ID_EDIT, TOOL_ID_RECT},
+    {EDITOR_COMMAND_TOOL_ELLIPSE, "tool.ellipse", "Ellipse Tool", KEY_SCOPE_GLOBAL, MENU_ID_EDIT, TOOL_ID_ELLIPSE},
+    {EDITOR_COMMAND_HELP_SHORTCUTS, "help.shortcuts", "Keyboard Shortcuts", KEY_SCOPE_GLOBAL, MENU_ID_HELP_SHORTCUTS, NULL},
+    {EDITOR_COMMAND_HELP_ABOUT, "help.about", "About", KEY_SCOPE_GLOBAL, MENU_ID_HELP_ABOUT, NULL},
+    {EDITOR_COMMAND_MODAL_CONFIRM, "modal.confirm", "Confirm", KEY_SCOPE_MODAL, MENU_ID_HELP, NULL},
+    {EDITOR_COMMAND_MODAL_CANCEL, "modal.cancel", "Cancel", KEY_SCOPE_MODAL, MENU_ID_HELP, NULL}
 };
+
+static const CommandDescriptor* command_registry_find_descriptor(EditorCommand command)
+{
+    size_t i = 0u;
+
+    for (i = 0u; i < sizeof(g_commands) / sizeof(g_commands[0]); ++i) {
+        if (g_commands[i].command == command) {
+            return &g_commands[i];
+        }
+    }
+
+    return NULL;
+}
+
+static const char* command_registry_selection_unavailable_reason(const Workspace* workspace)
+{
+    if (!workspace || workspace->session.selection.count <= 0) {
+        return "Selection is empty.";
+    }
+
+    if (command_registry_editable_selection_count(workspace) <= 0) {
+        return "Selection is on locked layers.";
+    }
+
+    return "";
+}
 
 static int command_registry_copy_selection(Workspace* workspace)
 {
@@ -136,6 +212,10 @@ static int command_registry_paste_clipboard(Workspace* workspace)
 
     paste_count = workspace->session.clipboard_count;
     if (paste_count <= 0) {
+        return 0;
+    }
+    if (document_layer_is_locked(&workspace->core.document,
+                                 document_active_layer_id(&workspace->core.document))) {
         return 0;
     }
     if (workspace->core.document.count + paste_count > DOCUMENT_MAX_OBJECTS) {
@@ -234,6 +314,7 @@ static void command_registry_append_shortcut_line(char* buffer,
 static int command_registry_toggle_shortcuts_dialog(Workspace* workspace)
 {
     char content[1024];
+    int i = 0;
 
     if (!workspace) {
         return 0;
@@ -251,11 +332,18 @@ static int command_registry_toggle_shortcuts_dialog(Workspace* workspace)
     snprintf(content + strlen(content),
              sizeof(content) - strlen(content),
              "Tools\n");
-    command_registry_append_shortcut_line(content, sizeof(content), workspace, "tool.select", KEY_SCOPE_GLOBAL, "Select Tool");
-    command_registry_append_shortcut_line(content, sizeof(content), workspace, "tool.pan", KEY_SCOPE_GLOBAL, "Pan/Hand Tool");
-    command_registry_append_shortcut_line(content, sizeof(content), workspace, "tool.line", KEY_SCOPE_GLOBAL, "Line Tool");
-    command_registry_append_shortcut_line(content, sizeof(content), workspace, "tool.rect", KEY_SCOPE_GLOBAL, "Rectangle Tool");
-    command_registry_append_shortcut_line(content, sizeof(content), workspace, "tool.ellipse", KEY_SCOPE_GLOBAL, "Ellipse Tool");
+    for (i = 0; i < tool_registry_count(); ++i) {
+        const ToolDescriptor* descriptor = tool_registry_at(i);
+        if (!descriptor || !descriptor->command_id || !descriptor->name) {
+            continue;
+        }
+        command_registry_append_shortcut_line(content,
+                                              sizeof(content),
+                                              workspace,
+                                              descriptor->command_id,
+                                              KEY_SCOPE_GLOBAL,
+                                              descriptor->name);
+    }
 
     snprintf(content + strlen(content),
              sizeof(content) - strlen(content),
@@ -392,40 +480,36 @@ static int command_registry_zoom_to_fit(Workspace* workspace)
 
 static void command_registry_delete_selection(Workspace* workspace)
 {
-    DocumentSnapshot before_snapshot;
-    SelectionSet before_selection;
-    ObjectId ids[DOCUMENT_MAX_SELECTION];
-    int selection_count = 0;
-    int i = 0;
+    Command* command = NULL;
 
     if (!workspace || workspace->session.selection.count <= 0) {
         return;
     }
+    command_registry_prune_noneditable_selection(workspace);
+    if (workspace->session.selection.count <= 0) {
+        return;
+    }
 
-    document_snapshot_init(&before_snapshot);
-    before_selection = workspace->session.selection;
-    document_snapshot_capture(&before_snapshot, &workspace->core.document);
-    selection_count = workspace->session.selection.count;
-    for (i = 0; i < selection_count; ++i) {
-        ids[i] = workspace->session.selection.ids[i];
+    command = command_create_delete_selection(&workspace->core.document,
+                                              &workspace->session.selection);
+    if (!command ||
+        !command_executor_execute(&workspace->core.commands,
+                                  command,
+                                  &workspace->core.document)) {
+        return;
     }
-    for (i = 0; i < selection_count; ++i) {
-        document_remove_object(&workspace->core.document, ids[i]);
-    }
+
     selection_set_clear(&workspace->session.selection);
-    if (!document_history_push(&workspace->core.history,
-                               &before_snapshot,
-                               &before_selection,
-                               &workspace->core.document,
-                               &workspace->session.selection)) {
-        document_snapshot_free(&before_snapshot);
-    }
     workspace_sync_document_dirty(workspace);
 }
 
 static int command_registry_cut_selection(Workspace* workspace)
 {
     if (!workspace || workspace->session.selection.count <= 0) {
+        return 0;
+    }
+    command_registry_prune_noneditable_selection(workspace);
+    if (workspace->session.selection.count <= 0) {
         return 0;
     }
 
@@ -447,9 +531,32 @@ static void command_registry_select_all(Workspace* workspace)
 
     selection_set_clear(&workspace->session.selection);
     for (i = 0; i < workspace->core.document.count; ++i) {
-        selection_set_add(&workspace->session.selection,
-                          workspace->core.document.objects[i]->id);
+        GraphicObject* object = workspace->core.document.objects[i];
+        if (object &&
+            !document_layer_is_locked(&workspace->core.document, object->layer_id)) {
+            selection_set_add(&workspace->session.selection, object->id);
+        }
     }
+}
+
+static void command_registry_prune_invalid_selection(Workspace* workspace)
+{
+    command_registry_prune_noneditable_selection(workspace);
+}
+
+static int command_registry_activate_tool(Workspace* workspace,
+                                          ToolContext* tool_context,
+                                          EditorCommand command)
+{
+    const CommandDescriptor* descriptor = command_registry_find_descriptor(command);
+
+    if (!workspace || !tool_context || !descriptor || !descriptor->tool_id) {
+        return 0;
+    }
+
+    return tool_controller_set_active(&workspace->core.tools,
+                                      tool_context,
+                                      descriptor->tool_id);
 }
 
 const CommandDescriptor* command_registry_find_by_id(const char* command_id)
@@ -495,16 +602,27 @@ int command_registry_is_available(const Workspace* workspace,
     case EDITOR_COMMAND_HELP_SHORTCUTS:
         return 1;
     case EDITOR_COMMAND_EDIT_CUT:
-    case EDITOR_COMMAND_EDIT_COPY:
     case EDITOR_COMMAND_EDIT_DELETE:
+        return workspace && command_registry_editable_selection_count(workspace) > 0;
+    case EDITOR_COMMAND_EDIT_COPY:
         return workspace && workspace->session.selection.count > 0;
     case EDITOR_COMMAND_EDIT_PASTE:
-        return workspace && workspace->session.clipboard_count > 0;
+        return workspace &&
+               workspace->session.clipboard_count > 0 &&
+               !document_layer_is_locked(&workspace->core.document,
+                                         document_active_layer_id(&workspace->core.document));
     case EDITOR_COMMAND_FILE_NEW:
     case EDITOR_COMMAND_FILE_OPEN:
     case EDITOR_COMMAND_FILE_EXIT:
+        return workspace != NULL;
     case EDITOR_COMMAND_EDIT_UNDO:
+        return workspace &&
+               (command_executor_can_undo(&workspace->core.commands) ||
+                document_history_can_undo(&workspace->core.history));
     case EDITOR_COMMAND_EDIT_REDO:
+        return workspace &&
+               (command_executor_can_redo(&workspace->core.commands) ||
+                document_history_can_redo(&workspace->core.history));
     case EDITOR_COMMAND_EDIT_SELECT_ALL:
     case EDITOR_COMMAND_VIEW_ZOOM_IN:
     case EDITOR_COMMAND_VIEW_ZOOM_OUT:
@@ -513,16 +631,52 @@ int command_registry_is_available(const Workspace* workspace,
     case EDITOR_COMMAND_VIEW_TOGGLE_INSPECTOR:
     case EDITOR_COMMAND_TOOL_SELECT:
     case EDITOR_COMMAND_TOOL_PAN:
-    case EDITOR_COMMAND_TOOL_LINE:
-    case EDITOR_COMMAND_TOOL_RECT:
-    case EDITOR_COMMAND_TOOL_ELLIPSE:
     case EDITOR_COMMAND_HELP_ABOUT:
     case EDITOR_COMMAND_MODAL_CONFIRM:
     case EDITOR_COMMAND_MODAL_CANCEL:
         return 1;
+    case EDITOR_COMMAND_TOOL_LINE:
+    case EDITOR_COMMAND_TOOL_RECT:
+    case EDITOR_COMMAND_TOOL_ELLIPSE:
+        return workspace && command_registry_active_layer_editable(workspace);
     case EDITOR_COMMAND_NONE:
     default:
         return 0;
+    }
+}
+
+const char* command_registry_unavailable_reason(const Workspace* workspace,
+                                                EditorCommand command)
+{
+    if (command_registry_is_available(workspace, command)) {
+        return "";
+    }
+
+    switch (command) {
+    case EDITOR_COMMAND_EDIT_CUT:
+    case EDITOR_COMMAND_EDIT_DELETE:
+        return command_registry_selection_unavailable_reason(workspace);
+    case EDITOR_COMMAND_EDIT_COPY:
+        return (!workspace || workspace->session.selection.count <= 0)
+                   ? "Selection is empty."
+                   : "";
+    case EDITOR_COMMAND_EDIT_PASTE:
+    case EDITOR_COMMAND_TOOL_LINE:
+    case EDITOR_COMMAND_TOOL_RECT:
+    case EDITOR_COMMAND_TOOL_ELLIPSE:
+        if (!workspace) {
+            return "Workspace is unavailable.";
+        }
+        if (!command_registry_active_layer_editable(workspace)) {
+            return "Active layer is locked.";
+        }
+        return "";
+    case EDITOR_COMMAND_EDIT_UNDO:
+        return "Nothing to undo.";
+    case EDITOR_COMMAND_EDIT_REDO:
+        return "Nothing to redo.";
+    default:
+        return "";
     }
 }
 
@@ -564,6 +718,12 @@ int command_registry_execute(Workspace* workspace,
     case EDITOR_COMMAND_FILE_EXIT:
         return workspace_request_action(workspace, WORKSPACE_ACTION_EXIT_APPLICATION);
     case EDITOR_COMMAND_EDIT_UNDO:
+        if (command_executor_undo(&workspace->core.commands,
+                                  &workspace->core.document)) {
+            command_registry_prune_invalid_selection(workspace);
+            workspace_sync_document_dirty(workspace);
+            return 1;
+        }
         if (document_history_undo(&workspace->core.history,
                                   &workspace->core.document,
                                   &workspace->session.selection)) {
@@ -572,6 +732,12 @@ int command_registry_execute(Workspace* workspace,
         }
         return 0;
     case EDITOR_COMMAND_EDIT_REDO:
+        if (command_executor_redo(&workspace->core.commands,
+                                  &workspace->core.document)) {
+            command_registry_prune_invalid_selection(workspace);
+            workspace_sync_document_dirty(workspace);
+            return 1;
+        }
         if (document_history_redo(&workspace->core.history,
                                   &workspace->core.document,
                                   &workspace->session.selection)) {
@@ -613,20 +779,11 @@ int command_registry_execute(Workspace* workspace,
     case EDITOR_COMMAND_VIEW_TOGGLE_INSPECTOR:
         return 1;
     case EDITOR_COMMAND_TOOL_SELECT:
-        if (tool_context) tool_controller_set_active(&workspace->core.tools, tool_context, TOOL_KIND_SELECT);
-        return 1;
     case EDITOR_COMMAND_TOOL_PAN:
-        if (tool_context) tool_controller_set_active(&workspace->core.tools, tool_context, TOOL_KIND_PAN);
-        return 1;
     case EDITOR_COMMAND_TOOL_LINE:
-        if (tool_context) tool_controller_set_active(&workspace->core.tools, tool_context, TOOL_KIND_LINE);
-        return 1;
     case EDITOR_COMMAND_TOOL_RECT:
-        if (tool_context) tool_controller_set_active(&workspace->core.tools, tool_context, TOOL_KIND_RECT);
-        return 1;
     case EDITOR_COMMAND_TOOL_ELLIPSE:
-        if (tool_context) tool_controller_set_active(&workspace->core.tools, tool_context, TOOL_KIND_ELLIPSE);
-        return 1;
+        return command_registry_activate_tool(workspace, tool_context, command);
     case EDITOR_COMMAND_HELP_SHORTCUTS:
         return command_registry_toggle_shortcuts_dialog(workspace);
     case EDITOR_COMMAND_HELP_ABOUT:

@@ -37,6 +37,7 @@
 #include <app/workspace.h>
 #include <base/path_utils.h>
 #include <base/types.h>
+#include <ui/editor_action.h>
 #include <ui/ui_menubar.h>
 #include <ui/ui_theme.h>
 
@@ -76,12 +77,15 @@ struct UiSystem {
   RectF status_bounds;
   RectF content_bounds;
   WorkspaceLayout layout_snapshot;
+  EditorActionSink action_sink;
   float inspector_anim_t;
   int inspector_target_visible;
   int inspector_anim_initialized;
-  int inspector_edit_active;
-  DocumentSnapshot inspector_edit_before_snapshot;
-  SelectionSet inspector_edit_before_selection;
+  int last_selection_count;
+  LayerId editing_layer_id;
+  char layer_name_buffer[EDITOR_VIEWMODEL_NAME_CAPACITY];
+  UiDialogKind dialog_kind_snapshot;
+  char dialog_input_buffer[EDITOR_ACTION_TEXT_CAPACITY];
   int modal_active;
   UiContextMenuState context_menu;
   double last_frame_seconds;

@@ -59,6 +59,9 @@ static void snapshot_move(DocumentSnapshot* dst, DocumentSnapshot* src)
     src->count = 0;
     src->revision = 0;
     src->next_id = 0;
+    src->layer_count = 0;
+    src->active_layer_id = 0u;
+    src->next_layer_id = 0u;
 }
 
 static GraphicObject* history_find_scalar_object(Document* document, ObjectId id)
@@ -351,13 +354,17 @@ static int document_restore_snapshot(Document* document, const DocumentSnapshot*
         }
     }
 
-    document_shutdown(document);
+    document_reset(document);
     for (i = 0; i < snapshot->count; ++i) {
         document->objects[i] = clones[i];
     }
     document->count = snapshot->count;
     document->revision = snapshot->revision;
     document->next_id = snapshot->next_id;
+    memcpy(document->layers, snapshot->layers, sizeof(snapshot->layers));
+    document->layer_count = snapshot->layer_count;
+    document->active_layer_id = snapshot->active_layer_id;
+    document->next_layer_id = snapshot->next_layer_id;
     free(clones);
     return 1;
 }
@@ -386,6 +393,9 @@ void document_snapshot_free(DocumentSnapshot* snapshot)
     snapshot->count = 0;
     snapshot->revision = 0;
     snapshot->next_id = 0;
+    snapshot->layer_count = 0;
+    snapshot->active_layer_id = 0u;
+    snapshot->next_layer_id = 0u;
 }
 
 int document_snapshot_capture(DocumentSnapshot* snapshot, const Document* document)
@@ -410,6 +420,10 @@ int document_snapshot_capture(DocumentSnapshot* snapshot, const Document* docume
     snapshot->count = document->count;
     snapshot->revision = document->revision;
     snapshot->next_id = document->next_id;
+    memcpy(snapshot->layers, document->layers, sizeof(snapshot->layers));
+    snapshot->layer_count = document->layer_count;
+    snapshot->active_layer_id = document->active_layer_id;
+    snapshot->next_layer_id = document->next_layer_id;
 
     for (i = 0; i < document->count; ++i) {
         snapshot->objects[i] = object_clone(document->objects[i]);

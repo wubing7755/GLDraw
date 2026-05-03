@@ -7,9 +7,10 @@
 
 #include <stdbool.h>
 #include <stddef.h>
+#include <ui/editor_action.h>
+#include <ui/editor_viewmodel.h>
 
 struct nk_context;
-struct Workspace;
 struct UiThemeDescriptor;
 typedef struct UiThemeDescriptor UiThemeDescriptor;
 
@@ -56,11 +57,15 @@ void ui_menubar_destroy(UiMenuBar* menubar);
 /**
  * @brief Build and draw the menu bar.
  * @param menubar Menu bar object.
- * @param workspace Workspace object.
+ * @param view_model Read-only editor view model.
+ * @param sink Action sink used for business actions.
  * @param window_width Current window width.
  * @return No return value.
  */
-void ui_menubar_build(UiMenuBar* menubar, struct Workspace* workspace, int window_width);
+void ui_menubar_build(UiMenuBar* menubar,
+                      const EditorViewModel* view_model,
+                      const EditorActionSink* sink,
+                      int window_width);
 
 /**
  * @brief Query whether the inspector panel is visible.
