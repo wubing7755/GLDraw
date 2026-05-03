@@ -248,6 +248,7 @@ static int test_selected_object_emits_highlight_first(void)
     EXPECT_TRUE(draw_list.strokes[0].line_width > draw_list.strokes[1].line_width);
 
     canvas_drawlist_shutdown(&draw_list);
+    selection_set_shutdown(&selection);
     document_shutdown(&document);
     return 0;
 }

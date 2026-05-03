@@ -148,6 +148,7 @@ static int test_editor_viewmodel_builds_selection_properties(void)
     EXPECT_SUBSTR(view_model.tools[3].tooltip, "Active layer is locked.");
     EXPECT_SUBSTR(view_model.tools[4].tooltip, "Active layer is locked.");
 
+    editor_viewmodel_shutdown(&view_model);
     shutdown_workspace(&workspace);
     return 0;
 }

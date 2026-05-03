@@ -35,6 +35,7 @@ int main(void)
     EXPECT_FALSE(selection_set_contains(&selection, 7u));
     EXPECT_INT_EQ(selection.count, 0);
 
+    selection_set_shutdown(&selection);
     printf("[PASS] selection helpers add and toggle IDs\n");
     return 0;
 }

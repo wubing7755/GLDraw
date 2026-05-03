@@ -148,6 +148,7 @@ static int test_dynamic_tool_shortcut_and_availability(void)
     }
     EXPECT_TRUE(found_tool);
 
+    editor_viewmodel_shutdown(&view_model);
     tool_controller_shutdown(&workspace.core.tools);
     keymap_shutdown(&workspace.session.keymap);
     command_executor_shutdown(&workspace.core.commands);

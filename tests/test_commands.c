@@ -120,6 +120,7 @@ static int test_delete_selection_command(void)
     EXPECT_INT_EQ(document.count, 1);
     EXPECT_TRUE(document_find_object(&document, 1u) == NULL);
 
+    selection_set_shutdown(&selection);
     command_executor_shutdown(&executor);
     document_shutdown(&document);
     return 0;
@@ -495,6 +496,7 @@ static int test_command_execute_respects_locked_targets(void)
                                           &document));
     EXPECT_INT_EQ(document.count, 1);
 
+    selection_set_shutdown(&selection);
     command_executor_shutdown(&executor);
     document_shutdown(&document);
     return 0;
@@ -546,6 +548,7 @@ static int test_command_can_execute_reports_capability(void)
     EXPECT_TRUE(strcmp(command_execute_check_message(COMMAND_EXECUTE_CHECK_TARGET_LAYER_LOCKED),
                        "Active layer is locked.") == 0);
 
+    selection_set_shutdown(&selection);
     document_shutdown(&document);
     return 0;
 }
