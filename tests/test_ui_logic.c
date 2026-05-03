@@ -100,7 +100,7 @@ static void shutdown_workspace(Workspace* workspace)
 static int test_editor_viewmodel_builds_selection_properties(void)
 {
     Workspace workspace;
-    EditorViewModel view_model;
+    EditorViewModel view_model = {0};
     LayerId overlay_layer = 0u;
 
     EXPECT_TRUE(init_workspace(&workspace));

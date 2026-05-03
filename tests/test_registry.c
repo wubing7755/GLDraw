@@ -111,7 +111,7 @@ static int test_dynamic_tool_command_and_menu_registration(void)
 static int test_dynamic_tool_shortcut_and_availability(void)
 {
     Workspace workspace;
-    EditorViewModel view_model;
+    EditorViewModel view_model = {0};
     LayerId locked_layer = 0u;
     EditorKeymap keymap;
     char shortcut[64];

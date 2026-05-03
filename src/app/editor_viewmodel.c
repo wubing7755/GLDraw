@@ -356,6 +356,7 @@ int editor_viewmodel_build(EditorViewModel* view_model, const Workspace* workspa
         return 0;
     }
 
+    editor_viewmodel_shutdown(view_model);
     editor_viewmodel_init(view_model);
     view_model->summary.object_count = workspace->core.document.count;
     view_model->summary.selection_count = workspace->session.selection.count;
