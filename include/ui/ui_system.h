@@ -7,8 +7,8 @@
 
 #include <base/types.h>
 #include <platform/window.h>
-
-struct Workspace;
+#include <ui/editor_action.h>
+#include <ui/editor_viewmodel.h>
 
 typedef struct UiSystem UiSystem;
 
@@ -34,12 +34,20 @@ void ui_system_destroy(UiSystem* ui);
 void ui_system_begin_frame(UiSystem* ui);
 
 /**
- * @brief Build the entire frame UI and write back to workspace state.
+ * @brief Assign the action sink used to dispatch UI-originated editor actions.
  * @param ui UI system instance.
- * @param workspace Workspace.
+ * @param sink Action sink copied into UI state.
  * @return No return value.
  */
-void ui_system_build(UiSystem* ui, struct Workspace* workspace);
+void ui_system_set_action_sink(UiSystem* ui, const EditorActionSink* sink);
+
+/**
+ * @brief Build the entire frame UI from a read-only editor view model.
+ * @param ui UI system instance.
+ * @param view_model Read-only editor view model.
+ * @return No return value.
+ */
+void ui_system_build(UiSystem* ui, const EditorViewModel* view_model);
 
 /**
  * @brief Offer one key event to the UI before routing it elsewhere.
@@ -53,14 +61,12 @@ int ui_system_handle_key(UiSystem* ui, int key, int action);
 /**
  * @brief Offer one mouse button event to the UI before routing it elsewhere.
  * @param ui UI system instance.
- * @param workspace Workspace instance used to derive menu state.
  * @param screen_pos Pointer position in screen coordinates.
  * @param button GLFW mouse button code.
  * @param action GLFW action code.
  * @return Non-zero if the UI consumed the event, zero otherwise.
  */
 int ui_system_handle_mouse_button(UiSystem* ui,
-                                  struct Workspace* workspace,
                                   Vec2 screen_pos,
                                   int button,
                                   int action);
@@ -115,5 +121,12 @@ int ui_system_point_in_canvas(const UiSystem* ui, Vec2 screen_pos);
  * @return Canvas background color.
  */
 Color ui_system_canvas_background(const UiSystem* ui);
+
+/**
+ * @brief Get the latest full layout snapshot published by the UI.
+ * @param ui UI system instance.
+ * @return Current layout snapshot.
+ */
+WorkspaceLayout ui_system_layout(const UiSystem* ui);
 
 #endif /* GLDRAW_UI_UI_SYSTEM_H */

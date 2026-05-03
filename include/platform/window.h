@@ -1,18 +1,17 @@
 /**
  * @file window.h
- * @brief GLFW window thin-wrapper interface.
+ * @brief Platform window thin-wrapper interface.
  */
 #ifndef GLDRAW_PLATFORM_WINDOW_H
 #define GLDRAW_PLATFORM_WINDOW_H
 
-#define GLFW_INCLUDE_NONE
-#include <GLFW/glfw3.h>
+typedef struct GldWindow GldWindow;
 
 /**
  * @struct PlatformWindow
  * @brief Platform window state.
  *
- * @member handle GLFW native window handle.
+ * @member handle Opaque platform window handle.
  * @member width Current logical window width.
  * @member height Current logical window height.
  * @member framebuffer_width Current framebuffer width.
@@ -20,7 +19,7 @@
  * @member title Window title string.
  */
 typedef struct {
-    GLFWwindow* handle;
+    GldWindow* handle;
     int width;
     int height;
     int framebuffer_width;
@@ -29,7 +28,7 @@ typedef struct {
 } PlatformWindow;
 
 /**
- * @brief Initialize GLFW and create the window.
+ * @brief Initialize platform windowing and create the window.
  * @param window Output address for the window structure.
  * @param width Target width.
  * @param height Target height.
@@ -39,7 +38,7 @@ typedef struct {
 int platform_window_init(PlatformWindow* window, int width, int height, const char* title);
 
 /**
- * @brief Destroy the window and shut down GLFW.
+ * @brief Destroy the window and shut down platform windowing.
  * @param window Target window.
  * @return No return value.
  */

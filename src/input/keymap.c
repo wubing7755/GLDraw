@@ -5,6 +5,7 @@
 #include <input/keymap.h>
 
 #include <app/command_registry.h>
+#include <tools/tool.h>
 
 #include <stdio.h>
 #include <string.h>
@@ -28,11 +29,6 @@ static const struct {
     {"view.zoom_in", KEY_SCOPE_GLOBAL, "Ctrl+Plus", ""},
     {"view.zoom_out", KEY_SCOPE_GLOBAL, "Ctrl+Minus", ""},
     {"view.zoom_fit", KEY_SCOPE_GLOBAL, "Ctrl+0", ""},
-    {"tool.select", KEY_SCOPE_GLOBAL, "V", ""},
-    {"tool.pan", KEY_SCOPE_GLOBAL, "H", ""},
-    {"tool.line", KEY_SCOPE_GLOBAL, "L", ""},
-    {"tool.rect", KEY_SCOPE_GLOBAL, "R", ""},
-    {"tool.ellipse", KEY_SCOPE_GLOBAL, "E", ""},
     {"help.shortcuts", KEY_SCOPE_GLOBAL, "Shift+Slash", ""},
     {"help.shortcuts", KEY_SCOPE_MODAL, "Shift+Slash", ""},
     {"modal.confirm", KEY_SCOPE_MODAL, "Enter", ""},
@@ -81,6 +77,7 @@ static const KeyBinding* keymap_find_effective_binding(const EditorKeymap* keyma
 void keymap_init(EditorKeymap* keymap, const char* settings_path)
 {
     int i = 0;
+    int tool_index = 0;
 
     if (!keymap) {
         return;
@@ -101,6 +98,24 @@ void keymap_init(EditorKeymap* keymap, const char* settings_path)
         if (g_default_bindings[i].secondary[0] != '\0') {
             key_chord_parse(g_default_bindings[i].secondary, &binding->secondary);
         }
+        keymap->default_count++;
+    }
+
+    for (tool_index = 0; tool_index < tool_registry_count(); ++tool_index) {
+        const ToolDescriptor* descriptor = tool_registry_at(tool_index);
+        KeyBinding* binding = NULL;
+
+        if (!descriptor || !descriptor->command_id || !descriptor->default_shortcut ||
+            descriptor->default_shortcut[0] == '\0') {
+            continue;
+        }
+
+        binding = &keymap->defaults[keymap->default_count];
+        binding->command_id = descriptor->command_id;
+        binding->scope = KEY_SCOPE_GLOBAL;
+        binding->primary = key_chord_none();
+        binding->secondary = key_chord_none();
+        key_chord_parse(descriptor->default_shortcut, &binding->primary);
         keymap->default_count++;
     }
 }

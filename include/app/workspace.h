@@ -8,9 +8,11 @@
 #include <app/editor_session.h>
 #include <base/path_utils.h>
 #include <canvas/canvas_view.h>
-#include <document/history.h>
+#include <commands/command.h>
 #include <input/keymap.h>
 #include <tools/tool_controller.h>
+
+#include <stdlib.h>
 
 struct Workspace;
 
@@ -157,13 +159,12 @@ typedef struct WorkspaceLayout {
  * @brief Backend-agnostic editing state.
  *
  * @member document Persisted document model.
- * @member history Undo/redo history.
  * @member canvas Canvas view state.
  * @member tools Tool controller.
  */
 typedef struct EditorCore {
     Document document;
-    DocumentHistory history;
+    CommandExecutor commands;
     CanvasView canvas;
     ToolController tools;
 } EditorCore;
@@ -177,7 +178,10 @@ typedef struct EditorCore {
  * @member selection Active object selection.
  * @member clipboard_objects Internal clipboard object clones.
  * @member clipboard_count Number of objects currently stored in the internal clipboard.
+ * @member clipboard_capacity Allocated clipboard object capacity.
  * @member clipboard_paste_serial Repeated paste counter used to offset pasted content.
+ * @member selection_preview_delta Temporary drag preview offset for the current selection.
+ * @member selection_preview_active Non-zero when drag preview is active.
  * @member current_document_path Current document path (empty string means unnamed).
  * @member status_message Status bar message.
  * @member saved_revision Document revision corresponding to the last save.
@@ -189,9 +193,12 @@ typedef struct EditorSession {
     EditorKeymap keymap;
     WorkspaceLayout layout;
     SelectionSet selection;
-    GraphicObject* clipboard_objects[DOCUMENT_MAX_SELECTION];
+    GraphicObject** clipboard_objects;
     int clipboard_count;
+    int clipboard_capacity;
     unsigned int clipboard_paste_serial;
+    Vec2 selection_preview_delta;
+    int selection_preview_active;
     char current_document_path[GLDRAW_PATH_MAX];
     char status_message[256];
     unsigned int saved_revision;
@@ -268,10 +275,12 @@ static inline void workspace_clear_clipboard(Workspace* workspace)
 
     for (i = 0; i < workspace->session.clipboard_count; ++i) {
         object_destroy(workspace->session.clipboard_objects[i]);
-        workspace->session.clipboard_objects[i] = NULL;
     }
 
+    free(workspace->session.clipboard_objects);
+    workspace->session.clipboard_objects = NULL;
     workspace->session.clipboard_count = 0;
+    workspace->session.clipboard_capacity = 0;
     workspace->session.clipboard_paste_serial = 0;
 }
 

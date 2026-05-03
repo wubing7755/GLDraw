@@ -1,6 +1,6 @@
 /**
  * @file tool.h
- * @brief Tool system abstract interface and event data structures.
+ * @brief Tool descriptor, registry, and event interfaces.
  */
 #ifndef GLDRAW_TOOLS_TOOL_H
 #define GLDRAW_TOOLS_TOOL_H
@@ -12,33 +12,29 @@
 struct Workspace;
 struct Document;
 struct CanvasView;
-struct DocumentHistory;
 
-/**
- * @enum ToolKind
- * @brief Built-in tool types.
- */
-typedef enum {
-    TOOL_KIND_SELECT = 0,
-    TOOL_KIND_PAN,
-    TOOL_KIND_LINE,
-    TOOL_KIND_RECT,
-    TOOL_KIND_ELLIPSE,
-    TOOL_KIND_COUNT
-} ToolKind;
+#define TOOL_ID_SELECT "select"
+#define TOOL_ID_PAN "pan"
+#define TOOL_ID_LINE "line"
+#define TOOL_ID_RECT "rect"
+#define TOOL_ID_ELLIPSE "ellipse"
 
-/**
- * @struct ToolEvent
- * @brief Normalized input event passed to tools.
- *
- * @member screen_pos Current screen coordinates.
- * @member world_pos Current world coordinates.
- * @member delta_screen Screen-space displacement since the last event.
- * @member delta_world World-space displacement since the last event.
- * @member button Mouse button number (-1 for move events).
- * @member mods Modifier key bitmask.
- * @member wheel_y Scroll wheel Y delta.
- */
+/* ShapeToolConfig: reusable configuration for shape-drawing tools.
+ * Extension tools can provide their own config and call register_shape_tool()
+ * to get a fully-functional drawing tool without reimplementing the
+ * pointer_down/move/up lifecycle. */
+typedef struct {
+    const char* object_type_id;
+    GraphicObject* (*create_object)(Vec2 anchor, Vec2 current, GraphicStyle style);
+    int (*update_object)(GraphicObject* object, Vec2 anchor, Vec2 current);
+} ShapeToolConfig;
+
+int register_shape_tool(const char* tool_id,
+                        const char* name,
+                        const char* shortcut,
+                        int requires_editable,
+                        const ShapeToolConfig* config);
+
 typedef struct {
     Vec2 screen_pos;
     Vec2 world_pos;
@@ -49,64 +45,56 @@ typedef struct {
     float wheel_y;
 } ToolEvent;
 
-/**
- * @struct ToolContext
- * @brief Tool operation context.
- *
- * @member workspace Workspace.
- * @member document Current document.
- * @member history History stack.
- * @member canvas Canvas view.
- * @member selection Active editor selection state.
- */
 typedef struct {
     struct Workspace* workspace;
     struct Document* document;
-    struct DocumentHistory* history;
     struct CanvasView* canvas;
     SelectionSet* selection;
 } ToolContext;
 
 typedef struct Tool Tool;
-typedef struct ToolVTable ToolVTable;
+typedef struct ToolDescriptor ToolDescriptor;
 
-/**
- * @struct ToolVTable
- * @brief Tool polymorphic callback table.
- *
- * @member label Returns the tool display name.
- * @member activate Tool activate callback.
- * @member deactivate Tool deactivate callback.
- * @member pointer_down Mouse pointer down callback. Returns non-zero only when
- * the tool accepts the interaction and expects captured follow-up events.
- * @member pointer_move Mouse pointer move callback.
- * @member pointer_up Mouse pointer up callback.
- * @member key_down Key down callback.
- */
-struct ToolVTable {
-    const char* (*label)(const Tool* tool);
-    void (*activate)(Tool* tool, ToolContext* context);
-    void (*deactivate)(Tool* tool, ToolContext* context);
-    int (*pointer_down)(Tool* tool, ToolContext* context, const ToolEvent* event);
-    void (*pointer_move)(Tool* tool, ToolContext* context, const ToolEvent* event);
-    void (*pointer_up)(Tool* tool, ToolContext* context, const ToolEvent* event);
-    void (*key_down)(Tool* tool, ToolContext* context, int key, int mods);
+typedef int (*ToolCreateFn)(Tool* tool, const ToolDescriptor* descriptor);
+typedef void (*ToolDestroyFn)(Tool* tool);
+typedef void (*ToolActivateFn)(Tool* tool, ToolContext* context);
+typedef void (*ToolDeactivateFn)(Tool* tool, ToolContext* context);
+typedef int (*ToolPointerDownFn)(Tool* tool, ToolContext* context, const ToolEvent* event);
+typedef void (*ToolPointerMoveFn)(Tool* tool, ToolContext* context, const ToolEvent* event);
+typedef void (*ToolPointerUpFn)(Tool* tool, ToolContext* context, const ToolEvent* event);
+typedef void (*ToolKeyDownFn)(Tool* tool, ToolContext* context, int key, int mods);
+typedef GraphicObject* (*ToolDrawOverlayFn)(Tool* tool, ToolContext* context);
+
+struct ToolDescriptor {
+    const char* id;
+    const char* name;
+    const char* command_id;
+    const char* tooltip;
+    const char* icon;
+    const char* default_shortcut;
+    int requires_editable_layer;
+    ToolCreateFn create_tool;
+    ToolDestroyFn destroy_tool;
+    ToolActivateFn activate;
+    ToolDeactivateFn deactivate;
+    ToolPointerDownFn pointer_down;
+    ToolPointerMoveFn pointer_move;
+    ToolPointerUpFn pointer_up;
+    ToolKeyDownFn key_down;
+    ToolDrawOverlayFn draw_overlay;
+    const void* user_data;
 };
 
-/**
- * @struct Tool
- * @brief Tool runtime instance.
- *
- * @member kind Tool type.
- * @member vtable Callback table.
- * @member state Tool-private state.
- * @member overlay_object Tool preview graphic object.
- */
 struct Tool {
-    ToolKind kind;
-    const ToolVTable* vtable;
+    const ToolDescriptor* descriptor;
     void* state;
     GraphicObject* overlay_object;
 };
+
+void tool_registry_init(void);
+int register_tool(const ToolDescriptor* descriptor);
+const ToolDescriptor* tool_registry_lookup(const char* tool_id);
+int tool_registry_count(void);
+const ToolDescriptor* tool_registry_at(int index);
 
 #endif /* GLDRAW_TOOLS_TOOL_H */

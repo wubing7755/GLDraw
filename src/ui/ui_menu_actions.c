@@ -13,40 +13,42 @@
 #include "ui_menu_actions.h"
 
 #include <app/command_registry.h>
-#include <app/workspace.h>
 #include <base/log.h>
 
 /**
  * @brief Checks if menu action is currently available.
- * @param workspace [in] Workspace instance used for command-backed items.
+ * @param view_model [in] View model used for command-backed items.
  * @param id [in] Menu action ID.
  * @return Non-zero if available, 0 if unavailable.
  */
-int ui_menu_is_action_available(const Workspace* workspace, MenuId id)
+int ui_menu_is_action_available(const EditorViewModel* view_model, MenuId id)
 {
+    const CommandDescriptor* descriptor = NULL;
+
     switch (id) {
     case MENU_ID_FILE_RECENT:
         return 0;
     default:
-        return command_registry_is_menu_action_available(workspace, (int)id);
+        descriptor = command_registry_find_by_menu_id((int)id);
+        if (!descriptor) {
+            return 0;
+        }
+        return editor_viewmodel_command_available(view_model, descriptor->command);
     }
 }
 
 /**
- * @brief Executes menu action dispatch.
- * @param workspace [in,out] Workspace instance.
+ * @brief Emits menu action dispatch.
+ * @param sink [in] Action sink.
  * @param id [in] Menu action ID.
  * @return None.
  */
-void ui_menu_execute(Workspace* workspace, MenuId id)
+void ui_menu_execute(const EditorActionSink* sink, MenuId id)
 {
     const CommandDescriptor* descriptor = NULL;
+    EditorAction action;
 
-    if (!workspace) {
-        return;
-    }
-
-    if (!ui_menu_is_action_available(workspace, id)) {
+    if (!sink) {
         return;
     }
 
@@ -56,5 +58,6 @@ void ui_menu_execute(Workspace* workspace, MenuId id)
         return;
     }
 
-    command_registry_execute(workspace, NULL, descriptor->command);
+    action = editor_action_make_execute_command(descriptor->command);
+    editor_action_emit(sink, &action);
 }

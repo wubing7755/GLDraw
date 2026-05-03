@@ -10,7 +10,9 @@
  * - Called by `application.c`.
  * - Provides valid context required by renderer/UI init.
  */
-#include <platform/window.h>
+#include "platform/window_internal.h"
+
+#include <stdlib.h>
 
 static int g_glfw_initialized = 0;
 
@@ -35,6 +37,7 @@ static int g_glfw_initialized = 0;
 int platform_window_init(PlatformWindow* window, int width, int height, const char* title)
 {
     int initialized_here = 0;
+    GldWindow* native_window = NULL;
 
     if (!window) {
         return -1;
@@ -48,12 +51,8 @@ int platform_window_init(PlatformWindow* window, int width, int height, const ch
         initialized_here = 1;
     }
 
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-
-    window->handle = glfwCreateWindow(width, height, title, NULL, NULL);
-    if (!window->handle) {
+    native_window = (GldWindow*)calloc(1, sizeof(*native_window));
+    if (!native_window) {
         if (initialized_here) {
             glfwTerminate();
             g_glfw_initialized = 0;
@@ -61,16 +60,31 @@ int platform_window_init(PlatformWindow* window, int width, int height, const ch
         return -1;
     }
 
-    glfwSetWindowSizeLimits(window->handle, 800, 600, GLFW_DONT_CARE, GLFW_DONT_CARE);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+
+    native_window->glfw = glfwCreateWindow(width, height, title, NULL, NULL);
+    if (!native_window->glfw) {
+        free(native_window);
+        if (initialized_here) {
+            glfwTerminate();
+            g_glfw_initialized = 0;
+        }
+        return -1;
+    }
+
+    window->handle = native_window;
+    glfwSetWindowSizeLimits(native_window->glfw, 800, 600, GLFW_DONT_CARE, GLFW_DONT_CARE);
 
     window->width = width;
     window->height = height;
-    glfwGetFramebufferSize(window->handle,
+    glfwGetFramebufferSize(native_window->glfw,
                            &window->framebuffer_width,
                            &window->framebuffer_height);
     window->title = title;
 
-    glfwMakeContextCurrent(window->handle);
+    glfwMakeContextCurrent(native_window->glfw);
     glfwSwapInterval(1);
     return 0;
 }
@@ -90,11 +104,13 @@ void platform_window_shutdown(PlatformWindow* window)
         return;
     }
 
-    if (window->handle) {
+    if (window->handle && window->handle->glfw) {
         glfwMakeContextCurrent(NULL);
-        glfwDestroyWindow(window->handle);
-        window->handle = NULL;
+        glfwDestroyWindow(window->handle->glfw);
+        window->handle->glfw = NULL;
     }
+    free(window->handle);
+    window->handle = NULL;
 
     if (g_glfw_initialized) {
         glfwTerminate();
@@ -118,8 +134,10 @@ void platform_window_poll_events(void)
  */
 void platform_window_swap_buffers(PlatformWindow* window)
 {
-    if (window && window->handle) {
-        glfwSwapBuffers(window->handle);
+    GLFWwindow* handle = platform_window_glfw_handle(window);
+
+    if (handle) {
+        glfwSwapBuffers(handle);
     }
 }
 
@@ -130,8 +148,10 @@ void platform_window_swap_buffers(PlatformWindow* window)
  */
 int platform_window_should_close(const PlatformWindow* window)
 {
-    if (!window || !window->handle) {
+    GLFWwindow* handle = platform_window_glfw_handle(window);
+
+    if (!handle) {
         return 1;
     }
-    return glfwWindowShouldClose(window->handle);
+    return glfwWindowShouldClose(handle);
 }

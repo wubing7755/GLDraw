@@ -6,23 +6,23 @@
 #define GLDRAW_UI_UI_MENU_ACTIONS_H
 
 #include "ui_menu_def.h"
-
-struct Workspace;
+#include <ui/editor_action.h>
+#include <ui/editor_viewmodel.h>
 
 /**
- * @brief Executes the specified menu action.
- * @param workspace Workspace instance.
+ * @brief Emits the specified menu action into the editor action sink.
+ * @param sink Action sink.
  * @param id Menu action ID.
  * @return None.
  */
-void ui_menu_execute(struct Workspace* workspace, MenuId id);
+void ui_menu_execute(const EditorActionSink* sink, MenuId id);
 
 /**
  * @brief Checks if menu action is currently available.
- * @param workspace Workspace instance used to evaluate runtime-backed command availability.
+ * @param view_model Read-only editor view model.
  * @param id Menu action ID.
  * @return Non-zero if available, 0 if unavailable.
  */
-int ui_menu_is_action_available(const struct Workspace* workspace, MenuId id);
+int ui_menu_is_action_available(const EditorViewModel* view_model, MenuId id);
 
 #endif /* GLDRAW_UI_UI_MENU_ACTIONS_H */

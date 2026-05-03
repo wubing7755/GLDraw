@@ -58,6 +58,8 @@ typedef enum MenuId {
     MENU_ID_HELP = 300,
     MENU_ID_HELP_SHORTCUTS,
     MENU_ID_HELP_ABOUT,
+
+    MENU_ID_TOOL_DYNAMIC_BASE = 1000
 } MenuId;
 
 /**

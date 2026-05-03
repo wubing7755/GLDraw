@@ -1,22 +1,7 @@
-/**
- * @file tool_controller.c
- * @brief Built-in tool implementations and controller dispatch logic.
- *
- * Role in project:
- * - Implements Select/Pan/Line/Rect/Ellipse tools.
- * - Routes pointer/keyboard/scroll events to active tool vtable.
- *
- * Module relationships:
- * - Uses document, history, canvas, and workspace dirty-tracking APIs.
- * - Called by application event callbacks and UI tool rail.
- */
 #include <tools/tool_controller.h>
 
-#include <app/workspace.h>
 #include <base/math2d.h>
 #include <canvas/canvas_view.h>
-#include <document/document.h>
-#include <document/history.h>
 
 #include <GLFW/glfw3.h>
 
@@ -24,46 +9,26 @@
 #include <stdlib.h>
 #include <string.h>
 
-/** Runtime state for select tool drag/document-edit history behavior. */
+#define TOOL_REGISTRY_INITIAL_CAPACITY 8
+
 typedef struct {
-    int dragging;
-    int moved;
-    Vec2 last_world;
-    Vec2 drag_delta_total;
-    int drag_object_count;
-    ObjectId drag_object_ids[DOCUMENT_MAX_SELECTION];
-    unsigned int drag_revision_before;
-} SelectToolState;
+    ToolDescriptor *descriptors;
+    int count;
+    int capacity;
+    int initialized;
+} ToolRegistryState;
 
-/** Runtime state for pan tool. */
-typedef struct {
-    int panning;
-} PanToolState;
+static ToolRegistryState g_tool_registry = {0};
 
-/** Runtime state for shape-creation tools. */
-typedef struct {
-    int drawing;
-    Vec2 anchor;
-    Vec2 current;
-} ShapeToolState;
+#if defined(GLDRAW_ENABLE_SCRIPTING)
+void gldraw_register_script_tool(void);
+#endif
 
-/**
- * @brief Resets a snapshot.
- * @param snapshot Snapshot to reset.
- * @return None.
- */
-static void snapshot_reset(DocumentSnapshot* snapshot)
-{
-    document_snapshot_free(snapshot);
-    document_snapshot_init(snapshot);
-}
+/* ---------------------------------------------------------------------------
+ * Shared helpers (also used by individual tool files via tool_internal.h)
+ * --------------------------------------------------------------------------- */
 
-/**
- * @brief Destroys a tool's overlay object.
- * @param tool Tool instance.
- * @return None.
- */
-static void destroy_overlay(Tool* tool)
+void destroy_overlay(Tool* tool)
 {
     if (tool && tool->overlay_object) {
         object_destroy(tool->overlay_object);
@@ -71,13 +36,7 @@ static void destroy_overlay(Tool* tool)
     }
 }
 
-/**
- * @brief Creates a rectangle from two points.
- * @param a First point.
- * @param b Second point.
- * @return Rectangle bounds.
- */
-static RectF rect_from_points(Vec2 a, Vec2 b)
+RectF rect_from_points(Vec2 a, Vec2 b)
 {
     RectF rect;
     rect.x = (a.x < b.x) ? a.x : b.x;
@@ -87,538 +46,215 @@ static RectF rect_from_points(Vec2 a, Vec2 b)
     return rect;
 }
 
-/**
- * @brief Builds a shape object from tool kind.
- * @param kind Shape tool kind.
- * @param anchor Anchor point.
- * @param current Current point.
- * @param style Graphic style.
- * @return New shape object or NULL.
- */
-static GraphicObject* build_shape_object(ToolKind kind, Vec2 anchor, Vec2 current, GraphicStyle style)
+int default_tool_create(Tool* tool, size_t state_size)
 {
-    if (kind == TOOL_KIND_LINE) {
-        return object_create_line(anchor, current, style);
+    if (!tool) {
+        return 0;
     }
-    if (kind == TOOL_KIND_RECT) {
-        return object_create_rect(rect_from_points(anchor, current), style);
+    if (state_size > 0u) {
+        tool->state = calloc(1u, state_size);
+        if (!tool->state) {
+            return 0;
+        }
     }
-    if (kind == TOOL_KIND_ELLIPSE) {
-        return object_create_ellipse(rect_from_points(anchor, current), style);
+    return 1;
+}
+
+void default_tool_destroy(Tool* tool)
+{
+    if (!tool) {
+        return;
     }
+    destroy_overlay(tool);
+    free(tool->state);
+    tool->state = NULL;
+}
+
+GraphicObject* default_draw_overlay(Tool* tool, ToolContext* context)
+{
+    (void)context;
+    return tool ? tool->overlay_object : NULL;
+}
+
+/* ---------------------------------------------------------------------------
+ * Tool registry (global singleton)
+ * --------------------------------------------------------------------------- */
+
+static const ToolDescriptor* tool_registry_find(const char* tool_id)
+{
+    int i = 0;
+
+    if (!tool_id || tool_id[0] == '\0') {
+        return NULL;
+    }
+
+    for (i = 0; i < g_tool_registry.count; ++i) {
+        if (g_tool_registry.descriptors[i].id &&
+            strcmp(g_tool_registry.descriptors[i].id, tool_id) == 0) {
+            return &g_tool_registry.descriptors[i];
+        }
+    }
+
     return NULL;
 }
 
-/**
- * @brief Update an existing preview shape object in place.
- * @param object Preview object to update.
- * @param kind Shape tool kind associated with the preview.
- * @param anchor Drag anchor point.
- * @param current Current drag point.
- * @return 1 on success, 0 if the object is missing or does not match the tool kind.
- */
-static int update_shape_object(GraphicObject* object, ToolKind kind, Vec2 anchor, Vec2 current)
+void tool_registry_init(void)
 {
-    RectF rect = rect_from_points(anchor, current);
+    if (!g_tool_registry.initialized) {
+        memset(&g_tool_registry, 0, sizeof(g_tool_registry));
+        g_tool_registry.initialized = 1;
+    }
+}
 
-    if (!object) {
+int register_tool(const ToolDescriptor* descriptor)
+{
+    if (!descriptor || !descriptor->id || descriptor->id[0] == '\0' ||
+        !descriptor->name || descriptor->name[0] == '\0' ||
+        tool_registry_find(descriptor->id)) {
         return 0;
     }
 
-    if (kind == TOOL_KIND_LINE && object->type == GRAPHIC_OBJECT_LINE) {
-        return object_set_scalar(object, "x1", anchor.x) &&
-               object_set_scalar(object, "y1", anchor.y) &&
-               object_set_scalar(object, "x2", current.x) &&
-               object_set_scalar(object, "y2", current.y);
-    }
-
-    if (kind == TOOL_KIND_RECT && object->type == GRAPHIC_OBJECT_RECT) {
-        return object_set_scalar(object, "x", rect.x) &&
-               object_set_scalar(object, "y", rect.y) &&
-               object_set_scalar(object, "width", rect.w) &&
-               object_set_scalar(object, "height", rect.h);
-    }
-
-    if (kind == TOOL_KIND_ELLIPSE && object->type == GRAPHIC_OBJECT_ELLIPSE) {
-        return object_set_scalar(object, "x", rect.x) &&
-               object_set_scalar(object, "y", rect.y) &&
-               object_set_scalar(object, "width", rect.w) &&
-               object_set_scalar(object, "height", rect.h);
-    }
-
-    return 0;
-}
-
-/**
- * @brief Pushes document edit to history and syncs dirty flag.
- * @param context [in,out] Tool context.
- * @param before_snapshot [in,out] Before snapshot (consumed and reset by this function).
- * @return None.
- *
- * @remark Safely resets snapshot even when context/history is invalid.
- */
-static void tool_commit_document_change(ToolContext* context,
-                                        DocumentSnapshot* before_snapshot,
-                                        const SelectionSet* before_selection)
-{
-    if (!context || !context->history || !before_snapshot || !before_selection || !context->selection) {
-        if (before_snapshot) {
-            snapshot_reset(before_snapshot);
+    if (g_tool_registry.count >= g_tool_registry.capacity) {
+        int new_capacity = g_tool_registry.capacity > 0 ? g_tool_registry.capacity * 2
+                                                         : TOOL_REGISTRY_INITIAL_CAPACITY;
+        ToolDescriptor *new_descriptors =
+            (ToolDescriptor *)realloc(g_tool_registry.descriptors,
+                                      (size_t)new_capacity *
+                                          sizeof(g_tool_registry.descriptors[0]));
+        if (!new_descriptors) {
+            return 0;
         }
-        return;
+        g_tool_registry.descriptors = new_descriptors;
+        g_tool_registry.capacity = new_capacity;
     }
 
-    if (!document_history_push(context->history,
-                               before_snapshot,
-                               before_selection,
-                               context->document,
-                               context->selection)) {
-        snapshot_reset(before_snapshot);
-        return;
-    }
-
-    workspace_sync_document_dirty(context->workspace);
-}
-
-/**
- * @brief Gets the select tool label.
- * @param tool Tool instance.
- * @return Tool label string.
- */
-static const char* select_tool_label(const Tool* tool)
-{
-    (void)tool;
-    return "Select";
-}
-
-/**
- * @brief Deactivates the select tool.
- * @param tool Tool instance.
- * @param context Tool context.
- * @return None.
- */
-static void select_tool_deactivate(Tool* tool, ToolContext* context)
-{
-    SelectToolState* state = (SelectToolState*)tool->state;
-    (void)context;
-    state->dragging = 0;
-    state->moved = 0;
-    state->drag_delta_total = vec2_make(0.0f, 0.0f);
-    state->drag_object_count = 0;
-    state->drag_revision_before = 0u;
-}
-
-/**
- * @brief Handles select tool pointer press.
- * @param tool [in,out] Select tool instance.
- * @param context [in,out] Tool context.
- * @param event [in] Pointer event.
- * @return None.
- */
-static int select_tool_pointer_down(Tool* tool, ToolContext* context, const ToolEvent* event)
-{
-    SelectToolState* state = (SelectToolState*)tool->state;
-    GraphicObject* hit = NULL;
-    int i = 0;
-
-    if (event->button != GLFW_MOUSE_BUTTON_LEFT) {
-        return 0;
-    }
-
-    state->dragging = 0;
-    state->moved = 0;
-    state->drag_delta_total = vec2_make(0.0f, 0.0f);
-    state->drag_object_count = 0;
-    state->drag_revision_before = 0u;
-    hit = canvas_view_pick_object(context->canvas, event->screen_pos, 8.0f);
-    if (!hit) {
-        if ((event->mods & GLFW_MOD_SHIFT) == 0) {
-            selection_set_clear(context->selection);
-        }
-        return 0;
-    }
-
-    if ((event->mods & GLFW_MOD_SHIFT) != 0) {
-        selection_set_toggle(context->selection, hit->id);
-        state->dragging = selection_set_contains(context->selection, hit->id);
-    } else {
-        if (!selection_set_contains(context->selection, hit->id) || context->selection->count != 1) {
-            selection_set_clear(context->selection);
-            selection_set_add(context->selection, hit->id);
-        }
-        state->dragging = selection_set_contains(context->selection, hit->id);
-    }
-
-    if (!state->dragging || context->selection->count <= 0) {
-        return 0;
-    }
-
-    state->drag_object_count = context->selection->count;
-    if (state->drag_object_count > DOCUMENT_MAX_SELECTION) {
-        state->drag_object_count = DOCUMENT_MAX_SELECTION;
-    }
-    for (i = 0; i < state->drag_object_count; ++i) {
-        state->drag_object_ids[i] = context->selection->ids[i];
-    }
-    state->last_world = event->world_pos;
-    state->drag_revision_before = context->document->revision;
+    g_tool_registry.descriptors[g_tool_registry.count++] = *descriptor;
     return 1;
 }
 
-/**
- * @brief Moves selected objects while dragging.
- * @param tool Tool instance.
- * @param context Tool context.
- * @param event Pointer event.
- * @return None.
- */
-static void select_tool_pointer_move(Tool* tool, ToolContext* context, const ToolEvent* event)
+static void ensure_builtin_tools(void)
 {
-    SelectToolState* state = (SelectToolState*)tool->state;
-    Vec2 delta = {0.0f, 0.0f};
-    int i = 0;
-
-    if (!state->dragging) {
-        return;
+    tool_registry_init();
+    if (g_tool_registry.count == 0) {
+        register_builtin_tools();
     }
+}
 
-    delta = vec2_sub(event->world_pos, state->last_world);
-    if (vec2_length_sq(delta) <= 1e-6f) {
-        return;
+const ToolDescriptor* tool_registry_lookup(const char* tool_id)
+{
+    ensure_builtin_tools();
+    return tool_registry_find(tool_id);
+}
+
+int tool_registry_count(void)
+{
+    ensure_builtin_tools();
+    return g_tool_registry.count;
+}
+
+const ToolDescriptor* tool_registry_at(int index)
+{
+    ensure_builtin_tools();
+    if (index < 0 || index >= g_tool_registry.count) {
+        return NULL;
     }
+    return &g_tool_registry.descriptors[index];
+}
 
-    for (i = 0; i < state->drag_object_count; ++i) {
-        GraphicObject* object = document_find_object(context->document, state->drag_object_ids[i]);
-        if (object) {
-            object_translate(object, delta);
+/* ---------------------------------------------------------------------------
+ * Built-in tool registration — delegates to individual tool files
+ * --------------------------------------------------------------------------- */
+
+/* Forward declarations - tool registration functions from individual tool files. */
+int register_select_tool(void);
+int register_pan_tool(void);
+int register_shape_tool_line(void);
+int register_shape_tool_rect(void);
+int register_shape_tool_ellipse(void);
+
+int register_builtin_tools(void)
+{
+    /* Manifest-style list: each entry is a single register_*() call.
+     * Adding a new built-in tool requires only adding its register_*()
+     * function to this array. */
+    typedef int (*ToolInitFn)(void);
+    static const ToolInitFn manifest[] = {
+        register_select_tool,
+        register_pan_tool,
+        register_shape_tool_line,
+        register_shape_tool_rect,
+        register_shape_tool_ellipse,
+    };
+    size_t i = 0;
+
+    tool_registry_init();
+    for (i = 0; i < sizeof(manifest) / sizeof(manifest[0]); ++i) {
+        if (!manifest[i]()) {
+            return 0;
         }
     }
 
-    state->last_world = event->world_pos;
-    state->drag_delta_total = vec2_add(state->drag_delta_total, delta);
-    state->moved = 1;
-    document_touch(context->document);
-}
-
-/**
- * @brief Finalizes select drag handling and commits history when needed.
- * @param tool Tool instance.
- * @param context Tool context.
- * @param event Pointer event.
- * @return None.
- */
-static void select_tool_pointer_up(Tool* tool, ToolContext* context, const ToolEvent* event)
-{
-    SelectToolState* state = (SelectToolState*)tool->state;
-    (void)event;
-
-    if (state->dragging &&
-        state->moved &&
-        state->drag_object_count > 0 &&
-        vec2_length_sq(state->drag_delta_total) > 1e-6f &&
-        context &&
-        context->history) {
-        document_history_push_translate_edit(context->history,
-                                             context->document,
-                                             context->selection,
-                                             state->drag_object_ids,
-                                             state->drag_object_count,
-                                             state->drag_delta_total,
-                                             state->drag_revision_before,
-                                             context->document->revision);
-        workspace_sync_document_dirty(context->workspace);
-    }
-
-    state->dragging = 0;
-    state->moved = 0;
-    state->drag_delta_total = vec2_make(0.0f, 0.0f);
-    state->drag_object_count = 0;
-    state->drag_revision_before = 0u;
-}
-
-/**
- * @brief Handles select tool keyboard input.
- * @param tool Tool instance.
- * @param context Tool context.
- * @param key GLFW key code.
- * @param mods Modifier flags.
- * @return None.
- */
-static void select_tool_key_down(Tool* tool, ToolContext* context, int key, int mods)
-{
-    (void)tool;
-    (void)mods;
-    if (key == GLFW_KEY_ESCAPE) {
-        selection_set_clear(context->selection);
-    }
-}
-
-static const ToolVTable g_select_tool_vtable = {
-    select_tool_label,
-    NULL,
-    select_tool_deactivate,
-    select_tool_pointer_down,
-    select_tool_pointer_move,
-    select_tool_pointer_up,
-    select_tool_key_down
-};
-
-/**
- * @brief Gets the pan tool label.
- * @param tool Tool instance.
- * @return Tool label string.
- */
-static const char* pan_tool_label(const Tool* tool)
-{
-    (void)tool;
-    return "Hand";
-}
-
-/**
- * @brief Deactivates the pan tool.
- * @param tool Tool instance.
- * @param context Tool context.
- * @return None.
- */
-static void pan_tool_deactivate(Tool* tool, ToolContext* context)
-{
-    PanToolState* state = (PanToolState*)tool->state;
-    (void)context;
-    state->panning = 0;
-}
-
-/**
- * @brief Handles pan tool pointer press.
- * @param tool Tool instance.
- * @param context Tool context.
- * @param event Pointer event.
- * @return Non-zero when the pan tool accepted the interaction.
- */
-static int pan_tool_pointer_down(Tool* tool, ToolContext* context, const ToolEvent* event)
-{
-    PanToolState* state = (PanToolState*)tool->state;
-    (void)tool;
-    (void)context;
-    if (event->button != GLFW_MOUSE_BUTTON_LEFT) {
-        return 0;
-    }
-    state->panning = 1;
+#if defined(GLDRAW_ENABLE_SCRIPTING)
+    gldraw_register_script_tool();
+#endif
     return 1;
 }
 
-/**
- * @brief Handles pan tool pointer movement.
- * @param tool Tool instance.
- * @param context Tool context.
- * @param event Pointer event.
- * @return None.
- */
-static void pan_tool_pointer_move(Tool* tool, ToolContext* context, const ToolEvent* event)
+/* ---------------------------------------------------------------------------
+ * ToolController — active tool management and input dispatch
+ * --------------------------------------------------------------------------- */
+
+static int tool_controller_find_index(const ToolController* controller, const char* tool_id)
 {
-    PanToolState* state = (PanToolState*)tool->state;
-    (void)tool;
-    if (!state->panning) {
-        return;
+    int i = 0;
+
+    if (!controller || !tool_id) {
+        return -1;
     }
-    canvas_view_pan_screen_delta(context->canvas, event->delta_screen);
+
+    for (i = 0; i < controller->tool_count; ++i) {
+        if (controller->tools[i].descriptor &&
+            strcmp(controller->tools[i].descriptor->id, tool_id) == 0) {
+            return i;
+        }
+    }
+
+    return -1;
 }
 
-/**
- * @brief Handles pan tool pointer release.
- * @param tool Tool instance.
- * @param context Tool context.
- * @param event Pointer event.
- * @return None.
- */
-static void pan_tool_pointer_up(Tool* tool, ToolContext* context, const ToolEvent* event)
-{
-    PanToolState* state = (PanToolState*)tool->state;
-    (void)context;
-    (void)event;
-    if (state->panning) {
-        state->panning = 0;
-    }
-}
-
-/**
- * @brief Handles pan tool keyboard input.
- * @param tool Tool instance.
- * @param context Tool context.
- * @param key GLFW key code.
- * @param mods Modifier flags.
- * @return None.
- */
-static void pan_tool_key_down(Tool* tool, ToolContext* context, int key, int mods)
-{
-    PanToolState* state = (PanToolState*)tool->state;
-    (void)context;
-    (void)mods;
-    if (key == GLFW_KEY_ESCAPE && state->panning) {
-        state->panning = 0;
-    }
-}
-
-static const ToolVTable g_pan_tool_vtable = {
-    pan_tool_label,
-    NULL,
-    pan_tool_deactivate,
-    pan_tool_pointer_down,
-    pan_tool_pointer_move,
-    pan_tool_pointer_up,
-    pan_tool_key_down
-};
-
-/** Return label by shape kind. */
-static const char* shape_tool_label(const Tool* tool)
-{
-    switch (tool->kind) {
-    case TOOL_KIND_LINE:
-        return "Line";
-    case TOOL_KIND_RECT:
-        return "Rectangle";
-    case TOOL_KIND_ELLIPSE:
-        return "Ellipse";
-    default:
-        return "Shape";
-    }
-}
-
-/** Cancel shape drawing and clear overlay when tool deactivates. */
-static void shape_tool_deactivate(Tool* tool, ToolContext* context)
-{
-    ShapeToolState* state = (ShapeToolState*)tool->state;
-    (void)context;
-    state->drawing = 0;
-    destroy_overlay(tool);
-}
-
-/** Start shape draw interaction and create translucent overlay preview. */
-static int shape_tool_pointer_down(Tool* tool, ToolContext* context, const ToolEvent* event)
-{
-    ShapeToolState* state = (ShapeToolState*)tool->state;
-    GraphicStyle style = object_default_style();
-
-    (void)context;
-    if (event->button != GLFW_MOUSE_BUTTON_LEFT) {
-        return 0;
-    }
-
-    state->drawing = 1;
-    state->anchor = event->world_pos;
-    state->current = event->world_pos;
-
-    style.stroke_color.a = 0.75f;
-    destroy_overlay(tool);
-    tool->overlay_object = build_shape_object(tool->kind, state->anchor, state->current, style);
-    return (tool->overlay_object != NULL);
-}
-
-/** Update shape overlay as pointer moves. */
-static void shape_tool_pointer_move(Tool* tool, ToolContext* context, const ToolEvent* event)
-{
-    ShapeToolState* state = (ShapeToolState*)tool->state;
-
-    (void)context;
-    if (!state->drawing) {
-        return;
-    }
-
-    state->current = event->world_pos;
-    if (!update_shape_object(tool->overlay_object, tool->kind, state->anchor, state->current)) {
-        destroy_overlay(tool);
-        state->drawing = 0;
-    }
-}
-
-/**
- * @brief Finalize shape creation on pointer release.
- * Risk note:
- * - Captures history snapshot before append; allocation/add failures clean up
- *   object/snapshot to avoid leaks and partial commits.
- */
-static void shape_tool_pointer_up(Tool* tool, ToolContext* context, const ToolEvent* event)
-{
-    ShapeToolState* state = (ShapeToolState*)tool->state;
-    GraphicStyle style = object_default_style();
-    GraphicObject* object = NULL;
-    DocumentSnapshot before_snapshot;
-    SelectionSet before_selection;
-
-    (void)event;
-    if (!state->drawing) {
-        return;
-    }
-
-    document_snapshot_init(&before_snapshot);
-    before_selection = *context->selection;
-    document_snapshot_capture(&before_snapshot, context->document);
-    state->drawing = 0;
-    object = build_shape_object(tool->kind, state->anchor, state->current, style);
-    destroy_overlay(tool);
-
-    if (!object) {
-        document_snapshot_free(&before_snapshot);
-        return;
-    }
-
-    if (!document_add_object(context->document, object)) {
-        object_destroy(object);
-        document_snapshot_free(&before_snapshot);
-        return;
-    }
-
-    selection_set_clear(context->selection);
-    selection_set_add(context->selection, object->id);
-    tool_commit_document_change(context, &before_snapshot, &before_selection);
-}
-
-/** Escape cancels in-progress shape drawing. */
-static void shape_tool_key_down(Tool* tool, ToolContext* context, int key, int mods)
-{
-    (void)mods;
-    if (key == GLFW_KEY_ESCAPE) {
-        shape_tool_deactivate(tool, context);
-    }
-}
-
-static const ToolVTable g_shape_tool_vtable = {
-    shape_tool_label,
-    NULL,
-    shape_tool_deactivate,
-    shape_tool_pointer_down,
-    shape_tool_pointer_move,
-    shape_tool_pointer_up,
-    shape_tool_key_down
-};
-
-/** Initialize one tool slot and allocate optional state block. */
-static void tool_init_slot(Tool* tool, ToolKind kind, const ToolVTable* vtable, size_t state_size)
-{
-    memset(tool, 0, sizeof(*tool));
-    tool->kind = kind;
-    tool->vtable = vtable;
-    if (state_size > 0) {
-        tool->state = calloc(1, state_size);
-    }
-}
-
-/** Initialize all built-in tools and default active tool. */
 void tool_controller_init(ToolController* controller)
 {
+    int i = 0;
+
     if (!controller) {
         return;
     }
 
     memset(controller, 0, sizeof(*controller));
-    tool_init_slot(&controller->tools[TOOL_KIND_SELECT], TOOL_KIND_SELECT, &g_select_tool_vtable, sizeof(SelectToolState));
-    tool_init_slot(&controller->tools[TOOL_KIND_PAN], TOOL_KIND_PAN, &g_pan_tool_vtable, sizeof(PanToolState));
-    tool_init_slot(&controller->tools[TOOL_KIND_LINE], TOOL_KIND_LINE, &g_shape_tool_vtable, sizeof(ShapeToolState));
-    tool_init_slot(&controller->tools[TOOL_KIND_RECT], TOOL_KIND_RECT, &g_shape_tool_vtable, sizeof(ShapeToolState));
-    tool_init_slot(&controller->tools[TOOL_KIND_ELLIPSE], TOOL_KIND_ELLIPSE, &g_shape_tool_vtable, sizeof(ShapeToolState));
-    controller->active_kind = TOOL_KIND_SELECT;
+    controller->tool_count = tool_registry_count();
+    controller->tools = (Tool*)calloc((size_t)controller->tool_count, sizeof(controller->tools[0]));
+    if (!controller->tools) {
+        controller->tool_count = 0;
+        controller->active_index = -1;
+        return;
+    }
+
+    for (i = 0; i < controller->tool_count; ++i) {
+        const ToolDescriptor* descriptor = tool_registry_at(i);
+        controller->tools[i].descriptor = descriptor;
+        if (descriptor && descriptor->create_tool &&
+            !descriptor->create_tool(&controller->tools[i], descriptor)) {
+            tool_controller_shutdown(controller);
+            return;
+        }
+    }
+
+    controller->active_index = tool_controller_find_index(controller, TOOL_ID_SELECT);
+    if (controller->active_index < 0) {
+        controller->active_index = (controller->tool_count > 0) ? 0 : -1;
+    }
 }
 
-/** Shutdown all tool states and overlays. */
 void tool_controller_shutdown(ToolController* controller)
 {
     int i = 0;
@@ -627,122 +263,166 @@ void tool_controller_shutdown(ToolController* controller)
         return;
     }
 
-    for (i = 0; i < TOOL_KIND_COUNT; ++i) {
-        destroy_overlay(&controller->tools[i]);
-        free(controller->tools[i].state);
-        controller->tools[i].state = NULL;
+    for (i = 0; i < controller->tool_count; ++i) {
+        Tool* tool = &controller->tools[i];
+        if (tool->descriptor && tool->descriptor->destroy_tool) {
+            tool->descriptor->destroy_tool(tool);
+        } else {
+            default_tool_destroy(tool);
+        }
     }
+
+    free(controller->tools);
+    memset(controller, 0, sizeof(*controller));
+    controller->active_index = -1;
 }
 
-/** Return active tool pointer. */
-Tool* tool_controller_get_active(ToolController* controller)
-{
-    if (!controller) {
-        return NULL;
-    }
-    return &controller->tools[controller->active_kind];
-}
-
-/** Return active tool label. */
-const char* tool_controller_active_label(const ToolController* controller)
-{
-    const Tool* tool = NULL;
-    if (!controller) {
-        return "Unknown";
-    }
-    tool = &controller->tools[controller->active_kind];
-    return tool->vtable->label(tool);
-}
-
-/** Return active tool overlay object if any. */
-GraphicObject* tool_controller_overlay_object(const ToolController* controller)
-{
-    if (!controller) {
-        return NULL;
-    }
-    return controller->tools[controller->active_kind].overlay_object;
-}
-
-/** Switch active tool with proper deactivate/activate callbacks. */
-void tool_controller_set_active(ToolController* controller, ToolContext* context, ToolKind kind)
+int tool_controller_set_active(ToolController* controller,
+                               ToolContext* context,
+                               const char* tool_id)
 {
     Tool* current = NULL;
     Tool* next = NULL;
+    int next_index = -1;
 
-    if (!controller || kind < 0 || kind >= TOOL_KIND_COUNT || controller->active_kind == kind) {
-        return;
+    if (!controller || !tool_id) {
+        return 0;
+    }
+
+    next_index = tool_controller_find_index(controller, tool_id);
+    if (next_index < 0 || controller->active_index == next_index) {
+        return next_index >= 0;
     }
 
     current = tool_controller_get_active(controller);
-    if (current && current->vtable && current->vtable->deactivate) {
-        current->vtable->deactivate(current, context);
+    if (current && current->descriptor && current->descriptor->deactivate) {
+        current->descriptor->deactivate(current, context);
     }
 
-    controller->active_kind = kind;
+    controller->active_index = next_index;
     next = tool_controller_get_active(controller);
-    if (next && next->vtable && next->vtable->activate) {
-        next->vtable->activate(next, context);
+    if (next && next->descriptor && next->descriptor->activate) {
+        next->descriptor->activate(next, context);
     }
+
+    return 1;
 }
 
-/** Dispatch pointer-down and capture pointer. */
-void tool_controller_pointer_down(ToolController* controller, ToolContext* context, const ToolEvent* event)
+Tool* tool_controller_get_active(ToolController* controller)
+{
+    if (!controller || controller->active_index < 0 ||
+        controller->active_index >= controller->tool_count) {
+        return NULL;
+    }
+    return &controller->tools[controller->active_index];
+}
+
+const char* tool_controller_active_id(const ToolController* controller)
+{
+    if (!controller || controller->active_index < 0 ||
+        controller->active_index >= controller->tool_count ||
+        !controller->tools[controller->active_index].descriptor) {
+        return NULL;
+    }
+    return controller->tools[controller->active_index].descriptor->id;
+}
+
+const char* tool_controller_active_label(const ToolController* controller)
+{
+    if (!controller || controller->active_index < 0 ||
+        controller->active_index >= controller->tool_count ||
+        !controller->tools[controller->active_index].descriptor) {
+        return "Unknown";
+    }
+    return controller->tools[controller->active_index].descriptor->name;
+}
+
+GraphicObject* tool_controller_overlay_object(ToolController* controller,
+                                              ToolContext* context)
+{
+    Tool* tool = tool_controller_get_active(controller);
+    if (!tool) {
+        return NULL;
+    }
+    if (tool->descriptor && tool->descriptor->draw_overlay) {
+        return tool->descriptor->draw_overlay(tool, context);
+    }
+    return tool->overlay_object;
+}
+
+int tool_controller_tool_count(const ToolController* controller)
+{
+    return controller ? controller->tool_count : 0;
+}
+
+const ToolDescriptor* tool_controller_tool_descriptor_at(const ToolController* controller,
+                                                         int index)
+{
+    if (!controller || index < 0 || index >= controller->tool_count) {
+        return NULL;
+    }
+    return controller->tools[index].descriptor;
+}
+
+void tool_controller_pointer_down(ToolController* controller,
+                                  ToolContext* context,
+                                  const ToolEvent* event)
 {
     Tool* tool = tool_controller_get_active(controller);
     int accepted = 0;
 
-    if (!controller || !tool || !tool->vtable || !tool->vtable->pointer_down) {
+    if (!controller || !tool || !tool->descriptor || !tool->descriptor->pointer_down) {
         return;
     }
 
     controller->last_screen = event->screen_pos;
     controller->last_world = event->world_pos;
-    accepted = tool->vtable->pointer_down(tool, context, event);
+    accepted = tool->descriptor->pointer_down(tool, context, event);
     controller->pointer_captured = accepted ? 1 : 0;
 }
 
-/** Dispatch pointer-move to active tool. */
-void tool_controller_pointer_move(ToolController* controller, ToolContext* context, const ToolEvent* event)
+void tool_controller_pointer_move(ToolController* controller,
+                                  ToolContext* context,
+                                  const ToolEvent* event)
 {
     Tool* tool = tool_controller_get_active(controller);
-    if (!controller || !tool || !tool->vtable || !tool->vtable->pointer_move) {
+    if (!controller || !tool || !tool->descriptor || !tool->descriptor->pointer_move) {
         return;
     }
     controller->last_screen = event->screen_pos;
     controller->last_world = event->world_pos;
-    tool->vtable->pointer_move(tool, context, event);
+    tool->descriptor->pointer_move(tool, context, event);
 }
 
-/** Dispatch pointer-up and release pointer capture. */
-void tool_controller_pointer_up(ToolController* controller, ToolContext* context, const ToolEvent* event)
+void tool_controller_pointer_up(ToolController* controller,
+                                ToolContext* context,
+                                const ToolEvent* event)
 {
     Tool* tool = tool_controller_get_active(controller);
-    if (!controller || !tool || !tool->vtable || !tool->vtable->pointer_up) {
+    if (!controller || !tool || !tool->descriptor || !tool->descriptor->pointer_up) {
         return;
     }
-    tool->vtable->pointer_up(tool, context, event);
+    tool->descriptor->pointer_up(tool, context, event);
     controller->pointer_captured = 0;
     controller->last_screen = event->screen_pos;
     controller->last_world = event->world_pos;
 }
 
-/** Dispatch key-down to the active tool only. */
-void tool_controller_key_down(ToolController* controller, ToolContext* context, int key, int mods)
+void tool_controller_key_down(ToolController* controller,
+                              ToolContext* context,
+                              int key,
+                              int mods)
 {
-    Tool* tool = NULL;
-
-    if (!controller) {
-        return;
-    }
-
-    tool = tool_controller_get_active(controller);
-    if (tool && tool->vtable && tool->vtable->key_down) {
-        tool->vtable->key_down(tool, context, key, mods);
+    Tool* tool = tool_controller_get_active(controller);
+    if (tool && tool->descriptor && tool->descriptor->key_down) {
+        tool->descriptor->key_down(tool, context, key, mods);
     }
 }
 
-/** Apply wheel zoom around current cursor screen point. */
-void tool_controller_scroll(ToolController* controller, ToolContext* context, Vec2 screen_pos, float yoffset)
+void tool_controller_scroll(ToolController* controller,
+                            ToolContext* context,
+                            Vec2 screen_pos,
+                            float yoffset)
 {
     float factor = 1.0f;
     (void)controller;
