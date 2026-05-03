@@ -8,8 +8,6 @@
 #include <ui/editor_action.h>
 #include <ui/editor_viewmodel.h>
 
-#include <GLFW/glfw3.h>
-
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
@@ -281,7 +279,7 @@ static int test_locked_layers_block_pick_and_shape_creation(void)
     context.selection = &workspace.session.selection;
 
     memset(&down_event, 0, sizeof(down_event));
-    down_event.button = GLFW_MOUSE_BUTTON_LEFT;
+    down_event.button = 0; /* GLFW_MOUSE_BUTTON_LEFT */
     down_event.screen_pos = vec2_make(400.0f, 300.0f);
     down_event.world_pos = vec2_make(0.0f, 0.0f);
 
