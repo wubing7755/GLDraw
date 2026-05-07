@@ -1,0 +1,6 @@
+#ifndef GLDRAW_APP_REGISTRATION_MANIFEST_H
+#define GLDRAW_APP_REGISTRATION_MANIFEST_H
+
+int app_register_all_manifests(void);
+
+#endif /* GLDRAW_APP_REGISTRATION_MANIFEST_H */

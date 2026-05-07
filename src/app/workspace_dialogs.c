@@ -127,9 +127,7 @@ static int workspace_dialog_resolve_confirm_unsaved(Workspace* workspace,
         return workspace_dialog_execute_action_now(workspace, action);
     case UI_DIALOG_RESULT_CANCEL:
         workspace_dialog_close(workspace);
-        snprintf(workspace->session.status_message,
-                 sizeof(workspace->session.status_message),
-                 "Action cancelled.");
+        workspace_set_status_message(workspace, "Action cancelled.");
         return 1;
     case UI_DIALOG_RESULT_NONE:
     default:
@@ -193,9 +191,7 @@ static int workspace_dialog_resolve_save_as(Workspace* workspace,
         return 1;
     case UI_DIALOG_RESULT_CANCEL:
         workspace_dialog_close(workspace);
-        snprintf(workspace->session.status_message,
-                 sizeof(workspace->session.status_message),
-                 "Save As cancelled.");
+        workspace_set_status_message(workspace, "Save As cancelled.");
         return 1;
     case UI_DIALOG_RESULT_NONE:
     case UI_DIALOG_RESULT_SECONDARY:
@@ -351,6 +347,39 @@ int workspace_dialog_resolve(Workspace* workspace, UiDialogResult result)
     }
 
     return definition->resolve(workspace, result);
+}
+
+void workspace_dialog_set_message(Workspace* workspace, const char* message)
+{
+    if (!workspace || workspace->session.active_request_type != UI_REQUEST_DIALOG) {
+        return;
+    }
+
+    snprintf(workspace->session.active_dialog.message,
+             sizeof(workspace->session.active_dialog.message),
+             "%s",
+             message ? message : "");
+}
+
+void workspace_dialog_set_input_text(Workspace* workspace, const char* text)
+{
+    if (!workspace || workspace->session.active_request_type != UI_REQUEST_DIALOG) {
+        return;
+    }
+
+    snprintf(workspace->session.active_dialog.payload.text,
+             sizeof(workspace->session.active_dialog.payload.text),
+             "%s",
+             text ? text : "");
+}
+
+const char* workspace_dialog_input_text(const Workspace* workspace)
+{
+    if (!workspace || workspace->session.active_request_type != UI_REQUEST_DIALOG) {
+        return "";
+    }
+
+    return workspace->session.active_dialog.payload.text;
 }
 
 int workspace_dialog_open_confirm_unsaved(Workspace* workspace, WorkspaceActionType pending_action)

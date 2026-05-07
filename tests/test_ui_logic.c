@@ -1,6 +1,7 @@
 #include <app/command_dispatcher.h>
 #include <app/extension_loader.h>
 #include <app/workspace.h>
+#include <app/workspace_dialogs.h>
 #include <base/math2d.h>
 #include <canvas/canvas_view.h>
 #include <commands/command.h>
@@ -247,6 +248,76 @@ static int test_command_dispatcher_routes_actions(void)
     return 0;
 }
 
+static int test_command_dispatcher_updates_save_as_dialog_input(void)
+{
+    Workspace workspace;
+    CommandDispatcher dispatcher;
+    EditorAction action;
+
+    EXPECT_TRUE(init_workspace(&workspace));
+    command_dispatcher_init(&dispatcher, &workspace);
+    EXPECT_TRUE(workspace_dialog_open_save_as(&workspace, "initial.json", "."));
+    EXPECT_STR_EQ(workspace_dialog_input_text(&workspace), "initial.json");
+
+    action = editor_action_make_resolve_dialog(UI_DIALOG_RESULT_PRIMARY,
+                                               "renamed-document");
+    EXPECT_TRUE(command_dispatcher_dispatch(&dispatcher, &action) == 0);
+    EXPECT_STR_EQ(workspace_dialog_input_text(&workspace), "renamed-document");
+
+    workspace_dialog_close(&workspace);
+    shutdown_workspace(&workspace);
+    return 0;
+}
+
+static int test_tool_controller_pointer_anchor_accessors(void)
+{
+    Workspace workspace;
+    Vec2 screen_anchor;
+    Vec2 world_anchor;
+
+    EXPECT_TRUE(init_workspace(&workspace));
+    EXPECT_TRUE(tool_controller_is_pointer_captured(&workspace.core.tools) == 0);
+
+    tool_controller_set_pointer_anchor(&workspace.core.tools,
+                                       vec2_make(120.0f, 240.0f),
+                                       vec2_make(-8.0f, 16.0f));
+    screen_anchor = tool_controller_last_screen(&workspace.core.tools);
+    world_anchor = tool_controller_last_world(&workspace.core.tools);
+
+    EXPECT_FLOAT_EQ(screen_anchor.x, 120.0f);
+    EXPECT_FLOAT_EQ(screen_anchor.y, 240.0f);
+    EXPECT_FLOAT_EQ(world_anchor.x, -8.0f);
+    EXPECT_FLOAT_EQ(world_anchor.y, 16.0f);
+
+    shutdown_workspace(&workspace);
+    return 0;
+}
+
+static int test_workspace_tool_context_and_preview_accessors(void)
+{
+    Workspace workspace;
+    ToolContext context;
+    Vec2 preview_delta;
+
+    EXPECT_TRUE(init_workspace(&workspace));
+    workspace.session.selection_preview_active = 1;
+    workspace.session.selection_preview_delta = vec2_make(7.0f, -3.0f);
+
+    context = workspace_tool_context(&workspace);
+    preview_delta = workspace_selection_preview_delta(&workspace);
+
+    EXPECT_TRUE(context.workspace == &workspace);
+    EXPECT_TRUE(context.document == &workspace.core.document);
+    EXPECT_TRUE(context.canvas == &workspace.core.canvas);
+    EXPECT_TRUE(context.selection == &workspace.session.selection);
+    EXPECT_TRUE(workspace_selection_preview_active(&workspace) == 1);
+    EXPECT_FLOAT_EQ(preview_delta.x, 7.0f);
+    EXPECT_FLOAT_EQ(preview_delta.y, -3.0f);
+
+    shutdown_workspace(&workspace);
+    return 0;
+}
+
 static int test_locked_layers_block_pick_and_shape_creation(void)
 {
     Workspace workspace;
@@ -352,6 +423,9 @@ int main(void)
 
     if (test_editor_viewmodel_builds_selection_properties()) return 1;
     if (test_command_dispatcher_routes_actions()) return 1;
+    if (test_command_dispatcher_updates_save_as_dialog_input()) return 1;
+    if (test_tool_controller_pointer_anchor_accessors()) return 1;
+    if (test_workspace_tool_context_and_preview_accessors()) return 1;
     if (test_locked_layers_block_pick_and_shape_creation()) return 1;
     if (test_command_registry_respects_locked_layers()) return 1;
 

@@ -77,12 +77,18 @@ set(GLDRAW_MODEL_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/base/path_utils.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/model/selection.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/app/extension_manifest.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/document/object.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/app/manifest_runner.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/document/object_registry.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/document/object_properties.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/document/object_runtime.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/document/object_line.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/document/object_rect.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/document/object_ellipse.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/document/object_fake_star.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/document/document.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/document/document_objects.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/document/document_layers.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/document/document_spatial_index.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/document/persistence.c
 )
 
@@ -100,17 +106,25 @@ set(GLDRAW_RENDER_GL_SOURCES
 
 set(GLDRAW_COMMAND_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/commands/command.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/commands/command_executor.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/commands/command_layer_ops.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/commands/command_object_ops.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/commands/command_transaction.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/editor_action.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/app/command_registry.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/app/command_dispatcher.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/app/editor_viewmodel.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/app/registration_manifest.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/app/tool_manifest.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/app/workspace_actions.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/app/workspace_dialogs.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/app/workspace_service.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/input/key_chord.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/input/keymap.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/input/input_router.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/tools/tool_controller.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/tools/tool_registry.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/tools/tool_runtime.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/tools/tool_input_dispatch.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/tools/tool_select.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/tools/tool_pan.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/tools/tool_shape.c
@@ -125,8 +139,13 @@ if(GLDRAW_ENABLE_SCRIPTING)
 endif()
 
 set(GLDRAW_UI_NUKLEAR_SOURCES
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ui_chrome.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ui_context_menu.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ui_system.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ui_inspector_panel.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ui_layout.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ui_runtime.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ui_dialog_runtime.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ui_theme_runtime.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ui_dialog.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ui_menu_def.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ui_menu_actions.c
@@ -136,6 +155,9 @@ set(GLDRAW_UI_NUKLEAR_SOURCES
 
 set(GLDRAW_APP_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/app/application.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/app/application_dialog_actions.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/app/application_file_actions.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/app/application_runtime.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/platform/file_dialog.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/platform/window.c
 )
@@ -147,7 +169,7 @@ if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
 endif()
 
 if(CMAKE_C_COMPILER_ID MATCHES "Clang")
-    set_source_files_properties(${CMAKE_SOURCE_DIR}/src/ui/ui_system.c
+    set_source_files_properties(${CMAKE_SOURCE_DIR}/src/ui/ui_runtime.c
         PROPERTIES COMPILE_FLAGS "-Wno-c23-extensions"
     )
 endif()
@@ -157,6 +179,8 @@ add_library(gldraw_model STATIC ${GLDRAW_MODEL_SOURCES})
 target_include_directories(gldraw_model
     PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/include
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 
 gldraw_apply_compile_options(gldraw_model)
@@ -504,6 +528,26 @@ set_target_properties(gldraw_renderer_tests PROPERTIES
 
 add_test(NAME gldraw_renderer_tests COMMAND $<TARGET_FILE:gldraw_renderer_tests>)
 
+add_executable(gldraw_workspace_service_tests
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_workspace_service.c
+)
+
+target_include_directories(gldraw_workspace_service_tests
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+
+target_link_libraries(gldraw_workspace_service_tests PRIVATE gldraw_commands)
+
+gldraw_apply_compile_options(gldraw_workspace_service_tests)
+gldraw_apply_sanitizers(gldraw_workspace_service_tests)
+
+set_target_properties(gldraw_workspace_service_tests PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+)
+
+add_test(NAME gldraw_workspace_service_tests COMMAND $<TARGET_FILE:gldraw_workspace_service_tests>)
+
 add_custom_target(gldraw_tests
     DEPENDS
         gldraw_document_core_tests
@@ -516,6 +560,7 @@ add_custom_target(gldraw_tests
         gldraw_no_builtin_knowledge_tests
         gldraw_ui_logic_tests
         gldraw_renderer_tests
+        gldraw_workspace_service_tests
 )
 
 install(TARGETS ${PROJECT_NAME}

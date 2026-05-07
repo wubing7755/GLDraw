@@ -12,7 +12,10 @@
 #include <input/keymap.h>
 #include <tools/tool_controller.h>
 
+#include <stdarg.h>
+#include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 struct Workspace;
 
@@ -229,6 +232,102 @@ typedef struct Workspace {
     EditorSession session;
     EditorServices services;
 } Workspace;
+
+/**
+ * @brief Build a tool context view over the workspace-owned editor state.
+ * @param workspace Source workspace; members become `NULL` when workspace is `NULL`.
+ * @return Tool context value.
+ */
+static inline ToolContext workspace_tool_context(Workspace* workspace)
+{
+    ToolContext context;
+
+    context.workspace = workspace;
+    context.document = workspace ? &workspace->core.document : NULL;
+    context.canvas = workspace ? &workspace->core.canvas : NULL;
+    context.selection = workspace ? &workspace->session.selection : NULL;
+    return context;
+}
+
+/**
+ * @brief Overwrite the workspace status message with plain text.
+ * @param workspace Target workspace; no-op if `NULL`.
+ * @param message Source text; `NULL` clears the status.
+ * @return No return value.
+ */
+static inline void workspace_set_status_message(Workspace* workspace, const char* message)
+{
+    if (!workspace) {
+        return;
+    }
+
+    snprintf(workspace->session.status_message,
+             sizeof(workspace->session.status_message),
+             "%s",
+             message ? message : "");
+}
+
+/**
+ * @brief Write formatted text into the workspace status buffer.
+ * @param workspace Target workspace; no-op if `NULL`.
+ * @param fmt `printf`-style format string; `NULL` clears the status.
+ * @return No return value.
+ */
+static inline void workspace_set_statusf(Workspace* workspace, const char* fmt, ...)
+{
+    va_list args;
+
+    if (!workspace) {
+        return;
+    }
+    if (!fmt) {
+        workspace_set_status_message(workspace, "");
+        return;
+    }
+
+    va_start(args, fmt);
+    vsnprintf(workspace->session.status_message,
+              sizeof(workspace->session.status_message),
+              fmt,
+              args);
+    va_end(args);
+}
+
+/**
+ * @brief Store the latest layout snapshot computed by the UI.
+ * @param workspace Target workspace; no-op if `NULL`.
+ * @param layout Layout snapshot to copy.
+ * @return No return value.
+ */
+static inline void workspace_set_layout(Workspace* workspace, WorkspaceLayout layout)
+{
+    if (!workspace) {
+        return;
+    }
+
+    workspace->session.layout = layout;
+}
+
+/**
+ * @brief Return whether selection drag preview rendering is active.
+ * @param workspace Source workspace.
+ * @return Non-zero when active; zero otherwise.
+ */
+static inline int workspace_selection_preview_active(const Workspace* workspace)
+{
+    return workspace ? workspace->session.selection_preview_active : 0;
+}
+
+/**
+ * @brief Return the current selection drag preview offset.
+ * @param workspace Source workspace.
+ * @return Preview delta, or zero vector when unavailable.
+ */
+static inline Vec2 workspace_selection_preview_delta(const Workspace* workspace)
+{
+    return workspace ? workspace->session.selection_preview_delta
+                     : (Vec2){0.0f, 0.0f};
+}
 
 /**
  * @brief Mark the current document revision as saved.

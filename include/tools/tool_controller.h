@@ -35,6 +35,12 @@ int tool_controller_set_active(ToolController* controller,
 Tool* tool_controller_get_active(ToolController* controller);
 const char* tool_controller_active_id(const ToolController* controller);
 const char* tool_controller_active_label(const ToolController* controller);
+int tool_controller_is_pointer_captured(const ToolController* controller);
+Vec2 tool_controller_last_screen(const ToolController* controller);
+Vec2 tool_controller_last_world(const ToolController* controller);
+void tool_controller_set_pointer_anchor(ToolController* controller,
+                                        Vec2 screen_pos,
+                                        Vec2 world_pos);
 GraphicObject* tool_controller_overlay_object(ToolController* controller,
                                               ToolContext* context);
 int tool_controller_tool_count(const ToolController* controller);

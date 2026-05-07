@@ -12,6 +12,8 @@
  */
 #include <app/application.h>
 
+#include <app/application_file_actions.h>
+#include <app/application_runtime.h>
 #include <app/command_registry.h>
 #include <app/command_dispatcher.h>
 #include <app/workspace_actions.h>
@@ -19,344 +21,26 @@
 #include <app/workspace_service.h>
 #include <base/log.h>
 #include <base/math2d.h>
-#include <base/path_utils.h>
-#include <document/persistence.h>
 #include <input/input_router.h>
-#include <platform/file_dialog.h>
-#include <platform/window.h>
-#include "platform/window_internal.h"
 #include <render/render_device_factory.h>
-#include <render/render_system.h>
-#include <ui/ui_menu_actions.h>
-#include <ui/ui_menu_def.h>
-#include <ui/editor_viewmodel.h>
-#include <ui/ui_system.h>
 
 #include <GLFW/glfw3.h>
 
-#include <stdarg.h>
-#include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
+
+#include "application_internal.h"
+#include "platform/window_internal.h"
 
 #define APP_KEYMAP_SETTINGS_PATH "gldraw.keymap.json"
-
-typedef struct {
-  PlatformWindow window;
-  Workspace workspace;
-  CommandDispatcher dispatcher;
-  RenderSystem *renderer;
-  UiSystem *ui;
-  EditorViewModel view_model;
-  Vec2 cursor_screen;
-  int cursor_inside_canvas;
-  int pending_export_png;
-  char pending_export_png_path[GLDRAW_PATH_MAX];
-} Application;
 
 static int app_workspace_save(Workspace *workspace, void *user_data);
 static int app_workspace_save_as(Workspace *workspace, void *user_data);
 static int app_workspace_export_png(Workspace *workspace, void *user_data);
 static int app_workspace_load(Workspace *workspace, void *user_data);
 
-/* Convenience accessors — reduce direct field access spread across callbacks. */
-static Document* app_document(Application* app) {
-    return &app->workspace.core.document;
-}
-static CanvasView* app_canvas(Application* app) {
-    return &app->workspace.core.canvas;
-}
 static int app_workspace_execute_action(Workspace *workspace,
                                         WorkspaceActionType action,
                                         void *user_data);
-
-/**
- * @brief Write formatted status text into workspace status buffer.
- * @param app [in,out] Application state.
- * @param fmt [in] `printf`-style format string.
- * @param ... [in] Format arguments.
- * @return None.
- *
- * Edge cases:
- * - Safe no-op when `app` or `fmt` is null.
- *
- * Risk note:
- * - Uses `vsnprintf` with explicit buffer size to avoid overflow.
- * Time complexity: `O(L)` where `L` is formatted output length.
- */
-static void app_set_status(Application *app, const char *fmt, ...) {
-  va_list args;
-
-  if (!app || !fmt) {
-    return;
-  }
-
-  va_start(args, fmt);
-  vsnprintf(app->workspace.session.status_message,
-            sizeof(app->workspace.session.status_message), fmt, args);
-  va_end(args);
-}
-
-/**
- * @brief Check if a file exists at the given path.
- * @param path File path string.
- * @return `1` if the file exists, `0` otherwise.
- */
-static int app_file_exists(const char *path) {
-  return workspace_service_file_exists(path);
-}
-
-static const char *app_current_document_path(const Application *app) {
-  return workspace_service_document_path(&app->workspace);
-}
-
-static void app_update_save_as_dialog_message(Application *app,
-                                              const char *error_text) {
-  char directory[GLDRAW_PATH_MAX];
-
-  if (!app) {
-    return;
-  }
-
-  if (!path_utils_dirname(app_current_document_path(app), directory, sizeof(directory))) {
-    snprintf(directory, sizeof(directory), ".");
-  }
-  if (error_text && error_text[0] != '\0') {
-    snprintf(app->workspace.session.active_dialog.message,
-             sizeof(app->workspace.session.active_dialog.message),
-             "%s\n\nEnter a new filename.\nThe file will be saved in the same directory:\n%s",
-             error_text,
-             directory);
-    return;
-  }
-
-  snprintf(app->workspace.session.active_dialog.message,
-           sizeof(app->workspace.session.active_dialog.message),
-           "Enter a new filename.\nThe file will be saved in the same directory:\n%s",
-           directory);
-}
-
-/**
- * @brief Copy document path into workspace path buffer.
- * @param app [in,out] Application state.
- * @param path [in] Source path string.
- * @return None.
- *
- * Risk note:
- * - Uses bounded copy and forced NUL termination.
- * Time complexity: `O(min(len(path), capacity))`.
- */
-static void app_set_document_path(Application *app, const char *path) {
-  workspace_service_set_document_path(&app->workspace, path);
-}
-
-static void app_suggest_png_export_filename(const Application *app,
-                                            char *buffer,
-                                            size_t buffer_size) {
-  const char *basename = path_utils_basename_or_default(app_current_document_path(app),
-                                                        "document.json");
-  size_t length = 0u;
-
-  if (!buffer || buffer_size == 0u) {
-    return;
-  }
-
-  buffer[0] = '\0';
-  length = strlen(basename);
-  if (length > 5u && path_utils_has_extension(basename, ".json")) {
-    length -= 5u;
-  }
-  if (length == 0u) {
-    snprintf(buffer, buffer_size, "document.png");
-    return;
-  }
-  if (length + 5u >= buffer_size) {
-    snprintf(buffer, buffer_size, "document.png");
-    return;
-  }
-
-  memcpy(buffer, basename, length);
-  memcpy(buffer + length, ".png", 5u);
-}
-
-static int app_copy_png_export_path(const char *selected_path,
-                                    char *output,
-                                    size_t output_size) {
-  size_t path_length = 0u;
-
-  if (!selected_path || !output || output_size == 0u || selected_path[0] == '\0') {
-    return 0;
-  }
-
-  path_length = strlen(selected_path);
-  if (path_utils_has_extension(selected_path, ".png")) {
-    if (path_length + 1u > output_size) {
-      return 0;
-    }
-    memcpy(output, selected_path, path_length + 1u);
-    return 1;
-  }
-
-  if (path_length + 5u > output_size) {
-    return 0;
-  }
-
-  memcpy(output, selected_path, path_length);
-  memcpy(output + path_length, ".png", 5u);
-  return 1;
-}
-
-/**
- * @brief Reset tool controller state.
- * @param app Application instance.
- * @return No return value.
- */
-static void app_reset_tool_state(Application *app) {
-  if (!app) {
-    return;
-  }
-
-  tool_controller_shutdown(&app->workspace.core.tools);
-  tool_controller_init(&app->workspace.core.tools);
-}
-
-static int app_new_document(Application *app) {
-  if (!app) {
-    return 0;
-  }
-
-  app_reset_tool_state(app);
-  return workspace_service_new_document(&app->workspace);
-}
-
-static int app_save_document_to_path(Application *app, const char *path) {
-  return workspace_service_save_to_path(&app->workspace, path);
-}
-
-static int app_save_document(Application *app) {
-  return workspace_service_save(&app->workspace);
-}
-
-static int app_save_as_document(Application *app) {
-  char filename[GLDRAW_PATH_MAX];
-  char target_path[GLDRAW_PATH_MAX];
-  const char *input = NULL;
-
-  if (!app) {
-    return 0;
-  }
-
-  input = app->workspace.session.active_dialog.payload.text;
-  if (!path_utils_copy_trimmed(input, filename, sizeof(filename)) ||
-      !path_utils_is_safe_filename(filename)) {
-    app_set_status(app, "Save As failed: invalid filename");
-    app_update_save_as_dialog_message(app, "Invalid filename. Use a simple file name without path separators or reserved characters.");
-    return 0;
-  }
-
-  if (!path_utils_join_same_directory(app_current_document_path(app),
-                                      filename,
-                                      ".json",
-                                      target_path,
-                                      sizeof(target_path))) {
-    app_set_status(app, "Save As failed: path too long");
-    app_update_save_as_dialog_message(app, "Invalid filename. The resulting path is too long.");
-    return 0;
-  }
-
-  return app_save_document_to_path(app, target_path);
-}
-
-static int app_load_document_from_path(Application *app, const char *path) {
-  if (!app) {
-    return 0;
-  }
-
-  app_reset_tool_state(app);
-  return workspace_service_load_from_path(&app->workspace, path);
-}
-
-static int app_load_document(Application *app) {
-  return workspace_service_load(&app->workspace);
-}
-
-static int app_open_document_with_picker(Application *app) {
-  char selected_path[GLDRAW_PATH_MAX];
-  PlatformFileDialogResult result;
-
-  if (!app) {
-    return 0;
-  }
-
-  result = platform_file_dialog_open_document(selected_path, sizeof(selected_path));
-  if (result == PLATFORM_FILE_DIALOG_CANCELLED) {
-    app_set_status(app, "Open cancelled.");
-    return 1;
-  }
-  if (result == PLATFORM_FILE_DIALOG_ERROR) {
-    app_set_status(app, "Open failed: file picker unavailable or failed.");
-    return 0;
-  }
-
-  return app_load_document_from_path(app, selected_path);
-}
-
-static int app_request_export_png(Application *app) {
-  char suggested_filename[GLDRAW_PATH_MAX];
-  char selected_path[GLDRAW_PATH_MAX];
-  PlatformFileDialogResult result;
-
-  if (!app) {
-    return 0;
-  }
-
-  app_suggest_png_export_filename(app, suggested_filename, sizeof(suggested_filename));
-  result = platform_file_dialog_save_png(selected_path,
-                                         sizeof(selected_path),
-                                         suggested_filename);
-  if (result == PLATFORM_FILE_DIALOG_CANCELLED) {
-    app_set_status(app, "Export PNG cancelled.");
-    return 1;
-  }
-  if (result == PLATFORM_FILE_DIALOG_ERROR) {
-    app_set_status(app, "Export PNG failed: save dialog unavailable or failed.");
-    return 0;
-  }
-
-  if (!app_copy_png_export_path(selected_path,
-                                app->pending_export_png_path,
-                                sizeof(app->pending_export_png_path))) {
-    app_set_status(app, "Export PNG failed: path too long.");
-    return 0;
-  }
-
-  app->pending_export_png = 1;
-  app_set_status(app, "Export PNG queued: %s", app->pending_export_png_path);
-  return 1;
-}
-
-static void app_flush_pending_export_png(Application *app) {
-  char export_path[GLDRAW_PATH_MAX];
-
-  if (!app || !app->pending_export_png) {
-    return;
-  }
-
-  snprintf(export_path, sizeof(export_path), "%s", app->pending_export_png_path);
-  app->pending_export_png = 0;
-  app->pending_export_png_path[0] = '\0';
-
-  if (render_system_export_png(app->renderer,
-                               &app->workspace.core.canvas,
-                               export_path)) {
-    app_set_status(app, "Exported PNG: %s", export_path);
-    LOG_INFO("Exported PNG: %s", export_path);
-    return;
-  }
-
-  app_set_status(app, "Export PNG failed: %s", export_path);
-  LOG_ERROR("Export PNG failed: %s", export_path);
-}
 
 static int app_exit_application(Application *app) {
   GLFWwindow *handle = app ? platform_window_glfw_handle(&app->window) : NULL;
@@ -366,7 +50,7 @@ static int app_exit_application(Application *app) {
   }
 
   glfwSetWindowShouldClose(handle, GLFW_TRUE);
-  app_set_status(app, "Closing application");
+  workspace_set_status_message(&app->workspace, "Closing application");
   return 1;
 }
 
@@ -378,17 +62,17 @@ static int app_exit_application(Application *app) {
  */
 static int app_workspace_save(Workspace *workspace, void *user_data) {
   (void)workspace;
-  return app_save_document((Application *)user_data);
+  return application_save_document((Application *)user_data);
 }
 
 static int app_workspace_save_as(Workspace *workspace, void *user_data) {
   (void)workspace;
-  return app_save_as_document((Application *)user_data);
+  return application_save_as_document((Application *)user_data);
 }
 
 static int app_workspace_export_png(Workspace *workspace, void *user_data) {
   (void)workspace;
-  return app_request_export_png((Application *)user_data);
+  return application_request_export_png((Application *)user_data);
 }
 
 /**
@@ -399,7 +83,7 @@ static int app_workspace_export_png(Workspace *workspace, void *user_data) {
  */
 static int app_workspace_load(Workspace *workspace, void *user_data) {
   (void)workspace;
-  return app_load_document((Application *)user_data);
+  return application_load_document((Application *)user_data);
 }
 
 static int app_workspace_execute_action(Workspace *workspace,
@@ -410,171 +94,15 @@ static int app_workspace_execute_action(Workspace *workspace,
 
   switch (action) {
   case WORKSPACE_ACTION_NEW_DOCUMENT:
-    return app_new_document(app);
+    return application_new_document(app);
   case WORKSPACE_ACTION_OPEN_DOCUMENT:
-    return app_open_document_with_picker(app);
+    return application_open_document_with_picker(app);
   case WORKSPACE_ACTION_EXIT_APPLICATION:
     return app_exit_application(app);
   case WORKSPACE_ACTION_NONE:
   default:
     return 0;
   }
-}
-
-/**
- * @brief Open the startup document if it exists.
- * @param app Application instance.
- * @return No return value.
- */
-static void app_open_startup_document(Application *app) {
-  const char *path = app_current_document_path(app);
-
-  if (!app) {
-    return;
-  }
-
-  if (app_file_exists(path)) {
-    if (!app_load_document(app)) {
-      app_set_status(app, "Startup load failed: %s", path);
-    }
-    return;
-  }
-
-  app_set_status(app, "New empty document");
-}
-
-/**
- * @brief Build a tool context from application-owned workspace pointers.
- * @param app Application instance.
- * @return Tool context value.
- */
-static ToolContext app_tool_context(Application *app) {
-  ToolContext context;
-  context.workspace = &app->workspace;
-  context.document = &app->workspace.core.document;
-  context.canvas = &app->workspace.core.canvas;
-  context.selection = &app->workspace.session.selection;
-  return context;
-}
-
-/**
- * @brief Decide whether pointer input should be blocked from canvas tools.
- * @return Non-zero when UI interaction or non-canvas regions should consume
- * input.
- *
- * Why:
- * - Prevents accidental drawing/selection while interacting with UI widgets.
- */
-static int app_pointer_blocks_canvas(const Application *app, Vec2 screen_pos) {
-  if (!app) {
-    return 0;
-  }
-
-  if (app->ui && ui_system_blocks_pointer(app->ui, screen_pos)) {
-    return 1;
-  }
-
-  return app->ui && !ui_system_point_in_canvas(app->ui, screen_pos);
-}
-
-/**
- * @brief Sync the tool controller pointer anchor with current cursor state.
- * @param app Application instance.
- * @return No return value.
- */
-static void app_sync_tool_pointer_anchor(Application *app) {
-  if (!app) {
-    return;
-  }
-
-  app->workspace.core.tools.last_screen = app->cursor_screen;
-  app->workspace.core.tools.last_world =
-      canvas_view_screen_to_world(&app->workspace.core.canvas, app->cursor_screen);
-}
-
-/**
- * @brief Refresh whether the cursor is inside the canvas area.
- * @param app Application instance.
- * @return No return value.
- */
-static void app_sync_canvas_boundary(Application *app) {
-  int inside_canvas = 0;
-
-  if (!app || app->workspace.core.tools.pointer_captured) {
-    return;
-  }
-
-  inside_canvas =
-      app->ui ? ui_system_point_in_canvas(app->ui, app->cursor_screen) : 1;
-  if (inside_canvas != app->cursor_inside_canvas) {
-    app->cursor_inside_canvas = inside_canvas;
-    app_sync_tool_pointer_anchor(app);
-  }
-}
-
-/**
- * @brief Update the canvas viewport from the latest UI layout snapshot.
- * @param app Application instance.
- * @return No return value.
- */
-static void update_canvas_viewport(Application *app) {
-  RectF viewport;
-  RectF fallback_window = {0.0f, 0.0f, 1.0f, 1.0f};
-
-  if (!app) {
-    return;
-  }
-
-  if (app->ui) {
-    viewport = ui_system_content_bounds(app->ui);
-    fallback_window = ui_system_window_bounds(app->ui);
-    app->workspace.session.layout = ui_system_layout(app->ui);
-  } else {
-    viewport = app->workspace.session.layout.canvas_content_bounds;
-    fallback_window.w = (float)app->window.width;
-    fallback_window.h = (float)app->window.height;
-    if (fallback_window.w < 1.0f) {
-      fallback_window.w = 1.0f;
-    }
-    if (fallback_window.h < 1.0f) {
-      fallback_window.h = 1.0f;
-    }
-  }
-
-  if (viewport.w <= 1.0f || viewport.h <= 1.0f) {
-    viewport = fallback_window;
-  }
-
-  if (app->ui) {
-    app->workspace.core.canvas.background = ui_system_canvas_background(app->ui);
-  }
-
-  canvas_view_set_viewport(&app->workspace.core.canvas, viewport);
-  app_sync_canvas_boundary(app);
-}
-
-/**
- * @brief Build a `ToolEvent` from the current cursor and previous pointer anchor.
- * @param app Application instance.
- * @param button Mouse button code.
- * @param mods Modifier key flags.
- * @param wheel_y Scroll delta.
- * @return Tool event value.
- */
-static ToolEvent make_tool_event(Application *app, int button, int mods,
-                                 float wheel_y) {
-  ToolEvent event;
-  event.screen_pos = app->cursor_screen;
-  event.world_pos =
-      canvas_view_screen_to_world(&app->workspace.core.canvas, app->cursor_screen);
-  event.delta_screen =
-      vec2_sub(event.screen_pos, app->workspace.core.tools.last_screen);
-  event.delta_world =
-      vec2_sub(event.world_pos, app->workspace.core.tools.last_world);
-  event.button = button;
-  event.mods = mods;
-  event.wheel_y = wheel_y;
-  return event;
 }
 
 /**
@@ -599,7 +127,7 @@ static void framebuffer_size_callback(GLFWwindow *handle, int width,
   app->window.height = window_height;
   app->window.framebuffer_width = width;
   app->window.framebuffer_height = height;
-  update_canvas_viewport(app);
+  application_runtime_update_canvas_viewport(app);
   render_system_resize(app->renderer, window_width, window_height, width, height);
 }
 
@@ -620,15 +148,15 @@ static void cursor_pos_callback(GLFWwindow *handle, double xpos, double ypos) {
   }
 
   app->cursor_screen = vec2_make((float)xpos, (float)ypos);
-  app_sync_canvas_boundary(app);
+  application_runtime_sync_canvas_boundary(app);
 
-  if (!app->workspace.core.tools.pointer_captured &&
-      app_pointer_blocks_canvas(app, app->cursor_screen)) {
+  if (!tool_controller_is_pointer_captured(&app->workspace.core.tools) &&
+      application_runtime_pointer_blocks_canvas(app, app->cursor_screen)) {
     return;
   }
 
-  context = app_tool_context(app);
-  event = make_tool_event(app, -1, 0, 0.0f);
+  context = application_runtime_tool_context(app);
+  event = application_runtime_make_tool_event(app, -1, 0, 0.0f);
 
   tool_controller_pointer_move(&app->workspace.core.tools, &context, &event);
 }
@@ -657,25 +185,25 @@ static void mouse_button_callback(GLFWwindow *handle, int button, int action,
                                       action)) {
       return;
     }
-    if (!app->workspace.core.tools.pointer_captured &&
-        app_pointer_blocks_canvas(app, app->cursor_screen)) {
+    if (!tool_controller_is_pointer_captured(&app->workspace.core.tools) &&
+        application_runtime_pointer_blocks_canvas(app, app->cursor_screen)) {
       return;
     }
-    context = app_tool_context(app);
-    event = make_tool_event(app, button, mods, 0.0f);
+    context = application_runtime_tool_context(app);
+    event = application_runtime_make_tool_event(app, button, mods, 0.0f);
     tool_controller_pointer_down(&app->workspace.core.tools, &context, &event);
   } else if (action == GLFW_RELEASE) {
     /* Ignore release outside canvas unless we previously captured the pointer.
        This keeps drag/end-state transitions consistent across window regions.
      */
-    if (!app->workspace.core.tools.pointer_captured) {
-      if (app_pointer_blocks_canvas(app, app->cursor_screen)) {
+    if (!tool_controller_is_pointer_captured(&app->workspace.core.tools)) {
+      if (application_runtime_pointer_blocks_canvas(app, app->cursor_screen)) {
         return;
       }
       return;
     }
-    context = app_tool_context(app);
-    event = make_tool_event(app, button, mods, 0.0f);
+    context = application_runtime_tool_context(app);
+    event = application_runtime_make_tool_event(app, button, mods, 0.0f);
     tool_controller_pointer_up(&app->workspace.core.tools, &context, &event);
   }
 }
@@ -708,7 +236,7 @@ static void key_callback(GLFWwindow *handle, int key, int scancode, int action,
     return;
   }
 
-  context = app_tool_context(app);
+  context = application_runtime_tool_context(app);
   router_context.workspace = &app->workspace;
   router_context.tool_context = &context;
   router_context.ui_has_keyboard_focus =
@@ -737,12 +265,12 @@ static void scroll_callback(GLFWwindow *handle, double xoffset,
     return;
   }
 
-  if (!app->workspace.core.tools.pointer_captured &&
-      app_pointer_blocks_canvas(app, app->cursor_screen)) {
+  if (!tool_controller_is_pointer_captured(&app->workspace.core.tools) &&
+      application_runtime_pointer_blocks_canvas(app, app->cursor_screen)) {
     return;
   }
 
-  context = app_tool_context(app);
+  context = application_runtime_tool_context(app);
   tool_controller_scroll(&app->workspace.core.tools, &context, app->cursor_screen,
                          (float)yoffset);
 }
@@ -779,7 +307,8 @@ static int app_init(Application *app) {
     LOG_ERROR("%s", "Failed to initialize workspace");
     return -1;
   }
-  app_set_document_path(app, app_current_document_path(app));
+  workspace_service_set_document_path(&app->workspace,
+                                      workspace_service_document_path(&app->workspace));
   app->workspace.services.save_document = app_workspace_save;
   app->workspace.services.save_as_document = app_workspace_save_as;
   app->workspace.services.export_png = app_workspace_export_png;
@@ -788,7 +317,7 @@ static int app_init(Application *app) {
   app->workspace.services.command_user_data = app;
   command_dispatcher_init(&app->dispatcher, &app->workspace);
   workspace_mark_saved(&app->workspace);
-  app_set_status(app, "Initializing editor");
+  workspace_set_status_message(&app->workspace, "Initializing editor");
   app->cursor_screen =
       vec2_make(app->window.width * 0.5f, app->window.height * 0.5f);
   app->cursor_inside_canvas = 1;
@@ -828,11 +357,11 @@ static int app_init(Application *app) {
                        app->window.height,
                        app->window.framebuffer_width,
                        app->window.framebuffer_height);
-  update_canvas_viewport(app);
+  application_runtime_update_canvas_viewport(app);
   app->cursor_inside_canvas =
       app->ui ? ui_system_point_in_canvas(app->ui, app->cursor_screen) : 1;
-  app_sync_tool_pointer_anchor(app);
-  app_open_startup_document(app);
+  application_runtime_sync_tool_pointer_anchor(app);
+  application_open_startup_document(app);
   return 0;
 }
 
@@ -895,17 +424,17 @@ int app_run(void) {
     ui_system_begin_frame(app->ui);
     editor_viewmodel_build(&app->view_model, &app->workspace);
     ui_system_build(app->ui, &app->view_model);
-    update_canvas_viewport(app);
-    tool_context = app_tool_context(app);
+    application_runtime_update_canvas_viewport(app);
+    tool_context = application_runtime_tool_context(app);
     render_system_draw(app->renderer,
                        &app->workspace.core.document,
                        &app->workspace.session.selection,
                        &app->workspace.core.canvas,
-                       app->workspace.session.selection_preview_active,
-                       app->workspace.session.selection_preview_delta,
+                       workspace_selection_preview_active(&app->workspace),
+                       workspace_selection_preview_delta(&app->workspace),
                        tool_controller_overlay_object(&app->workspace.core.tools,
                                                       &tool_context));
-    app_flush_pending_export_png(app);
+    application_flush_pending_export_png(app);
     ui_system_render(app->ui);
     platform_window_swap_buffers(&app->window);
   }

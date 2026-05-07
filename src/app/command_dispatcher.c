@@ -4,7 +4,6 @@
 #include <app/workspace_actions.h>
 #include <commands/command.h>
 
-#include <stdio.h>
 #include <string.h>
 
 static void command_dispatcher_prune_selection(Workspace* workspace)
@@ -28,25 +27,12 @@ static void command_dispatcher_prune_selection(Workspace* workspace)
 
 static void command_dispatcher_set_status(Workspace* workspace, const char* message)
 {
-    if (!workspace || !message) {
-        return;
-    }
-
-    snprintf(workspace->session.status_message,
-             sizeof(workspace->session.status_message),
-             "%s",
-             message);
+    workspace_set_status_message(workspace, message);
 }
 
 static ToolContext command_dispatcher_tool_context(Workspace* workspace)
 {
-  ToolContext context;
-
-  context.workspace = workspace;
-  context.document = workspace ? &workspace->core.document : NULL;
-  context.canvas = workspace ? &workspace->core.canvas : NULL;
-  context.selection = workspace ? &workspace->session.selection : NULL;
-  return context;
+  return workspace_tool_context(workspace);
 }
 
 void command_dispatcher_init(CommandDispatcher* dispatcher, Workspace* workspace)
@@ -209,18 +195,14 @@ int command_dispatcher_dispatch(CommandDispatcher* dispatcher, const EditorActio
     }
     case EDITOR_ACTION_RESOLVE_DIALOG:
         if (workspace->session.active_dialog.kind == UI_DIALOG_SAVE_AS) {
-            snprintf(workspace->session.active_dialog.payload.text,
-                     sizeof(workspace->session.active_dialog.payload.text),
-                     "%s",
-                     action->payload.resolve_dialog.text);
+            workspace_dialog_set_input_text(workspace,
+                                            action->payload.resolve_dialog.text);
         }
         return workspace_resolve_active_dialog(workspace,
                                                action->payload.resolve_dialog.result);
     case EDITOR_ACTION_SET_STATUS_MESSAGE:
-        snprintf(workspace->session.status_message,
-                 sizeof(workspace->session.status_message),
-                 "%s",
-                 action->payload.set_status_message.message);
+        workspace_set_status_message(workspace,
+                                     action->payload.set_status_message.message);
         return 1;
     case EDITOR_ACTION_NONE:
     default:
