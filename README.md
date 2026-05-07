@@ -1,128 +1,119 @@
 # GLDraw
 
+English | [简体中文](README.zh-CN.md)
+
 A canvas-centered OpenGL drawing editor built in C11.
+
+![Language](https://img.shields.io/badge/language-C11-00599C)
+![Build](https://img.shields.io/badge/build-CMake-064F8C)
+![Graphics](https://img.shields.io/badge/graphics-OpenGL%203.3-5586A4)
+![UI](https://img.shields.io/badge/UI-Nuklear-222222)
+![License](https://img.shields.io/badge/license-MIT-green)
+
+![GLDraw preview](assets/preview.png)
+
+Animated placeholder:
+![GLDraw demo placeholder](assets/demo.gif)
+
+## Project Status
+
+Active development.
+
+Current focus:
+
+- editor workflow refinement
+- extension-system growth
+- rendering and UX polish
+- deeper test coverage around command and workspace behavior
+
+## Highlights
+
+- Canvas-oriented 2D editing workflow with world-space document geometry
+- C11 codebase built on GLFW, GLAD, Nuklear, and OpenGL 3.3 Core Profile
+- Command-based undo/redo with merge and transaction support
+- Descriptor-driven object and tool extension model
+- JSON document persistence and PNG export
+- Layer-aware editing with visibility, lock, rename, and reorder flows
 
 ## Quick Start
 
-Use the repository build scripts when possible:
-
-| Platform | Recommended command | Modes |
-|---|---|---|
-| Linux / macOS | `./build.sh` | `release` (default), `debug`, `clean` |
-| Windows (MinGW/MSYS2) | `./build.bat` | `release` (default), `debug`, `clean` |
-
-<details>
-<summary>Linux / macOS via build script</summary>
+### Linux / macOS
 
 ```sh
-./build.sh           # release
-./build.sh debug     # debug
-./build.sh clean     # clean
-```
-
-Run:
-
-```sh
+./build.sh
 ./build/Release/bin/GLDraw
 ```
-</details>
 
-<details>
-<summary>Windows (MinGW/MSYS2, CMD) via build script</summary>
+### Windows (MinGW/MSYS2, CMD)
 
 ```bat
-build.bat            rem release
-build.bat debug      rem debug
-build.bat clean      rem clean
-```
-
-Run:
-
-```bat
+build.bat
 build\Release\bin\GLDraw.exe
 ```
-</details>
 
-<details>
-<summary>Linux / macOS via manual CMake</summary>
+More build options and platform notes:
+[doc/user/getting-started.md](doc/user/getting-started.md)
 
-```sh
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build --parallel
-```
+## Current Features
 
-Run:
+- Line, rectangle, and ellipse tools
+- Select, move, pan, zoom, and zoom-to-fit flows
+- Inspector-based property editing
+- Layer creation, activation, visibility, lock, rename, and reorder controls
+- Save/load through JSON persistence
+- Undo/redo through `CommandExecutor`
+- PNG export from the current render path
 
-```sh
-./build/bin/GLDraw
-```
-</details>
-
-<details>
-<summary>Windows (Visual Studio 2022 x64) via manual CMake</summary>
-
-```bat
-cmake -S . -B build -G "Visual Studio 17 2022" -A x64
-cmake --build build --config Release
-```
-
-Run:
-
-```bat
-build\bin\Release\GLDraw.exe
-```
-</details>
-
-## Build Requirements
-
-GLDraw is built with CMake and C11, and uses GLFW, GLAD, Nuklear, and an OpenGL 3.3 Core Profile context.
-
-| Platform | Environment |
-|---|---|
-| Linux / macOS | CMake + C11 compiler + OpenGL dev environment |
-| Windows (MinGW/MSYS2) | CMake + MinGW-w64 + OpenGL dev environment |
-
-<details>
-<summary>Linux / macOS</summary>
-
-- CMake 3.15+
-- C11 compiler (`gcc` or `clang`)
-- OpenGL development environment (headers + runtime)
-- Build tools for Makefiles (`make`)
-- Git + network access on first configure (to fetch GLFW 3.3.9)
-- macOS: Xcode Command Line Tools
-</details>
-
-<details>
-<summary>Windows (MinGW/MSYS2)</summary>
-
-- CMake 3.15+
-- MinGW-w64 C11 toolchain (`gcc`)
-- `mingw32-make` in `PATH`
-- OpenGL development environment (headers + runtime)
-- Git + network access on first configure (to fetch GLFW 3.3.9)
-</details>
-
-## Project Overview
-
-- Canvas-centered 2D drawing workflow with line, rectangle, and ellipse tools
-- OpenGL rendering pipeline with GLFW windowing, GLAD loading, and Nuklear UI
-- Snapshot-based undo/redo plus JSON document save/load
-- Tool-driven architecture organized around `Workspace`, `Document`, and `CanvasView`
-
-## Core Controls
+## Controls
 
 `V` Select, `H` Pan, `L` Line, `R` Rectangle, `E` Ellipse  
-`Ctrl+Z` Undo, `Ctrl+Y`/`Ctrl+Shift+Z` Redo  
+`Ctrl+Z` Undo, `Ctrl+Y` / `Ctrl+Shift+Z` Redo  
 `Ctrl+S` Save, `Ctrl+O` Open
+
+Full controls:
+[doc/user/controls.md](doc/user/controls.md)
+
+## Architecture
+
+GLDraw is organized around `Workspace`:
+
+```text
+Workspace
+  -> EditorCore
+  -> EditorSession
+  -> EditorServices
+```
+
+Key runtime traits:
+
+- `EditorCore` owns `Document`, `CommandExecutor`, `CanvasView`, and `ToolController`
+- durable edits flow through commands instead of ad hoc document mutation
+- objects and tools are registered through manifests and descriptor metadata
+- UI reads workspace/view-model state and emits actions instead of owning editor truth
+
+More:
+
+- [Architecture Overview](doc/architecture/overview.md)
+- [Core Systems](doc/architecture/core-systems.md)
+- [Data Flow](doc/architecture/data-flow.md)
+- [Extension Model](doc/architecture/extension-model.md)
 
 ## Documentation
 
-- Getting started: [doc/wiki/getting-started.md](doc/wiki/getting-started.md)
-- Wiki index: [doc/wiki](doc/wiki/)
-- Architecture: [doc/wiki/architecture.md](doc/wiki/architecture.md)
-- Extending guide: [doc/wiki/extending.md](doc/wiki/extending.md)
-- GitHub collaboration guide: [doc/github-collaboration-guidelines.md](doc/github-collaboration-guidelines.md)
+- [Documentation Index](doc/README.md)
+- [Getting Started](doc/user/getting-started.md)
+- [Controls](doc/user/controls.md)
+- [Contributing Overview](doc/contributing/overview.md)
+- [GitHub Collaboration Guidelines](doc/contributing/github-collaboration-guidelines.md)
+- [GitHub Templates](doc/contributing/github-templates.md)
+
+## Contributing
+
+See:
+
+- [Contributing Overview](doc/contributing/overview.md)
+- [C Contributor Guide](doc/contributing/c-contributor-guide.en.md)
+- [GitHub Templates](doc/contributing/github-templates.md)
 
 ## License
 

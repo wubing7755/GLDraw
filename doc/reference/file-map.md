@@ -1,0 +1,93 @@
+# File Map
+
+> Audience: contributors, maintainers
+> Purpose: provide fast entrypoints into the source tree by task
+> Source of truth: current source tree layout
+> Last reviewed with code: 2026-05-07
+> Related: [../architecture/overview.md](../architecture/overview.md)
+
+## First Entry Points
+
+- `src/main.c`
+  Process entrypoint, forwards to `app_run()`.
+- `src/app/application.c`
+  App bootstrap and frame loop.
+- `include/app/workspace.h`
+  Main runtime container and workspace-facing helpers.
+- `include/commands/command.h`
+  Command and executor public interface.
+- `include/document/object.h`
+  Object descriptor and registry API.
+- `include/tools/tool.h`
+  Tool descriptor and registry API.
+
+## If You Want To...
+
+### Understand boot-time registration
+
+- `src/app/registration_manifest.c`
+- `src/app/extension_manifest.c`
+- `src/app/tool_manifest.c`
+- `src/app/manifest_runner.c`
+
+### Understand document storage and queries
+
+- `src/document/document.c`
+- `src/document/document_objects.c`
+- `src/document/document_layers.c`
+- `src/document/document_spatial_index.c`
+
+### Understand durable edit behavior
+
+- `src/commands/command_executor.c`
+- `src/commands/command_object_ops.c`
+- `src/commands/command_layer_ops.c`
+- `src/commands/command_transaction.c`
+- `src/app/command_dispatcher.c`
+- `src/app/command_registry.c`
+
+### Understand tool interactions
+
+- `src/tools/tool_runtime.c`
+- `src/tools/tool_input_dispatch.c`
+- `src/tools/tool_select.c`
+- `src/tools/tool_pan.c`
+- `src/tools/tool_shape.c`
+
+### Understand coordinate and viewport behavior
+
+- `src/canvas/canvas_view.c`
+- `include/canvas/canvas_view.h`
+
+### Understand UI composition
+
+- `src/ui/ui_runtime.c`
+- `src/ui/ui_chrome.c`
+- `src/ui/ui_inspector_panel.c`
+- `src/ui/ui_dialog_runtime.c`
+- `src/ui/ui_layout.c`
+
+### Understand rendering
+
+- `src/render/render_system.c`
+- `src/render/`
+
+### Understand persistence
+
+- `src/document/persistence.c`
+- `src/app/workspace_service.c`
+- `src/app/application_file_actions.c`
+
+### Understand shortcuts and menu wiring
+
+- `src/input/keymap.c`
+- `src/ui/ui_menu_def.c`
+- `src/ui/ui_menubar.c`
+
+### Understand test coverage
+
+- `tests/test_commands.c`
+- `tests/test_document.c`
+- `tests/test_registry.c`
+- `tests/test_ui_logic.c`
+- `tests/test_workspace_service.c`

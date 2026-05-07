@@ -72,7 +72,7 @@ GLFW events → application.c callbacks → input_router → command_registry_ex
 
 - **Object types**: Register via `register_object_type()`. Built-in object manifests are assembled in `src/app/extension_manifest.c`, with compatibility wrappers kept in `include/app/extension_loader.h`.
 - **Tools**: Register via `register_tool()`. Commands, shortcuts, and menu items are derived from `ToolDescriptor` metadata.
-- **Serialization**: Extensions serialize/deserialize via `GraphicObjectDescriptor` vtable — no core change needed.
+- **Serialization**: Extensions serialize/deserialize via `GraphicObjectDescriptor` callbacks — no core change needed.
 
 JSON persistence via `document_save_json()` / `document_load_json()`.
 
@@ -91,7 +91,9 @@ JSON persistence via `document_save_json()` / `document_load_json()`.
 
 ## Documentation
 
-Detailed architecture docs in `doc/wiki/`:
-- `architecture.md`, `core-systems-overview.md` — high-level design
-- `data-flow.md` — main loop, event, render flows
-- `extending.md` — guide for adding new object types and tools
+Current docs live under `doc/`:
+- `doc/README.md` — documentation index and reading paths
+- `doc/user/` — build, run, and controls
+- `doc/architecture/` — runtime structure, subsystem boundaries, and extension model
+- `doc/contributing/` — contributor workflow and GitHub policy
+- `doc/archive/` — historical notes that are not the current source of truth
