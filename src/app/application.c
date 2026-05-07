@@ -15,6 +15,7 @@
 #include <app/command_registry.h>
 #include <app/command_dispatcher.h>
 #include <app/workspace_actions.h>
+#include <app/workspace_dialogs.h>
 #include <app/workspace.h>
 #include <app/workspace_service.h>
 #include <base/log.h>
@@ -59,13 +60,6 @@ static int app_workspace_save_as(Workspace *workspace, void *user_data);
 static int app_workspace_export_png(Workspace *workspace, void *user_data);
 static int app_workspace_load(Workspace *workspace, void *user_data);
 
-/* Convenience accessors — reduce direct field access spread across callbacks. */
-static Document* app_document(Application* app) {
-    return &app->workspace.core.document;
-}
-static CanvasView* app_canvas(Application* app) {
-    return &app->workspace.core.canvas;
-}
 static int app_workspace_execute_action(Workspace *workspace,
                                         WorkspaceActionType action,
                                         void *user_data);
@@ -86,15 +80,16 @@ static int app_workspace_execute_action(Workspace *workspace,
  */
 static void app_set_status(Application *app, const char *fmt, ...) {
   va_list args;
+  char message[256];
 
   if (!app || !fmt) {
     return;
   }
 
   va_start(args, fmt);
-  vsnprintf(app->workspace.session.status_message,
-            sizeof(app->workspace.session.status_message), fmt, args);
+  vsnprintf(message, sizeof(message), fmt, args);
   va_end(args);
+  workspace_set_status_message(&app->workspace, message);
 }
 
 /**
@@ -122,18 +117,26 @@ static void app_update_save_as_dialog_message(Application *app,
     snprintf(directory, sizeof(directory), ".");
   }
   if (error_text && error_text[0] != '\0') {
-    snprintf(app->workspace.session.active_dialog.message,
-             sizeof(app->workspace.session.active_dialog.message),
+    char message[1024];
+
+    snprintf(message,
+             sizeof(message),
              "%s\n\nEnter a new filename.\nThe file will be saved in the same directory:\n%s",
              error_text,
              directory);
+    workspace_dialog_set_message(&app->workspace, message);
     return;
   }
 
-  snprintf(app->workspace.session.active_dialog.message,
-           sizeof(app->workspace.session.active_dialog.message),
-           "Enter a new filename.\nThe file will be saved in the same directory:\n%s",
-           directory);
+  {
+    char message[1024];
+
+    snprintf(message,
+             sizeof(message),
+             "Enter a new filename.\nThe file will be saved in the same directory:\n%s",
+             directory);
+    workspace_dialog_set_message(&app->workspace, message);
+  }
 }
 
 /**
@@ -206,26 +209,11 @@ static int app_copy_png_export_path(const char *selected_path,
   return 1;
 }
 
-/**
- * @brief Reset tool controller state.
- * @param app Application instance.
- * @return No return value.
- */
-static void app_reset_tool_state(Application *app) {
-  if (!app) {
-    return;
-  }
-
-  tool_controller_shutdown(&app->workspace.core.tools);
-  tool_controller_init(&app->workspace.core.tools);
-}
-
 static int app_new_document(Application *app) {
   if (!app) {
     return 0;
   }
 
-  app_reset_tool_state(app);
   return workspace_service_new_document(&app->workspace);
 }
 
@@ -246,7 +234,7 @@ static int app_save_as_document(Application *app) {
     return 0;
   }
 
-  input = app->workspace.session.active_dialog.payload.text;
+  input = workspace_dialog_input_text(&app->workspace);
   if (!path_utils_copy_trimmed(input, filename, sizeof(filename)) ||
       !path_utils_is_safe_filename(filename)) {
     app_set_status(app, "Save As failed: invalid filename");
@@ -272,7 +260,6 @@ static int app_load_document_from_path(Application *app, const char *path) {
     return 0;
   }
 
-  app_reset_tool_state(app);
   return workspace_service_load_from_path(&app->workspace, path);
 }
 
@@ -449,12 +436,7 @@ static void app_open_startup_document(Application *app) {
  * @return Tool context value.
  */
 static ToolContext app_tool_context(Application *app) {
-  ToolContext context;
-  context.workspace = &app->workspace;
-  context.document = &app->workspace.core.document;
-  context.canvas = &app->workspace.core.canvas;
-  context.selection = &app->workspace.session.selection;
-  return context;
+  return workspace_tool_context(app ? &app->workspace : NULL);
 }
 
 /**
@@ -487,9 +469,10 @@ static void app_sync_tool_pointer_anchor(Application *app) {
     return;
   }
 
-  app->workspace.core.tools.last_screen = app->cursor_screen;
-  app->workspace.core.tools.last_world =
-      canvas_view_screen_to_world(&app->workspace.core.canvas, app->cursor_screen);
+  tool_controller_set_pointer_anchor(
+      &app->workspace.core.tools,
+      app->cursor_screen,
+      canvas_view_screen_to_world(&app->workspace.core.canvas, app->cursor_screen));
 }
 
 /**
@@ -500,7 +483,7 @@ static void app_sync_tool_pointer_anchor(Application *app) {
 static void app_sync_canvas_boundary(Application *app) {
   int inside_canvas = 0;
 
-  if (!app || app->workspace.core.tools.pointer_captured) {
+  if (!app || tool_controller_is_pointer_captured(&app->workspace.core.tools)) {
     return;
   }
 
@@ -528,7 +511,7 @@ static void update_canvas_viewport(Application *app) {
   if (app->ui) {
     viewport = ui_system_content_bounds(app->ui);
     fallback_window = ui_system_window_bounds(app->ui);
-    app->workspace.session.layout = ui_system_layout(app->ui);
+    workspace_set_layout(&app->workspace, ui_system_layout(app->ui));
   } else {
     viewport = app->workspace.session.layout.canvas_content_bounds;
     fallback_window.w = (float)app->window.width;
@@ -564,13 +547,16 @@ static void update_canvas_viewport(Application *app) {
 static ToolEvent make_tool_event(Application *app, int button, int mods,
                                  float wheel_y) {
   ToolEvent event;
+  Vec2 last_screen;
+  Vec2 last_world;
+
+  last_screen = tool_controller_last_screen(&app->workspace.core.tools);
+  last_world = tool_controller_last_world(&app->workspace.core.tools);
   event.screen_pos = app->cursor_screen;
   event.world_pos =
       canvas_view_screen_to_world(&app->workspace.core.canvas, app->cursor_screen);
-  event.delta_screen =
-      vec2_sub(event.screen_pos, app->workspace.core.tools.last_screen);
-  event.delta_world =
-      vec2_sub(event.world_pos, app->workspace.core.tools.last_world);
+  event.delta_screen = vec2_sub(event.screen_pos, last_screen);
+  event.delta_world = vec2_sub(event.world_pos, last_world);
   event.button = button;
   event.mods = mods;
   event.wheel_y = wheel_y;
@@ -622,7 +608,7 @@ static void cursor_pos_callback(GLFWwindow *handle, double xpos, double ypos) {
   app->cursor_screen = vec2_make((float)xpos, (float)ypos);
   app_sync_canvas_boundary(app);
 
-  if (!app->workspace.core.tools.pointer_captured &&
+  if (!tool_controller_is_pointer_captured(&app->workspace.core.tools) &&
       app_pointer_blocks_canvas(app, app->cursor_screen)) {
     return;
   }
@@ -657,7 +643,7 @@ static void mouse_button_callback(GLFWwindow *handle, int button, int action,
                                       action)) {
       return;
     }
-    if (!app->workspace.core.tools.pointer_captured &&
+    if (!tool_controller_is_pointer_captured(&app->workspace.core.tools) &&
         app_pointer_blocks_canvas(app, app->cursor_screen)) {
       return;
     }
@@ -668,7 +654,7 @@ static void mouse_button_callback(GLFWwindow *handle, int button, int action,
     /* Ignore release outside canvas unless we previously captured the pointer.
        This keeps drag/end-state transitions consistent across window regions.
      */
-    if (!app->workspace.core.tools.pointer_captured) {
+    if (!tool_controller_is_pointer_captured(&app->workspace.core.tools)) {
       if (app_pointer_blocks_canvas(app, app->cursor_screen)) {
         return;
       }
@@ -737,7 +723,7 @@ static void scroll_callback(GLFWwindow *handle, double xoffset,
     return;
   }
 
-  if (!app->workspace.core.tools.pointer_captured &&
+  if (!tool_controller_is_pointer_captured(&app->workspace.core.tools) &&
       app_pointer_blocks_canvas(app, app->cursor_screen)) {
     return;
   }
@@ -788,7 +774,7 @@ static int app_init(Application *app) {
   app->workspace.services.command_user_data = app;
   command_dispatcher_init(&app->dispatcher, &app->workspace);
   workspace_mark_saved(&app->workspace);
-  app_set_status(app, "Initializing editor");
+  workspace_set_status_message(&app->workspace, "Initializing editor");
   app->cursor_screen =
       vec2_make(app->window.width * 0.5f, app->window.height * 0.5f);
   app->cursor_inside_canvas = 1;
@@ -896,13 +882,13 @@ int app_run(void) {
     editor_viewmodel_build(&app->view_model, &app->workspace);
     ui_system_build(app->ui, &app->view_model);
     update_canvas_viewport(app);
-    tool_context = app_tool_context(app);
+    tool_context = workspace_tool_context(&app->workspace);
     render_system_draw(app->renderer,
                        &app->workspace.core.document,
                        &app->workspace.session.selection,
                        &app->workspace.core.canvas,
-                       app->workspace.session.selection_preview_active,
-                       app->workspace.session.selection_preview_delta,
+                       workspace_selection_preview_active(&app->workspace),
+                       workspace_selection_preview_delta(&app->workspace),
                        tool_controller_overlay_object(&app->workspace.core.tools,
                                                       &tool_context));
     app_flush_pending_export_png(app);

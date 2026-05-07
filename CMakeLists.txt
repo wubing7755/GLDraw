@@ -504,6 +504,26 @@ set_target_properties(gldraw_renderer_tests PROPERTIES
 
 add_test(NAME gldraw_renderer_tests COMMAND $<TARGET_FILE:gldraw_renderer_tests>)
 
+add_executable(gldraw_workspace_service_tests
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_workspace_service.c
+)
+
+target_include_directories(gldraw_workspace_service_tests
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+
+target_link_libraries(gldraw_workspace_service_tests PRIVATE gldraw_commands)
+
+gldraw_apply_compile_options(gldraw_workspace_service_tests)
+gldraw_apply_sanitizers(gldraw_workspace_service_tests)
+
+set_target_properties(gldraw_workspace_service_tests PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+)
+
+add_test(NAME gldraw_workspace_service_tests COMMAND $<TARGET_FILE:gldraw_workspace_service_tests>)
+
 add_custom_target(gldraw_tests
     DEPENDS
         gldraw_document_core_tests
@@ -516,6 +536,7 @@ add_custom_target(gldraw_tests
         gldraw_no_builtin_knowledge_tests
         gldraw_ui_logic_tests
         gldraw_renderer_tests
+        gldraw_workspace_service_tests
 )
 
 install(TARGETS ${PROJECT_NAME}

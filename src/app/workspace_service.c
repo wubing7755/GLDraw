@@ -18,12 +18,35 @@
 #include <model/selection.h>
 #include <tools/tool_controller.h>
 
-#include <stdio.h>
 #include <string.h>
 
 static const char* service_default_document_path(void)
 {
     return "document.json";
+}
+
+static void workspace_service_reset_runtime_state(Workspace* workspace)
+{
+    if (!workspace) {
+        return;
+    }
+
+    selection_set_clear(&workspace->session.selection);
+    workspace_clear_clipboard(workspace);
+    command_executor_shutdown(&workspace->core.commands);
+    command_executor_init(&workspace->core.commands);
+    tool_controller_shutdown(&workspace->core.tools);
+    tool_controller_init(&workspace->core.tools);
+}
+
+static void workspace_service_reset_canvas_state(Workspace* workspace)
+{
+    if (!workspace) {
+        return;
+    }
+
+    canvas_view_set_center_zoom(&workspace->core.canvas,
+                                vec2_make(0.0f, 0.0f), 1.0f);
 }
 
 int workspace_init(Workspace* workspace, RectF viewport, const char* keymap_path)
@@ -72,21 +95,11 @@ int workspace_service_new_document(Workspace* workspace)
     }
 
     document_reset(&workspace->core.document);
-    selection_set_clear(&workspace->session.selection);
-    workspace_clear_clipboard(workspace);
-    command_executor_shutdown(&workspace->core.commands);
-    command_executor_init(&workspace->core.commands);
-
-    tool_controller_shutdown(&workspace->core.tools);
-    tool_controller_init(&workspace->core.tools);
-
-    canvas_view_set_center_zoom(&workspace->core.canvas,
-                                vec2_make(0.0f, 0.0f), 1.0f);
+    workspace_service_reset_runtime_state(workspace);
+    workspace_service_reset_canvas_state(workspace);
     workspace->session.current_document_path[0] = '\0';
     workspace_mark_saved(workspace);
-    snprintf(workspace->session.status_message,
-             sizeof(workspace->session.status_message),
-             "New empty document");
+    workspace_set_status_message(workspace, "New empty document");
     return 1;
 }
 
@@ -94,17 +107,13 @@ int workspace_service_save_to_path(Workspace* workspace, const char* path)
 {
     if (!document_save_json(&workspace->core.document, path)) {
         LOG_ERROR("%s", "Save document failed");
-        snprintf(workspace->session.status_message,
-                 sizeof(workspace->session.status_message),
-                 "Save failed: %s", path);
+        workspace_set_statusf(workspace, "Save failed: %s", path);
         return 0;
     }
 
     workspace_service_set_document_path(workspace, path);
     workspace_mark_saved(workspace);
-    snprintf(workspace->session.status_message,
-             sizeof(workspace->session.status_message),
-             "Saved document: %s", path);
+    workspace_set_statusf(workspace, "Saved document: %s", path);
     LOG_INFO("Saved document: %s", path);
     return 1;
 }
@@ -119,31 +128,20 @@ int workspace_service_load_from_path(Workspace* workspace, const char* path)
 {
     if (!workspace_service_file_exists(path)) {
         LOG_WARN("Document file not found: %s", path);
-        snprintf(workspace->session.status_message,
-                 sizeof(workspace->session.status_message),
-                 "Document not found: %s", path);
+        workspace_set_statusf(workspace, "Document not found: %s", path);
         return 0;
     }
 
     if (!document_load_json(&workspace->core.document, path)) {
         LOG_ERROR("%s", "Load document failed");
-        snprintf(workspace->session.status_message,
-                 sizeof(workspace->session.status_message),
-                 "Load failed: %s", path);
+        workspace_set_statusf(workspace, "Load failed: %s", path);
         return 0;
     }
 
-    selection_set_clear(&workspace->session.selection);
-    workspace_clear_clipboard(workspace);
-    command_executor_shutdown(&workspace->core.commands);
-    command_executor_init(&workspace->core.commands);
-    tool_controller_shutdown(&workspace->core.tools);
-    tool_controller_init(&workspace->core.tools);
+    workspace_service_reset_runtime_state(workspace);
     workspace_service_set_document_path(workspace, path);
     workspace_mark_saved(workspace);
-    snprintf(workspace->session.status_message,
-             sizeof(workspace->session.status_message),
-             "Loaded document: %s", path);
+    workspace_set_statusf(workspace, "Loaded document: %s", path);
     LOG_INFO("Loaded document: %s", path);
     return 1;
 }
@@ -194,4 +192,3 @@ void workspace_service_set_document_path(Workspace* workspace, const char* path)
     workspace->session.current_document_path
         [sizeof(workspace->session.current_document_path) - 1u] = '\0';
 }
-

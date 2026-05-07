@@ -337,6 +337,33 @@ const char* tool_controller_active_label(const ToolController* controller)
     return controller->tools[controller->active_index].descriptor->name;
 }
 
+int tool_controller_is_pointer_captured(const ToolController* controller)
+{
+    return controller ? controller->pointer_captured : 0;
+}
+
+Vec2 tool_controller_last_screen(const ToolController* controller)
+{
+    return controller ? controller->last_screen : vec2_make(0.0f, 0.0f);
+}
+
+Vec2 tool_controller_last_world(const ToolController* controller)
+{
+    return controller ? controller->last_world : vec2_make(0.0f, 0.0f);
+}
+
+void tool_controller_set_pointer_anchor(ToolController* controller,
+                                        Vec2 screen_pos,
+                                        Vec2 world_pos)
+{
+    if (!controller) {
+        return;
+    }
+
+    controller->last_screen = screen_pos;
+    controller->last_world = world_pos;
+}
+
 GraphicObject* tool_controller_overlay_object(ToolController* controller,
                                               ToolContext* context)
 {

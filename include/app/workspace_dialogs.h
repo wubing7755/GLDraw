@@ -68,6 +68,12 @@ int workspace_dialog_open(Workspace* workspace, const UiDialogState* dialog);
 void workspace_dialog_close(Workspace* workspace);
 /** Resolve the active dialog according to its kind and the returned result. */
 int workspace_dialog_resolve(Workspace* workspace, UiDialogResult result);
+/** Overwrite the active dialog message text; no-op when inactive or `NULL`. */
+void workspace_dialog_set_message(Workspace* workspace, const char* message);
+/** Overwrite the active dialog input text payload; no-op when inactive or `NULL`. */
+void workspace_dialog_set_input_text(Workspace* workspace, const char* text);
+/** Return the active dialog input payload, or an empty string when unavailable. */
+const char* workspace_dialog_input_text(const Workspace* workspace);
 
 /** Open the standard unsaved-changes confirmation dialog. */
 int workspace_dialog_open_confirm_unsaved(Workspace* workspace, WorkspaceActionType pending_action);
