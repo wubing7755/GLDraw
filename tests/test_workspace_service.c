@@ -60,7 +60,7 @@
         }                                                                     \
     } while (0)
 
-static const char* k_temp_document_path = "/tmp/gldraw_workspace_service_test.json";
+static const char* k_temp_document_path = "gldraw_workspace_service_test.json";
 
 static GraphicObject* make_rect(float x, float y, float w, float h)
 {
@@ -210,7 +210,7 @@ static int test_load_document_resets_runtime_state(Workspace* workspace)
     EXPECT_TRUE(expect_runtime_state_cleared(workspace));
     EXPECT_STR_EQ(workspace_service_document_path(workspace), k_temp_document_path);
     EXPECT_STR_EQ(workspace->session.status_message,
-                  "Loaded document: /tmp/gldraw_workspace_service_test.json");
+                  "Loaded document: gldraw_workspace_service_test.json");
     return 0;
 }
 

@@ -70,7 +70,7 @@ GLFW events → application.c callbacks → input_router → command_registry_ex
 
 ### Extension System
 
-- **Object types**: Register via `register_object_type()` in `extension_loader.c`. Core `object.c` never imports extension headers.
+- **Object types**: Register via `register_object_type()`. Built-in object manifests are assembled in `src/app/extension_manifest.c`, with compatibility wrappers kept in `include/app/extension_loader.h`.
 - **Tools**: Register via `register_tool()`. Commands, shortcuts, and menu items are derived from `ToolDescriptor` metadata.
 - **Serialization**: Extensions serialize/deserialize via `GraphicObjectDescriptor` vtable — no core change needed.
 
@@ -82,10 +82,12 @@ JSON persistence via `document_save_json()` / `document_load_json()`.
 
 - `src/main.c` — single line calling `app_run()`
 - `src/app/application.c` — bootstrap, window, main loop, dependency injection
-- `src/app/extension_loader.c` — extension registration assembly point
-- `src/commands/command.c` — command types, executor, transactions
+- `src/app/registration_manifest.c` — unified built-in manifest registration entrypoint
+- `src/app/extension_manifest.c` — object manifest assembly point
+- `src/app/tool_manifest.c` — built-in tool manifest assembly point
+- `src/commands/command_executor.c` — command executor lifecycle, history, memory budget
 - `src/render/render_system.c` — draw-list build, render submission
-- `src/tools/tool_controller.c` — tool routing and built-in tool implementations
+- `src/tools/tool_runtime.c` — tool controller lifecycle and active-tool runtime
 
 ## Documentation
 

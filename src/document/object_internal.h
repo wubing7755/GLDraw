@@ -2,9 +2,10 @@
  * @file object_internal.h
  * @brief Shared helpers for builtin object type implementations.
  *
- * These functions live in object.c but are exposed here so that separate
- * translation units (object_line.c, object_rect.c, object_ellipse.c,
- * object_fake_star.c) can reuse them without duplicating logic.
+ * These functions live in the internal object modules and are exposed here so
+ * that separate translation units (object_line.c, object_rect.c,
+ * object_ellipse.c, object_fake_star.c) can reuse them without duplicating
+ * logic.
  *
  * This header is NOT part of the public API — it is internal to
  * src/document/ and src/app/extension_loader.c.

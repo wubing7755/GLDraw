@@ -7,7 +7,7 @@
  */
 #include <app/workspace_service.h>
 
-#include <app/extension_loader.h>
+#include <app/registration_manifest.h>
 #include <base/log.h>
 #include <base/math2d.h>
 #include <canvas/canvas_view.h>
@@ -57,16 +57,12 @@ int workspace_init(Workspace* workspace, RectF viewport, const char* keymap_path
 
     document_init(&workspace->core.document);
 
-    if (!extension_loader_register_all()) {
-        return 0;
-    }
-
     if (!command_executor_init(&workspace->core.commands)) {
         return 0;
     }
 
     canvas_view_init(&workspace->core.canvas, &workspace->core.document, viewport);
-    if (!register_builtin_tools()) {
+    if (!app_register_all_manifests()) {
         return 0;
     }
     tool_controller_init(&workspace->core.tools);

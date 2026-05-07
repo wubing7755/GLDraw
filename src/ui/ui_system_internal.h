@@ -43,11 +43,20 @@
 
 #define UI_THEME_ID_CAPACITY 64
 #define UI_THEME_DESCRIPTOR_CACHE_MAX 64
+#define UI_THEME_SETTINGS_PATH "gldraw.settings.json"
+#define UI_THEME_DIRECTORY_PATH "themes"
+#define UI_THEME_WATCH_INTERVAL_SECONDS 0.35
 
 typedef enum UiContextMenuMode {
   UI_CONTEXT_MENU_MODE_TOOLS = 0,
   UI_CONTEXT_MENU_MODE_SELECTION
 } UiContextMenuMode;
+
+typedef enum UiThemeReloadReason {
+  UI_THEME_RELOAD_REASON_STARTUP = 0,
+  UI_THEME_RELOAD_REASON_AUTO,
+  UI_THEME_RELOAD_REASON_MANUAL
+} UiThemeReloadReason;
 
 typedef struct UiContextMenuState {
   int open;
@@ -90,5 +99,32 @@ struct UiSystem {
   UiContextMenuState context_menu;
   double last_frame_seconds;
 };
+
+void ui_system_emit_action(UiSystem *ui, const EditorAction *action);
+void ui_system_emit_status(UiSystem *ui, const char *fmt, ...);
+void ui_system_sync_menubar_themes(UiSystem *ui);
+int ui_system_set_theme(UiSystem *ui, const char *theme_id, int persist_selection);
+void ui_system_reload_themes(UiSystem *ui,
+                             int notify_status,
+                             UiThemeReloadReason reason);
+void ui_system_load_theme_from_settings(UiSystem *ui);
+void ui_system_poll_theme_hot_reload(UiSystem *ui, double now_seconds);
+float ui_clampf(float value, float min_value, float max_value);
+float ui_smoothstep(float t);
+void ui_publish_layout(UiSystem *ui, int width, int height);
+void ui_modal_dialogs(UiSystem *ui,
+                      const EditorViewModel *view_model,
+                      int window_width,
+                      int window_height);
+void ui_tool_rail(UiSystem *ui,
+                  const EditorViewModel *view_model,
+                  RectF bounds);
+void ui_status_bar(UiSystem *ui,
+                   const EditorViewModel *view_model,
+                   int window_width,
+                   int window_height);
+void ui_selection_panel(UiSystem *ui,
+                        const EditorViewModel *view_model,
+                        RectF bounds);
 
 #endif /* GLDRAW_UI_UI_SYSTEM_INTERNAL_H */
