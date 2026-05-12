@@ -1,6 +1,6 @@
 #include "tool_internal.h"
 
-#include <app/workspace.h>
+#include <app/workspace_internal.h>
 #include <base/math2d.h>
 #include <canvas/canvas_view.h>
 #include <commands/command.h>

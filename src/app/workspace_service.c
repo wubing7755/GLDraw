@@ -5,6 +5,7 @@
  * Extracted from application.c to separate document manipulation
  * from the application shell and reduce the "god object" pattern.
  */
+#include <app/workspace_internal.h>
 #include <app/workspace_service.h>
 
 #include <app/registration_manifest.h>

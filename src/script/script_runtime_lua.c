@@ -6,18 +6,31 @@
 #include <lauxlib.h>
 #include <lualib.h>
 
+#include <stdio.h>
 #include <string.h>
+
+#define GLDRAW_SCRIPT_MAX_PATH 260
 
 struct ScriptRuntime {
     lua_State* state;
     Document* document;
     SelectionSet* selection;
     CommandExecutor* executor;
+    int environment_ref;
+    int script_loaded;
+    char loaded_script_path[GLDRAW_SCRIPT_MAX_PATH];
 };
 
 static ScriptRuntime* script_runtime_from_lua(lua_State* state)
 {
     return (ScriptRuntime*)lua_touserdata(state, lua_upvalueindex(1));
+}
+
+static void script_runtime_env_copy_global(lua_State* state, int env_index, const char* name)
+{
+    env_index = lua_absindex(state, env_index);
+    lua_getglobal(state, name);
+    lua_setfield(state, env_index, name);
 }
 
 static int script_runtime_execute_command(ScriptRuntime* runtime,
@@ -144,41 +157,30 @@ static int script_api_document_add_object(lua_State* state)
     return 1;
 }
 
-static int script_api_command_execute(lua_State* state)
+static int script_api_command_undo(lua_State* state)
 {
     ScriptRuntime* runtime = script_runtime_from_lua(state);
-    const char* text = luaL_checkstring(state, 1);
 
-    if (!runtime || !runtime->document || !runtime->executor || !text) {
+    if (!runtime || !runtime->document || !runtime->executor) {
         lua_pushboolean(state, 0);
         return 1;
     }
 
-    if (strstr(text, "undo") != NULL) {
-        lua_pushboolean(state, command_executor_undo(runtime->executor, runtime->document));
-        return 1;
-    }
-    if (strstr(text, "redo") != NULL) {
-        lua_pushboolean(state, command_executor_redo(runtime->executor, runtime->document));
-        return 1;
-    }
-
-    lua_pushboolean(state, 0);
+    lua_pushboolean(state, command_executor_undo(runtime->executor, runtime->document));
     return 1;
 }
 
-static int script_runtime_execute_command_text(ScriptRuntime* runtime, const char* text)
+static int script_api_command_redo(lua_State* state)
 {
-    if (!runtime || !runtime->document || !runtime->executor || !text) {
-        return 0;
+    ScriptRuntime* runtime = script_runtime_from_lua(state);
+
+    if (!runtime || !runtime->document || !runtime->executor) {
+        lua_pushboolean(state, 0);
+        return 1;
     }
-    if (strstr(text, "undo") != NULL) {
-        return command_executor_undo(runtime->executor, runtime->document);
-    }
-    if (strstr(text, "redo") != NULL) {
-        return command_executor_redo(runtime->executor, runtime->document);
-    }
-    return 0;
+
+    lua_pushboolean(state, command_executor_redo(runtime->executor, runtime->document));
+    return 1;
 }
 
 static int script_api_selection_get_ids(lua_State* state)
@@ -202,22 +204,83 @@ static int script_api_selection_get_ids(lua_State* state)
 
 static int script_runtime_register_api(ScriptRuntime* runtime)
 {
+    lua_State* state = NULL;
+
     if (!runtime || !runtime->state) {
         return 0;
     }
 
-    lua_pushlightuserdata(runtime->state, runtime);
-    lua_pushcclosure(runtime->state, script_api_document_add_object, 1);
-    lua_setglobal(runtime->state, "gldraw_document_add_object");
+    state = runtime->state;
+    lua_newtable(state);
+    lua_pushvalue(state, -1);
+    lua_setfield(state, -2, "_G");
 
-    lua_pushlightuserdata(runtime->state, runtime);
-    lua_pushcclosure(runtime->state, script_api_command_execute, 1);
-    lua_setglobal(runtime->state, "gldraw_command_execute");
+    script_runtime_env_copy_global(state, -1, "assert");
+    script_runtime_env_copy_global(state, -1, "error");
+    script_runtime_env_copy_global(state, -1, "ipairs");
+    script_runtime_env_copy_global(state, -1, "next");
+    script_runtime_env_copy_global(state, -1, "pairs");
+    script_runtime_env_copy_global(state, -1, "pcall");
+    script_runtime_env_copy_global(state, -1, "select");
+    script_runtime_env_copy_global(state, -1, "tonumber");
+    script_runtime_env_copy_global(state, -1, "tostring");
+    script_runtime_env_copy_global(state, -1, "type");
+    script_runtime_env_copy_global(state, -1, "xpcall");
+    script_runtime_env_copy_global(state, -1, "math");
+    script_runtime_env_copy_global(state, -1, "string");
+    script_runtime_env_copy_global(state, -1, "table");
 
-    lua_pushlightuserdata(runtime->state, runtime);
-    lua_pushcclosure(runtime->state, script_api_selection_get_ids, 1);
-    lua_setglobal(runtime->state, "gldraw_selection_get_ids");
+    lua_newtable(state);
+
+    lua_pushlightuserdata(state, runtime);
+    lua_pushcclosure(state, script_api_document_add_object, 1);
+    lua_setfield(state, -2, "document_add_object");
+
+    lua_pushlightuserdata(state, runtime);
+    lua_pushcclosure(state, script_api_command_undo, 1);
+    lua_setfield(state, -2, "undo");
+
+    lua_pushlightuserdata(state, runtime);
+    lua_pushcclosure(state, script_api_command_redo, 1);
+    lua_setfield(state, -2, "redo");
+
+    lua_pushlightuserdata(state, runtime);
+    lua_pushcclosure(state, script_api_selection_get_ids, 1);
+    lua_setfield(state, -2, "selection_get_ids");
+
+    lua_setfield(state, -2, "gldraw");
+    runtime->environment_ref = luaL_ref(state, LUA_REGISTRYINDEX);
     return 1;
+}
+
+static int script_runtime_reset_state(ScriptRuntime* runtime)
+{
+    if (!runtime) {
+        return 0;
+    }
+
+    if (runtime->state) {
+        lua_close(runtime->state);
+        runtime->state = NULL;
+    }
+    runtime->environment_ref = LUA_NOREF;
+    runtime->script_loaded = 0;
+    runtime->loaded_script_path[0] = '\0';
+
+    runtime->state = luaL_newstate();
+    if (!runtime->state) {
+        return 0;
+    }
+    luaL_requiref(runtime->state, "_G", luaopen_base, 1);
+    lua_pop(runtime->state, 1);
+    luaL_requiref(runtime->state, LUA_MATHLIBNAME, luaopen_math, 1);
+    lua_pop(runtime->state, 1);
+    luaL_requiref(runtime->state, LUA_STRLIBNAME, luaopen_string, 1);
+    lua_pop(runtime->state, 1);
+    luaL_requiref(runtime->state, LUA_TABLIBNAME, luaopen_table, 1);
+    lua_pop(runtime->state, 1);
+
+    return script_runtime_register_api(runtime);
 }
 
 int script_runtime_init(ScriptRuntime* runtime)
@@ -227,12 +290,8 @@ int script_runtime_init(ScriptRuntime* runtime)
     }
 
     memset(runtime, 0, sizeof(*runtime));
-    runtime->state = luaL_newstate();
-    if (!runtime->state) {
-        return 0;
-    }
-    luaL_openlibs(runtime->state);
-    return script_runtime_register_api(runtime);
+    runtime->environment_ref = LUA_NOREF;
+    return script_runtime_reset_state(runtime);
 }
 
 void script_runtime_shutdown(ScriptRuntime* runtime)
@@ -261,27 +320,63 @@ void script_runtime_set_context(ScriptRuntime* runtime,
     runtime->executor = executor;
 }
 
+static int script_runtime_ensure_script_loaded(ScriptRuntime* runtime, const char* script_path)
+{
+    if (!runtime || !runtime->state || !script_path || script_path[0] == '\0') {
+        return 0;
+    }
+    if (runtime->script_loaded &&
+        strcmp(runtime->loaded_script_path, script_path) == 0) {
+        return 1;
+    }
+    if (!script_runtime_reset_state(runtime)) {
+        return 0;
+    }
+    if (luaL_loadfile(runtime->state, script_path) != LUA_OK) {
+        lua_pop(runtime->state, 1);
+        return 0;
+    }
+
+    lua_rawgeti(runtime->state, LUA_REGISTRYINDEX, runtime->environment_ref);
+    if (!lua_setupvalue(runtime->state, -2, 1)) {
+        lua_pop(runtime->state, 1);
+        return 0;
+    }
+    if (lua_pcall(runtime->state, 0, 0, 0) != LUA_OK) {
+        lua_pop(runtime->state, 1);
+        return 0;
+    }
+
+    snprintf(runtime->loaded_script_path,
+             sizeof(runtime->loaded_script_path),
+             "%s",
+             script_path);
+    runtime->script_loaded = 1;
+    return 1;
+}
+
 int script_runtime_execute_file_event(ScriptRuntime* runtime,
                                       const char* script_path,
                                       const char* event_name,
                                       const ToolEvent* event)
 {
     int call_result = 0;
+    int success = 1;
 
     if (!runtime || !runtime->state || !script_path || !event_name || !event) {
         return 0;
     }
-
-    if (luaL_dofile(runtime->state, script_path) != LUA_OK) {
-        lua_pop(runtime->state, 1);
+    if (!script_runtime_ensure_script_loaded(runtime, script_path)) {
         return 0;
     }
 
-    lua_getglobal(runtime->state, "on_event");
+    lua_rawgeti(runtime->state, LUA_REGISTRYINDEX, runtime->environment_ref);
+    lua_getfield(runtime->state, -1, "on_event");
     if (!lua_isfunction(runtime->state, -1)) {
-        lua_pop(runtime->state, 1);
+        lua_pop(runtime->state, 2);
         return 0;
     }
+    lua_remove(runtime->state, -2);
 
     lua_newtable(runtime->state);
     lua_pushstring(runtime->state, event_name);
@@ -307,14 +402,10 @@ int script_runtime_execute_file_event(ScriptRuntime* runtime,
         return 0;
     }
 
-    if (lua_isstring(runtime->state, -1)) {
-        const char* command_text = lua_tostring(runtime->state, -1);
-        if (command_text) {
-            lua_pop(runtime->state, 1);
-            return script_runtime_execute_command_text(runtime, command_text);
-        }
+    if (lua_isboolean(runtime->state, -1)) {
+        success = lua_toboolean(runtime->state, -1) != 0;
     }
 
     lua_pop(runtime->state, 1);
-    return 1;
+    return success;
 }

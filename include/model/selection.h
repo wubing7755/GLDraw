@@ -5,6 +5,8 @@
 #ifndef GLDRAW_MODEL_SELECTION_H
 #define GLDRAW_MODEL_SELECTION_H
 
+#include <stdint.h>
+
 #include <base/types.h>
 
 /**
@@ -15,6 +17,7 @@ typedef struct {
     ObjectId* ids;
     int count;
     int capacity;
+    uint64_t revision;
 } SelectionSet;
 
 void selection_set_init(SelectionSet* selection);

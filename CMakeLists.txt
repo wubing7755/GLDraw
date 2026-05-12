@@ -116,6 +116,7 @@ set(GLDRAW_COMMAND_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/app/editor_viewmodel.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/app/registration_manifest.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/app/tool_manifest.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/app/workspace.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/app/workspace_actions.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/app/workspace_dialogs.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/app/workspace_service.c
@@ -447,6 +448,28 @@ set_target_properties(gldraw_registry_tests PROPERTIES
 )
 
 add_test(NAME gldraw_registry_tests COMMAND $<TARGET_FILE:gldraw_registry_tests>)
+
+if(GLDRAW_ENABLE_SCRIPTING)
+    add_executable(gldraw_script_runtime_tests
+        ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_script_runtime.c
+    )
+
+    target_include_directories(gldraw_script_runtime_tests
+        PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/include
+    )
+
+    target_link_libraries(gldraw_script_runtime_tests PRIVATE gldraw_commands gldraw_model)
+
+    gldraw_apply_compile_options(gldraw_script_runtime_tests)
+    gldraw_apply_sanitizers(gldraw_script_runtime_tests)
+
+    set_target_properties(gldraw_script_runtime_tests PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+    )
+
+    add_test(NAME gldraw_script_runtime_tests COMMAND $<TARGET_FILE:gldraw_script_runtime_tests>)
+endif()
 
 add_executable(gldraw_fake_star_tests
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_fake_star.c

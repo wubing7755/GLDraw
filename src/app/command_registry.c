@@ -4,7 +4,7 @@
  */
 #include <app/command_registry.h>
 
-#include <app/workspace.h>
+#include <app/workspace_internal.h>
 #include <app/workspace_actions.h>
 #include <app/workspace_dialogs.h>
 #include <base/math2d.h>

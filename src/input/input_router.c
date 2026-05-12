@@ -5,7 +5,7 @@
 #include <input/input_router.h>
 
 #include <app/command_registry.h>
-#include <app/workspace.h>
+#include <app/workspace_internal.h>
 #include <app/workspace_actions.h>
 #include <tools/tool.h>
 #include <tools/tool_controller.h>

@@ -1,6 +1,6 @@
 #include "tool_internal.h"
 
-#include <app/workspace.h>
+#include <app/workspace_internal.h>
 #include <commands/command.h>
 #include <document/document.h>
 

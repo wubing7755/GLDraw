@@ -1,4 +1,4 @@
-#include <app/workspace.h>
+#include <app/workspace_internal.h>
 #include <tools/tool.h>
 
 #include <script/script_runtime.h>

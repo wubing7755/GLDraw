@@ -1,9 +1,10 @@
 #include <ui/editor_viewmodel.h>
 
-#include <app/workspace.h>
+#include <app/workspace_internal.h>
 #include <canvas/canvas_view.h>
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 typedef struct EditorCommandMapEntry {

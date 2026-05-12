@@ -1,6 +1,6 @@
 #include <app/command_dispatcher.h>
 #include <app/extension_loader.h>
-#include <app/workspace.h>
+#include <app/workspace_internal.h>
 #include <app/workspace_dialogs.h>
 #include <base/math2d.h>
 #include <canvas/canvas_view.h>
@@ -11,6 +11,7 @@
 
 #include <math.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #define EXPECT_TRUE(expr)                                                     \

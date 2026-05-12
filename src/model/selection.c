@@ -3,6 +3,13 @@
 #include <stdlib.h>
 #include <string.h>
 
+static void selection_set_touch(SelectionSet* selection)
+{
+    if (selection) {
+        selection->revision++;
+    }
+}
+
 void selection_set_init(SelectionSet* selection)
 {
     if (!selection) {
@@ -24,8 +31,9 @@ void selection_set_shutdown(SelectionSet* selection)
 
 void selection_set_clear(SelectionSet* selection)
 {
-    if (selection) {
+    if (selection && selection->count > 0) {
         selection->count = 0;
+        selection_set_touch(selection);
     }
 }
 
@@ -58,8 +66,13 @@ int selection_set_reserve(SelectionSet* selection, int needed)
 
 int selection_set_copy(SelectionSet* dst, const SelectionSet* src)
 {
+    size_t size = 0u;
+
     if (!dst || !src) {
         return 0;
+    }
+    if (dst == src) {
+        return 1;
     }
     if (src->count <= 0) {
         selection_set_clear(dst);
@@ -69,8 +82,14 @@ int selection_set_copy(SelectionSet* dst, const SelectionSet* src)
         return 0;
     }
 
-    memcpy(dst->ids, src->ids, (size_t)src->count * sizeof(src->ids[0]));
+    size = (size_t)src->count * sizeof(src->ids[0]);
+    if (dst->count == src->count && memcmp(dst->ids, src->ids, size) == 0) {
+        return 1;
+    }
+
+    memcpy(dst->ids, src->ids, size);
     dst->count = src->count;
+    selection_set_touch(dst);
     return 1;
 }
 
@@ -104,6 +123,7 @@ int selection_set_add(SelectionSet* selection, ObjectId id)
     }
 
     selection->ids[selection->count++] = id;
+    selection_set_touch(selection);
     return 1;
 }
 
@@ -121,6 +141,7 @@ void selection_set_remove(SelectionSet* selection, ObjectId id)
                     &selection->ids[i + 1],
                     (size_t)(selection->count - i - 1) * sizeof(selection->ids[0]));
             selection->count--;
+            selection_set_touch(selection);
             return;
         }
     }

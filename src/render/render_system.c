@@ -16,6 +16,7 @@ struct RenderSystem {
     unsigned int cached_document_revision;
     unsigned int cached_overlay_revision;
     int cached_selection_count;
+    uint64_t cached_selection_revision;
     int cached_selection_preview_active;
     RectF cached_viewport;
     Vec2 cached_center;
@@ -116,6 +117,7 @@ void render_system_draw(RenderSystem* renderer,
         renderer->cached_document_revision != document->revision ||
         renderer->cached_overlay_revision != (overlay_object ? overlay_object->revision : 0u) ||
         renderer->cached_selection_count != (selection ? selection->count : 0) ||
+        renderer->cached_selection_revision != (selection ? selection->revision : 0u) ||
         renderer->cached_selection_preview_active != selection_preview_active ||
         renderer->cached_selection_preview_delta.x != selection_preview_delta.x ||
         renderer->cached_selection_preview_delta.y != selection_preview_delta.y ||
@@ -138,6 +140,7 @@ void render_system_draw(RenderSystem* renderer,
         renderer->cached_document_revision = document->revision;
         renderer->cached_overlay_revision = overlay_object ? overlay_object->revision : 0u;
         renderer->cached_selection_count = selection ? selection->count : 0;
+        renderer->cached_selection_revision = selection ? selection->revision : 0u;
         renderer->cached_selection_preview_active = selection_preview_active;
         renderer->cached_selection_preview_delta = selection_preview_delta;
         renderer->cached_viewport = canvas_view_viewport(canvas);

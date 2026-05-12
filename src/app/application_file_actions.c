@@ -1,5 +1,6 @@
 #include <app/application_file_actions.h>
 
+#include <app/workspace_internal.h>
 #include <app/application_dialog_actions.h>
 #include <app/workspace_dialogs.h>
 #include <app/workspace_service.h>

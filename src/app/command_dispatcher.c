@@ -1,5 +1,6 @@
 #include <app/command_dispatcher.h>
 
+#include <app/workspace_internal.h>
 #include <app/command_registry.h>
 #include <app/workspace_actions.h>
 #include <commands/command.h>
