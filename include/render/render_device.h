@@ -3,10 +3,10 @@
 
 #include <base/types.h>
 
-typedef enum RenderPathMode {
-    RENDER_PATH_LINES = 0,
-    RENDER_PATH_LINE_STRIP
-} RenderPathMode;
+typedef enum RenderPrimitiveType {
+    RENDER_PRIMITIVE_LINES = 0,
+    RENDER_PRIMITIVE_LINE_STRIP
+} RenderPrimitiveType;
 
 typedef struct RenderFrameDesc {
     int logical_width;
@@ -21,6 +21,22 @@ typedef struct RenderTransform {
     float scale_y;
 } RenderTransform;
 
+typedef struct RenderMaterial {
+    Color color;
+    float line_width;
+} RenderMaterial;
+
+typedef struct RenderGeometry {
+    const Vec2* points;
+    int point_count;
+    RenderPrimitiveType primitive;
+} RenderGeometry;
+
+typedef struct RenderPass {
+    RectF clip_rect;
+    RenderTransform transform;
+} RenderPass;
+
 typedef struct RenderDevice RenderDevice;
 
 typedef struct RenderDeviceVTable {
@@ -30,16 +46,10 @@ typedef struct RenderDeviceVTable {
                   int framebuffer_width,
                   int framebuffer_height);
     int (*begin_frame)(RenderDevice* device, const RenderFrameDesc* frame_desc);
-    void (*set_transform)(RenderDevice* device, const RenderTransform* transform);
-    void (*set_clip_rect)(RenderDevice* device, RectF clip_rect);
-    void (*set_color)(RenderDevice* device, Color color);
-    void (*draw_line)(RenderDevice* device, Vec2 from, Vec2 to, float line_width);
-    void (*draw_rect)(RenderDevice* device, RectF rect, float line_width);
-    void (*draw_path)(RenderDevice* device,
-                      const Vec2* points,
-                      int point_count,
-                      RenderPathMode mode,
-                      float line_width);
+    int (*begin_pass)(RenderDevice* device, const RenderPass* pass);
+    int (*draw_geometry)(RenderDevice* device,
+                         const RenderGeometry* geometry,
+                         const RenderMaterial* material);
     int (*read_pixels)(RenderDevice* device,
                        RectF rect,
                        unsigned char* out_rgba,
@@ -58,16 +68,10 @@ int render_device_resize(RenderDevice* device,
                          int framebuffer_width,
                          int framebuffer_height);
 int render_device_begin_frame(RenderDevice* device, const RenderFrameDesc* frame_desc);
-void render_device_set_transform(RenderDevice* device, const RenderTransform* transform);
-void render_device_set_clip_rect(RenderDevice* device, RectF clip_rect);
-void render_device_set_color(RenderDevice* device, Color color);
-void render_device_draw_line(RenderDevice* device, Vec2 from, Vec2 to, float line_width);
-void render_device_draw_rect(RenderDevice* device, RectF rect, float line_width);
-void render_device_draw_path(RenderDevice* device,
-                             const Vec2* points,
-                             int point_count,
-                             RenderPathMode mode,
-                             float line_width);
+int render_device_begin_pass(RenderDevice* device, const RenderPass* pass);
+int render_device_draw_geometry(RenderDevice* device,
+                                const RenderGeometry* geometry,
+                                const RenderMaterial* material);
 int render_device_read_pixels(RenderDevice* device,
                               RectF rect,
                               unsigned char* out_rgba,

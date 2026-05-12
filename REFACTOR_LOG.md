@@ -119,3 +119,66 @@
 - Validation:
   `cmake --build build --parallel` passed.
   `ctest --test-dir build --output-on-failure` passed.
+
+## 2026-05-12 23:09:14 CST - P2: Introduce Render Resource Management Layer
+
+- Modified files:
+  `include/render/buffer_pool.h`,
+  `include/render/shader_manager.h`,
+  `src/render/buffer_pool.c`,
+  `src/render/render_device_gl.c`,
+  `src/render/shader_manager.c`,
+  `CMakeLists.txt`
+- Key changes:
+  Added a `ShaderManager` module that centralizes shader source loading, shader compilation, program linking, uniform lookup, and program destruction instead of keeping that lifecycle embedded in `render_device_gl.c`.
+  Added a `BufferPool` module that owns GL vertex stream creation, attribute layout setup, buffer growth, and VAO/VBO teardown so transient backend resources are managed through one resource layer.
+  Updated `render_device_gl.c` to consume the new shader and buffer managers, reducing the backend file to frame state, transform logic, clip handling, and draw submission orchestration.
+- Validation:
+  `cmake --build build --parallel` passed.
+  `ctest --test-dir build --output-on-failure` passed.
+
+## 2026-05-12 23:27:42 CST - P2: Replace Draw-List Hot-Path Heap Churn With Reusable Arena Storage
+
+- Modified files:
+  `include/render/render_arena.h`,
+  `src/render/render_arena.c`,
+  `include/render/canvas_drawlist.h`,
+  `src/render/canvas_drawlist.c`,
+  `tests/test_renderer.c`,
+  `CMakeLists.txt`
+- Key changes:
+  Added a reusable `RenderArena` allocator module with explicit init/reset/shutdown/reserve/alloc operations so temporary render-build storage lives behind a dedicated abstraction instead of ad hoc per-call heap usage.
+  Updated `CanvasDrawList` to own a build-scoped scratch arena and reset it once per build, making temporary object path buffers, grid geometry buffers, and visible-index arrays reuse retained memory across frames.
+  Removed the hot-path `malloc/free` pairs from `canvas_drawlist_build()` and its helper paths, while keeping the externally visible draw-list output arrays and submission flow unchanged.
+  Added a renderer regression test that verifies the draw-list scratch arena remains allocated and reusable across repeated builds.
+- Validation:
+  `cmake --build build --parallel` passed.
+  `ctest --test-dir build --output-on-failure` passed.
+
+## 2026-05-12 23:46:18 CST - P2: Raise Render Abstraction Around Pass, Material, and Geometry
+
+- Modified files:
+  `include/render/render_device.h`,
+  `src/render/render_device.c`,
+  `include/render/canvas_drawlist.h`,
+  `src/render/canvas_drawlist.c`,
+  `src/render/render_device_gl.c`,
+  `src/render/canvas_renderer.c`,
+  `tests/test_renderer.c`
+- Key changes:
+  Replaced the old immediate-mode render-device surface (`set_color`, `draw_path`, `draw_rect`, `draw_line`, mutable transform/clip state) with explicit `RenderPass`, `RenderMaterial`, and `RenderGeometry` value types.
+  Updated `canvas_renderer_submit()` to build a pass object once per frame submission and then submit each stroke as a geometry/material pair, making the renderer intent explicit and reducing hidden backend state transitions.
+  Simplified the GL backend so pass setup owns clip and transform state, while draw submission consumes geometry and material payloads directly instead of relying on prior setter calls.
+  Updated renderer tests to validate the new frame/pass/draw submission sequence and geometry metadata capture.
+- Validation:
+  `cmake --build build --parallel` passed.
+  `ctest --test-dir build --output-on-failure` passed.
+
+## 2026-05-12 23:54:03 CST - P3: Future Architecture Evolution Suggestions
+
+- Render graph direction:
+  If GLDraw grows beyond a single canvas line-render pass, evolve the current frame/pass model into a render graph so offscreen composition, post-processing, and dependency ordering are explicit instead of being encoded inside backend control flow.
+- Backend portability direction:
+  Split backend-facing rendering into a `RenderBackend` layer plus a separate context/provider abstraction so OpenGL-specific context creation assumptions stop leaking into the rendering lifecycle and alternate backends can be introduced incrementally.
+- Editor ecosystem direction:
+  Keep the current static manifest model unless there is a real plugin-distribution goal; if that goal appears later, introduce a narrow plugin ABI centered on registration APIs rather than exposing workspace or renderer internals directly.

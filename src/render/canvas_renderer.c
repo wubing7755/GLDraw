@@ -5,6 +5,7 @@ int canvas_renderer_submit(RenderDevice* device,
                            const RenderTransform* transform,
                            const CanvasDrawList* draw_list)
 {
+    RenderPass pass;
     size_t i = 0u;
 
     if (!device || !frame_desc || !transform || !draw_list) {
@@ -15,17 +16,27 @@ int canvas_renderer_submit(RenderDevice* device,
         return 0;
     }
 
-    render_device_set_transform(device, transform);
-    render_device_set_clip_rect(device, draw_list->clip_rect);
+    pass.clip_rect = draw_list->clip_rect;
+    pass.transform = *transform;
+    if (!render_device_begin_pass(device, &pass)) {
+        render_device_end_frame(device);
+        return 0;
+    }
+
     for (i = 0u; i < draw_list->stroke_count; ++i) {
         const CanvasStrokeCommand* stroke = &draw_list->strokes[i];
+        RenderGeometry geometry;
+        RenderMaterial material;
 
-        render_device_set_color(device, stroke->color);
-        render_device_draw_path(device,
-                                draw_list->points + stroke->point_offset,
-                                stroke->point_count,
-                                stroke->mode,
-                                stroke->line_width);
+        geometry.points = draw_list->points + stroke->point_offset;
+        geometry.point_count = stroke->point_count;
+        geometry.primitive = stroke->primitive;
+        material.color = stroke->color;
+        material.line_width = stroke->line_width;
+        if (!render_device_draw_geometry(device, &geometry, &material)) {
+            render_device_end_frame(device);
+            return 0;
+        }
     }
     render_device_end_frame(device);
     return 1;

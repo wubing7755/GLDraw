@@ -4,6 +4,7 @@
 #include <canvas/canvas_view.h>
 #include <document/document.h>
 #include <model/selection.h>
+#include <render/render_arena.h>
 #include <render/render_device.h>
 
 #include <stddef.h>
@@ -11,7 +12,7 @@
 typedef struct CanvasStrokeCommand {
     Color color;
     float line_width;
-    RenderPathMode mode;
+    RenderPrimitiveType primitive;
     size_t point_offset;
     int point_count;
 } CanvasStrokeCommand;
@@ -23,6 +24,7 @@ typedef struct CanvasDrawList {
     CanvasStrokeCommand* strokes;
     size_t stroke_count;
     size_t stroke_capacity;
+    RenderArena scratch_arena;
     RectF clip_rect;
     Color clear_color;
 } CanvasDrawList;

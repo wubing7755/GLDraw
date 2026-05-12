@@ -66,7 +66,7 @@ static int canvas_drawlist_append_stroke(CanvasDrawList* draw_list,
                                          int point_count,
                                          Color color,
                                          float line_width,
-                                         RenderPathMode mode)
+                                         RenderPrimitiveType primitive)
 {
     CanvasStrokeCommand* stroke = NULL;
 
@@ -86,7 +86,7 @@ static int canvas_drawlist_append_stroke(CanvasDrawList* draw_list,
     stroke = &draw_list->strokes[draw_list->stroke_count++];
     stroke->color = color;
     stroke->line_width = line_width;
-    stroke->mode = mode;
+    stroke->primitive = primitive;
     stroke->point_offset = draw_list->point_count;
     stroke->point_count = point_count;
     draw_list->point_count += (size_t)point_count;
@@ -129,7 +129,9 @@ static int canvas_drawlist_append_grid(CanvasDrawList* draw_list, const CanvasVi
     int index = 0;
 
     if (point_count > 0) {
-        points = (Vec2*)malloc((size_t)point_count * sizeof(points[0]));
+        points = (Vec2*)render_arena_alloc(&draw_list->scratch_arena,
+                                           (size_t)point_count * sizeof(points[0]),
+                                           sizeof(points[0]));
         if (!points) {
             return 0;
         }
@@ -150,11 +152,9 @@ static int canvas_drawlist_append_grid(CanvasDrawList* draw_list, const CanvasVi
                                            point_count,
                                            grid_color,
                                            1.0f,
-                                           RENDER_PATH_LINES)) {
-            free(points);
+                                           RENDER_PRIMITIVE_LINES)) {
             return 0;
         }
-        free(points);
     }
 
     axis_points[0] = canvas_view_world_to_screen(canvas, vec2_make(visible.x, 0.0f));
@@ -169,7 +169,7 @@ static int canvas_drawlist_append_grid(CanvasDrawList* draw_list, const CanvasVi
                                          4,
                                          axis_color,
                                          1.5f,
-                                         RENDER_PATH_LINES);
+                                         RENDER_PRIMITIVE_LINES);
 }
 
 static int canvas_drawlist_append_object(CanvasDrawList* draw_list,
@@ -192,7 +192,9 @@ static int canvas_drawlist_append_object(CanvasDrawList* draw_list,
         return 1;
     }
 
-    points = (Vec2*)malloc((size_t)point_count * sizeof(points[0]));
+    points = (Vec2*)render_arena_alloc(&draw_list->scratch_arena,
+                                       (size_t)point_count * sizeof(points[0]),
+                                       sizeof(points[0]));
     if (!points) {
         return 0;
     }
@@ -209,8 +211,7 @@ static int canvas_drawlist_append_object(CanvasDrawList* draw_list,
                                        point_count,
                                        highlight,
                                        object->style.stroke_width + 3.0f,
-                                       RENDER_PATH_LINE_STRIP)) {
-        free(points);
+                                       RENDER_PRIMITIVE_LINE_STRIP)) {
         return 0;
     }
 
@@ -219,12 +220,10 @@ static int canvas_drawlist_append_object(CanvasDrawList* draw_list,
                                        point_count,
                                        object->style.stroke_color,
                                        object->style.stroke_width,
-                                       RENDER_PATH_LINE_STRIP)) {
-        free(points);
+                                       RENDER_PRIMITIVE_LINE_STRIP)) {
         return 0;
     }
 
-    free(points);
     return 1;
 }
 
@@ -235,6 +234,7 @@ void canvas_drawlist_init(CanvasDrawList* draw_list)
     }
 
     memset(draw_list, 0, sizeof(*draw_list));
+    render_arena_init(&draw_list->scratch_arena);
 }
 
 void canvas_drawlist_reset(CanvasDrawList* draw_list)
@@ -245,6 +245,7 @@ void canvas_drawlist_reset(CanvasDrawList* draw_list)
 
     draw_list->point_count = 0u;
     draw_list->stroke_count = 0u;
+    render_arena_reset(&draw_list->scratch_arena);
     draw_list->clip_rect = (RectF){0.0f, 0.0f, 0.0f, 0.0f};
     draw_list->clear_color = (Color){0.0f, 0.0f, 0.0f, 1.0f};
 }
@@ -257,6 +258,7 @@ void canvas_drawlist_shutdown(CanvasDrawList* draw_list)
 
     free(draw_list->points);
     free(draw_list->strokes);
+    render_arena_shutdown(&draw_list->scratch_arena);
     canvas_drawlist_init(draw_list);
 }
 
@@ -286,7 +288,10 @@ int canvas_drawlist_build(CanvasDrawList* draw_list,
     }
 
     if (document->count > 0) {
-        visible_indices = (int*)malloc((size_t)document->count * sizeof(visible_indices[0]));
+        visible_indices = (int*)render_arena_alloc(&draw_list->scratch_arena,
+                                                   (size_t)document->count *
+                                                       sizeof(visible_indices[0]),
+                                                   sizeof(visible_indices[0]));
         if (!visible_indices) {
             return 0;
         }
@@ -329,7 +334,6 @@ int canvas_drawlist_build(CanvasDrawList* draw_list,
                                                object,
                                                selected,
                                                preview_delta)) {
-                free(visible_indices);
                 return 0;
             }
         }
@@ -341,10 +345,8 @@ int canvas_drawlist_build(CanvasDrawList* draw_list,
                                        overlay_object,
                                        0,
                                        vec2_make(0.0f, 0.0f))) {
-        free(visible_indices);
         return 0;
     }
 
-    free(visible_indices);
     return 1;
 }

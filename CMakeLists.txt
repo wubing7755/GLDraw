@@ -97,13 +97,16 @@ set(RENDER_CORE_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/render/render_device.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/render/canvas_drawlist.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/render/canvas_renderer.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/render/render_arena.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/render/render_system.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/image/png_writer.c
 )
 
 set(RENDER_GLFW_GL_SOURCES
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/render/buffer_pool.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/render/render_device_factory.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/render/render_device_gl.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/render/shader_manager.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/glad.c
 )
 
