@@ -67,3 +67,55 @@
 - Validation:
   `cmake --build build --parallel` passed.
   `ctest --test-dir build --output-on-failure -R 'workspace|ui_logic|registry|selection|renderer'` passed.
+
+## 2026-05-12 22:09:20 CST - P1: Replace ToolContext Workspace Access With Ports
+
+- Modified files:
+  `include/tools/tool.h`,
+  `include/script/script_runtime.h`,
+  `src/app/workspace.c`,
+  `src/tools/tool_select.c`,
+  `src/tools/tool_shape.c`,
+  `src/tools/script_tool_lua.c`,
+  `src/script/script_runtime_lua.c`,
+  `tests/test_ui_logic.c`,
+  `tests/test_script_runtime.c`
+- Key changes:
+  Added `ToolPorts` to `ToolContext` and introduced helper wrappers for command execution, undo/redo, selection preview updates, and dirty-flag sync so tools no longer require direct `Workspace*` access for runtime mutations.
+  Wired `workspace_tool_context()` to publish concrete port implementations backed by the workspace command executor and session preview/dirty state.
+  Updated built-in select and shape tools plus the optional Lua-backed script tool/runtime to use the new port callbacks instead of reaching into `Workspace` internals or `CommandExecutor` directly.
+  Updated tests to build contexts through `workspace_tool_context()` and to provide explicit test ports for script runtime execution.
+- Validation:
+  `cmake --build build --parallel` passed.
+  `ctest --test-dir build --output-on-failure -R 'ui_logic|workspace|registry|selection|renderer|command'` passed.
+  The scripting-enabled build still could not be compiled locally because this machine does not have the required Lua development package discoverable by CMake.
+
+## 2026-05-12 22:32:08 CST - P1: Seal Platform Window Leakage Behind Callbacks and Adapters
+
+- Modified files:
+  `include/platform/window.h`,
+  `src/platform/window.c`,
+  `src/platform/window_internal.h`,
+  `src/app/application.c`,
+  `src/ui/ui_runtime.c`,
+  `src/ui/ui_system_internal.h`
+- Key changes:
+  Added platform-owned window event callback registration APIs plus wrappers for window sizing, close requests, timed waits, and shared time queries so application runtime code no longer calls GLFW window functions directly.
+  Moved GLFW callback dispatch into the platform layer and backed it with an internal native-window registry, removing the need for application/user-pointer ownership on `GLFWwindow`.
+  Added a small platform-owned Nuklear/GLFW adapter surface so `ui_runtime.c` can initialize, frame, render, and shut down Nuklear without including `window_internal.h` or touching raw `GLFWwindow*`.
+  Updated application startup and loop code to register platform callbacks and use platform wrappers for framebuffer polling and close control.
+- Validation:
+  `cmake --build build --parallel` passed.
+  `ctest --test-dir build --output-on-failure -R 'ui_logic|workspace|registry|selection|renderer|command'` passed.
+
+## 2026-05-12 22:42:37 CST - P1: Reorganize CMake Targets Around Runtime Boundaries
+
+- Modified files:
+  `CMakeLists.txt`
+- Key changes:
+  Replaced the old coarse library split (`gldraw_model`, `gldraw_render_gl`, `gldraw_commands`, `gldraw_ui_nuklear`, `gldraw_app`) with a layered target graph centered on `editor_model`, `editor_commands`, `editor_tools`, `editor_runtime`, `render_core`, `render_glfw_gl`, `platform_glfw`, `ui_nuklear_glfw`, and `editor_app`.
+  Moved command core, tool runtime, render core, GL backend, platform window implementation, UI runtime, and application shell sources into separate targets so their responsibilities match the architecture more closely and command/tool/runtime cycles are broken explicitly in the link graph.
+  Updated executable and test link dependencies to target the new layer boundaries, while keeping compatibility aliases for the previous `gldraw_*` library names.
+- Validation:
+  `cmake --build build --parallel` passed.
+  `ctest --test-dir build --output-on-failure` passed.

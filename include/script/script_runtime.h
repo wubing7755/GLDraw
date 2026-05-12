@@ -13,7 +13,7 @@ void script_runtime_shutdown(ScriptRuntime* runtime);
 void script_runtime_set_context(ScriptRuntime* runtime,
                                 Document* document,
                                 SelectionSet* selection,
-                                CommandExecutor* executor);
+                                const ToolPorts* ports);
 int script_runtime_execute_file_event(ScriptRuntime* runtime,
                                       const char* script_path,
                                       const char* event_name,

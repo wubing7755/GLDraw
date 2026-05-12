@@ -72,7 +72,7 @@ function(gldraw_apply_sanitizers target_name)
     endif()
 endfunction()
 
-set(GLDRAW_MODEL_SOURCES
+set(EDITOR_MODEL_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/base/file_utils.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/base/path_utils.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/model/selection.c
@@ -92,37 +92,31 @@ set(GLDRAW_MODEL_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/document/persistence.c
 )
 
-set(GLDRAW_RENDER_GL_SOURCES
+set(RENDER_CORE_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/canvas/canvas_view.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/render/render_device.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/render/render_device_factory.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/render/render_device_gl.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/render/canvas_drawlist.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/render/canvas_renderer.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/render/render_system.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/image/png_writer.c
+)
+
+set(RENDER_GLFW_GL_SOURCES
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/render/render_device_factory.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/render/render_device_gl.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/glad.c
 )
 
-set(GLDRAW_COMMAND_SOURCES
+set(EDITOR_COMMANDS_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/commands/command.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/commands/command_executor.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/commands/command_layer_ops.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/commands/command_object_ops.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/commands/command_transaction.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/editor_action.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/app/command_registry.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/app/command_dispatcher.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/app/editor_viewmodel.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/app/registration_manifest.c
+)
+
+set(EDITOR_TOOLS_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/app/tool_manifest.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/app/workspace.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/app/workspace_actions.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/app/workspace_dialogs.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/app/workspace_service.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/input/key_chord.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/input/keymap.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/input/input_router.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/tools/tool_registry.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/tools/tool_runtime.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/tools/tool_input_dispatch.c
@@ -131,15 +125,34 @@ set(GLDRAW_COMMAND_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/tools/tool_shape.c
 )
 
+set(EDITOR_RUNTIME_SOURCES
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/editor_action.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/app/command_registry.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/app/command_dispatcher.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/app/editor_viewmodel.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/app/registration_manifest.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/app/workspace.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/app/workspace_actions.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/app/workspace_dialogs.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/app/workspace_service.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/input/key_chord.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/input/keymap.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/input/input_router.c
+)
+
 if(GLDRAW_ENABLE_SCRIPTING)
     find_package(Lua REQUIRED)
-    list(APPEND GLDRAW_COMMAND_SOURCES
+    list(APPEND EDITOR_TOOLS_SOURCES
         ${CMAKE_CURRENT_SOURCE_DIR}/src/script/script_runtime_lua.c
         ${CMAKE_CURRENT_SOURCE_DIR}/src/tools/script_tool_lua.c
     )
 endif()
 
-set(GLDRAW_UI_NUKLEAR_SOURCES
+set(PLATFORM_GLFW_SOURCES
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/platform/window.c
+)
+
+set(UI_NUKLEAR_GLFW_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ui_chrome.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ui_context_menu.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ui_inspector_panel.c
@@ -154,13 +167,12 @@ set(GLDRAW_UI_NUKLEAR_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ui_theme.c
 )
 
-set(GLDRAW_APP_SOURCES
+set(EDITOR_APP_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/app/application.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/app/application_dialog_actions.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/app/application_file_actions.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/app/application_runtime.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/platform/file_dialog.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/platform/window.c
 )
 
 if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
@@ -175,130 +187,120 @@ if(CMAKE_C_COMPILER_ID MATCHES "Clang")
     )
 endif()
 
-add_library(gldraw_model STATIC ${GLDRAW_MODEL_SOURCES})
+function(gldraw_target_defaults target_name)
+    target_include_directories(${target_name}
+        PUBLIC
+            ${CMAKE_CURRENT_SOURCE_DIR}/include
+        PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/src
+    )
+    gldraw_apply_compile_options(${target_name})
+    gldraw_apply_sanitizers(${target_name})
+endfunction()
 
-target_include_directories(gldraw_model
-    PUBLIC
-        ${CMAKE_CURRENT_SOURCE_DIR}/include
-    PRIVATE
-        ${CMAKE_CURRENT_SOURCE_DIR}/src
-)
+function(gldraw_target_glfw_defaults target_name)
+    gldraw_target_defaults(${target_name})
+    target_include_directories(${target_name}
+        PRIVATE
+            "${glfw_SOURCE_DIR}/include"
+    )
+endfunction()
 
-gldraw_apply_compile_options(gldraw_model)
-gldraw_apply_sanitizers(gldraw_model)
-
+add_library(editor_model STATIC ${EDITOR_MODEL_SOURCES})
+gldraw_target_defaults(editor_model)
 if(UNIX AND NOT APPLE)
-    target_link_libraries(gldraw_model PUBLIC m)
+    target_link_libraries(editor_model PUBLIC m)
 endif()
 
-add_library(gldraw_render_gl STATIC ${GLDRAW_RENDER_GL_SOURCES})
+add_library(render_core STATIC ${RENDER_CORE_SOURCES})
+gldraw_target_defaults(render_core)
+target_link_libraries(render_core PUBLIC editor_model)
 
-target_include_directories(gldraw_render_gl
+add_library(platform_glfw STATIC ${PLATFORM_GLFW_SOURCES})
+gldraw_target_glfw_defaults(platform_glfw)
+target_link_libraries(platform_glfw
     PUBLIC
-        ${CMAKE_CURRENT_SOURCE_DIR}/include
-    PRIVATE
-        ${CMAKE_CURRENT_SOURCE_DIR}/src
-        "${glfw_SOURCE_DIR}/include"
-)
-
-target_link_libraries(gldraw_render_gl
-    PUBLIC
-        gldraw_model
+        editor_model
     PRIVATE
         glfw
         OpenGL::GL
 )
 
-gldraw_apply_compile_options(gldraw_render_gl)
-gldraw_apply_sanitizers(gldraw_render_gl)
-
-add_library(gldraw_commands STATIC ${GLDRAW_COMMAND_SOURCES})
-
-target_include_directories(gldraw_commands
+add_library(render_glfw_gl STATIC ${RENDER_GLFW_GL_SOURCES})
+gldraw_target_glfw_defaults(render_glfw_gl)
+target_link_libraries(render_glfw_gl
     PUBLIC
-        ${CMAKE_CURRENT_SOURCE_DIR}/include
+        render_core
     PRIVATE
-        ${CMAKE_CURRENT_SOURCE_DIR}/src
-        "${glfw_SOURCE_DIR}/include"
+        glfw
+        OpenGL::GL
 )
 
-target_link_libraries(gldraw_commands
+add_library(editor_commands STATIC ${EDITOR_COMMANDS_SOURCES})
+gldraw_target_defaults(editor_commands)
+target_link_libraries(editor_commands PUBLIC editor_model)
+
+add_library(editor_tools STATIC ${EDITOR_TOOLS_SOURCES})
+gldraw_target_glfw_defaults(editor_tools)
+target_link_libraries(editor_tools
     PUBLIC
-        gldraw_model
-        gldraw_render_gl
+        editor_commands
+        render_core
     PRIVATE
         glfw
 )
-
 if(GLDRAW_ENABLE_SCRIPTING)
-    target_include_directories(gldraw_commands PRIVATE ${LUA_INCLUDE_DIR})
-    target_link_libraries(gldraw_commands PRIVATE ${LUA_LIBRARIES})
-    target_compile_definitions(gldraw_commands PRIVATE GLDRAW_ENABLE_SCRIPTING=1)
+    target_include_directories(editor_tools PRIVATE ${LUA_INCLUDE_DIR})
+    target_link_libraries(editor_tools PRIVATE ${LUA_LIBRARIES})
+    target_compile_definitions(editor_tools PRIVATE GLDRAW_ENABLE_SCRIPTING=1)
 endif()
 
-gldraw_apply_compile_options(gldraw_commands)
-gldraw_apply_sanitizers(gldraw_commands)
-
-add_library(gldraw_ui_nuklear STATIC ${GLDRAW_UI_NUKLEAR_SOURCES})
-
-target_include_directories(gldraw_ui_nuklear
+add_library(editor_runtime STATIC ${EDITOR_RUNTIME_SOURCES})
+gldraw_target_glfw_defaults(editor_runtime)
+target_link_libraries(editor_runtime
     PUBLIC
-        ${CMAKE_CURRENT_SOURCE_DIR}/include
+        editor_commands
+        editor_tools
     PRIVATE
-        ${CMAKE_CURRENT_SOURCE_DIR}/src
-        "${glfw_SOURCE_DIR}/include"
-)
-
-target_link_libraries(gldraw_ui_nuklear
-    PUBLIC
-        gldraw_model
-        gldraw_render_gl
-        gldraw_commands
-    PRIVATE
+        render_core
         glfw
-        OpenGL::GL
 )
 
-gldraw_apply_compile_options(gldraw_ui_nuklear)
-gldraw_apply_sanitizers(gldraw_ui_nuklear)
-
-add_library(gldraw_app STATIC ${GLDRAW_APP_SOURCES})
-
-target_include_directories(gldraw_app
+add_library(ui_nuklear_glfw STATIC ${UI_NUKLEAR_GLFW_SOURCES})
+gldraw_target_glfw_defaults(ui_nuklear_glfw)
+target_link_libraries(ui_nuklear_glfw
     PUBLIC
-        ${CMAKE_CURRENT_SOURCE_DIR}/include
-    PRIVATE
-        ${CMAKE_CURRENT_SOURCE_DIR}/src
-        "${glfw_SOURCE_DIR}/include"
+        editor_runtime
+        platform_glfw
 )
 
-target_link_libraries(gldraw_app
+add_library(editor_app STATIC ${EDITOR_APP_SOURCES})
+gldraw_target_glfw_defaults(editor_app)
+target_link_libraries(editor_app
     PUBLIC
-        gldraw_model
-        gldraw_render_gl
-        gldraw_commands
-        gldraw_ui_nuklear
-    PRIVATE
-        glfw
-        OpenGL::GL
+        editor_runtime
+        ui_nuklear_glfw
+        render_glfw_gl
+        platform_glfw
 )
-
-gldraw_apply_compile_options(gldraw_app)
-gldraw_apply_sanitizers(gldraw_app)
-
 if(WIN32)
-    target_link_libraries(gldraw_app PUBLIC gdi32 comdlg32)
+    target_link_libraries(editor_app PUBLIC gdi32 comdlg32)
+endif()
+if(UNIX AND NOT APPLE)
+    target_link_libraries(editor_app PUBLIC pthread dl)
 endif()
 
-if(UNIX AND NOT APPLE)
-    target_link_libraries(gldraw_app PUBLIC pthread dl)
-endif()
+add_library(gldraw_model ALIAS editor_model)
+add_library(gldraw_render_gl ALIAS render_glfw_gl)
+add_library(gldraw_commands ALIAS editor_runtime)
+add_library(gldraw_ui_nuklear ALIAS ui_nuklear_glfw)
+add_library(gldraw_app ALIAS editor_app)
 
 add_executable(${PROJECT_NAME}
     ${CMAKE_CURRENT_SOURCE_DIR}/src/main.c
 )
 
-target_link_libraries(${PROJECT_NAME} PRIVATE gldraw_app)
+target_link_libraries(${PROJECT_NAME} PRIVATE editor_app)
 
 gldraw_apply_compile_options(${PROJECT_NAME})
 gldraw_apply_sanitizers(${PROJECT_NAME})
@@ -338,7 +340,7 @@ target_include_directories(gldraw_document_core_tests
         ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
-target_link_libraries(gldraw_document_core_tests PRIVATE gldraw_model gldraw_commands)
+target_link_libraries(gldraw_document_core_tests PRIVATE editor_runtime)
 
 gldraw_apply_compile_options(gldraw_document_core_tests)
 gldraw_apply_sanitizers(gldraw_document_core_tests)
@@ -358,7 +360,7 @@ target_include_directories(gldraw_png_writer_tests
         ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
-target_link_libraries(gldraw_png_writer_tests PRIVATE gldraw_render_gl)
+target_link_libraries(gldraw_png_writer_tests PRIVATE render_core)
 
 gldraw_apply_compile_options(gldraw_png_writer_tests)
 gldraw_apply_sanitizers(gldraw_png_writer_tests)
@@ -378,7 +380,7 @@ target_include_directories(gldraw_selection_tests
         ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
-target_link_libraries(gldraw_selection_tests PRIVATE gldraw_model)
+target_link_libraries(gldraw_selection_tests PRIVATE editor_model)
 
 gldraw_apply_compile_options(gldraw_selection_tests)
 gldraw_apply_sanitizers(gldraw_selection_tests)
@@ -398,7 +400,7 @@ target_include_directories(gldraw_document_tests
         ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
-target_link_libraries(gldraw_document_tests PRIVATE gldraw_model)
+target_link_libraries(gldraw_document_tests PRIVATE editor_model)
 
 gldraw_apply_compile_options(gldraw_document_tests)
 gldraw_apply_sanitizers(gldraw_document_tests)
@@ -418,7 +420,7 @@ target_include_directories(gldraw_command_tests
         ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
-target_link_libraries(gldraw_command_tests PRIVATE gldraw_commands)
+target_link_libraries(gldraw_command_tests PRIVATE editor_runtime)
 
 gldraw_apply_compile_options(gldraw_command_tests)
 gldraw_apply_sanitizers(gldraw_command_tests)
@@ -438,7 +440,7 @@ target_include_directories(gldraw_registry_tests
         ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
-target_link_libraries(gldraw_registry_tests PRIVATE gldraw_ui_nuklear)
+target_link_libraries(gldraw_registry_tests PRIVATE ui_nuklear_glfw)
 
 gldraw_apply_compile_options(gldraw_registry_tests)
 gldraw_apply_sanitizers(gldraw_registry_tests)
@@ -459,7 +461,7 @@ if(GLDRAW_ENABLE_SCRIPTING)
             ${CMAKE_CURRENT_SOURCE_DIR}/include
     )
 
-    target_link_libraries(gldraw_script_runtime_tests PRIVATE gldraw_commands gldraw_model)
+    target_link_libraries(gldraw_script_runtime_tests PRIVATE editor_tools)
 
     gldraw_apply_compile_options(gldraw_script_runtime_tests)
     gldraw_apply_sanitizers(gldraw_script_runtime_tests)
@@ -480,7 +482,7 @@ target_include_directories(gldraw_fake_star_tests
         ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
-target_link_libraries(gldraw_fake_star_tests PRIVATE gldraw_render_gl)
+target_link_libraries(gldraw_fake_star_tests PRIVATE render_core)
 
 gldraw_apply_compile_options(gldraw_fake_star_tests)
 gldraw_apply_sanitizers(gldraw_fake_star_tests)
@@ -500,7 +502,7 @@ target_include_directories(gldraw_no_builtin_knowledge_tests
         ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
-target_link_libraries(gldraw_no_builtin_knowledge_tests PRIVATE gldraw_model)
+target_link_libraries(gldraw_no_builtin_knowledge_tests PRIVATE editor_model)
 
 gldraw_apply_compile_options(gldraw_no_builtin_knowledge_tests)
 gldraw_apply_sanitizers(gldraw_no_builtin_knowledge_tests)
@@ -520,7 +522,7 @@ target_include_directories(gldraw_ui_logic_tests
         ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
-target_link_libraries(gldraw_ui_logic_tests PRIVATE gldraw_commands)
+target_link_libraries(gldraw_ui_logic_tests PRIVATE editor_runtime)
 
 gldraw_apply_compile_options(gldraw_ui_logic_tests)
 gldraw_apply_sanitizers(gldraw_ui_logic_tests)
@@ -540,7 +542,7 @@ target_include_directories(gldraw_renderer_tests
         ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
-target_link_libraries(gldraw_renderer_tests PRIVATE gldraw_render_gl)
+target_link_libraries(gldraw_renderer_tests PRIVATE render_core)
 
 gldraw_apply_compile_options(gldraw_renderer_tests)
 gldraw_apply_sanitizers(gldraw_renderer_tests)
@@ -560,7 +562,7 @@ target_include_directories(gldraw_workspace_service_tests
         ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
-target_link_libraries(gldraw_workspace_service_tests PRIVATE gldraw_commands)
+target_link_libraries(gldraw_workspace_service_tests PRIVATE editor_runtime)
 
 gldraw_apply_compile_options(gldraw_workspace_service_tests)
 gldraw_apply_sanitizers(gldraw_workspace_service_tests)

@@ -5,6 +5,10 @@
 #ifndef GLDRAW_PLATFORM_WINDOW_H
 #define GLDRAW_PLATFORM_WINDOW_H
 
+struct nk_context;
+struct nk_font_atlas;
+struct nk_glfw;
+
 typedef struct GldWindow GldWindow;
 
 /**
@@ -26,6 +30,31 @@ typedef struct {
     int framebuffer_height;
     const char* title;
 } PlatformWindow;
+
+typedef void (*PlatformFramebufferSizeCallback)(PlatformWindow* window,
+                                                int width,
+                                                int height,
+                                                void* user_data);
+typedef void (*PlatformCursorPosCallback)(PlatformWindow* window,
+                                          double xpos,
+                                          double ypos,
+                                          void* user_data);
+typedef void (*PlatformMouseButtonCallback)(PlatformWindow* window,
+                                            int button,
+                                            int action,
+                                            int mods,
+                                            void* user_data);
+typedef void (*PlatformKeyCallback)(PlatformWindow* window,
+                                    int key,
+                                    int scancode,
+                                    int action,
+                                    int mods,
+                                    void* user_data);
+typedef void (*PlatformScrollCallback)(PlatformWindow* window,
+                                       double xoffset,
+                                       double yoffset,
+                                       void* user_data);
+typedef void (*PlatformCloseCallback)(PlatformWindow* window, void* user_data);
 
 /**
  * @brief Initialize platform windowing and create the window.
@@ -49,6 +78,7 @@ void platform_window_shutdown(PlatformWindow* window);
  * @return No return value.
  */
 void platform_window_poll_events(void);
+void platform_window_wait_events_timeout(double timeout_seconds);
 
 /**
  * @brief Swap the window front and back buffers.
@@ -63,5 +93,40 @@ void platform_window_swap_buffers(PlatformWindow* window);
  * @return Non-zero if the window should close, zero otherwise.
  */
 int platform_window_should_close(const PlatformWindow* window);
+void platform_window_set_should_close(PlatformWindow* window, int should_close);
+void platform_window_get_size(PlatformWindow* window, int* width, int* height);
+void platform_window_get_framebuffer_size(PlatformWindow* window, int* width, int* height);
+double platform_time_seconds(void);
+
+void platform_window_on_framebuffer_size(PlatformWindow* window,
+                                         PlatformFramebufferSizeCallback callback,
+                                         void* user_data);
+void platform_window_on_cursor_pos(PlatformWindow* window,
+                                   PlatformCursorPosCallback callback,
+                                   void* user_data);
+void platform_window_on_mouse_button(PlatformWindow* window,
+                                     PlatformMouseButtonCallback callback,
+                                     void* user_data);
+void platform_window_on_key(PlatformWindow* window,
+                            PlatformKeyCallback callback,
+                            void* user_data);
+void platform_window_on_scroll(PlatformWindow* window,
+                               PlatformScrollCallback callback,
+                               void* user_data);
+void platform_window_on_close(PlatformWindow* window,
+                              PlatformCloseCallback callback,
+                              void* user_data);
+
+struct nk_context* platform_window_nuklear_init(struct nk_glfw* glfw,
+                                                PlatformWindow* window);
+void platform_window_nuklear_shutdown(struct nk_glfw* glfw);
+void platform_window_nuklear_font_stash_begin(struct nk_glfw* glfw,
+                                              struct nk_font_atlas** atlas);
+void platform_window_nuklear_font_stash_end(struct nk_glfw* glfw);
+void platform_window_nuklear_new_frame(struct nk_glfw* glfw);
+void platform_window_nuklear_render(struct nk_glfw* glfw,
+                                    int anti_aliasing,
+                                    int max_vertex_buffer,
+                                    int max_element_buffer);
 
 #endif /* GLDRAW_PLATFORM_WINDOW_H */

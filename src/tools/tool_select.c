@@ -1,6 +1,5 @@
 #include "tool_internal.h"
 
-#include <app/workspace_internal.h>
 #include <base/math2d.h>
 #include <canvas/canvas_view.h>
 #include <commands/command.h>
@@ -45,10 +44,7 @@ static void select_tool_deactivate(Tool* tool, ToolContext* context)
         return;
     }
 
-    if (context && context->workspace) {
-        context->workspace->session.selection_preview_active = 0;
-        context->workspace->session.selection_preview_delta = vec2_make(0.0f, 0.0f);
-    }
+    tool_context_set_selection_preview(context, 0, vec2_make(0.0f, 0.0f));
     state->dragging = 0;
     state->moved = 0;
     state->drag_delta_total = vec2_make(0.0f, 0.0f);
@@ -98,10 +94,7 @@ static int select_tool_pointer_down(Tool* tool, ToolContext* context,
     state->moved = 0;
     state->drag_delta_total = vec2_make(0.0f, 0.0f);
     state->drag_object_count = 0;
-    if (context->workspace) {
-        context->workspace->session.selection_preview_active = 0;
-        context->workspace->session.selection_preview_delta = vec2_make(0.0f, 0.0f);
-    }
+    tool_context_set_selection_preview(context, 0, vec2_make(0.0f, 0.0f));
     hit = canvas_view_pick_object(context->canvas, event->screen_pos, 8.0f);
     if (!hit) {
         if ((event->mods & GLFW_MOD_SHIFT) == 0) {
@@ -156,10 +149,7 @@ static void select_tool_pointer_move(Tool* tool, ToolContext* context,
     state->last_world = event->world_pos;
     state->drag_delta_total = vec2_add(state->drag_delta_total, delta);
     state->moved = 1;
-    if (context->workspace) {
-        context->workspace->session.selection_preview_active = 1;
-        context->workspace->session.selection_preview_delta = state->drag_delta_total;
-    }
+    tool_context_set_selection_preview(context, 1, state->drag_delta_total);
 }
 
 static void select_tool_pointer_up(Tool* tool, ToolContext* context,
@@ -176,23 +166,17 @@ static void select_tool_pointer_up(Tool* tool, ToolContext* context,
         state->moved &&
         state->drag_object_count > 0 &&
         vec2_length_sq(state->drag_delta_total) > 1e-6f &&
-        context &&
-        context->workspace) {
+        context) {
         Command* command = command_create_move_objects(state->drag_object_ids,
                                                        state->drag_object_count,
                                                        state->drag_delta_total);
         if (command) {
-            command_executor_execute(&context->workspace->core.commands,
-                                     command,
-                                     context->document);
+            tool_context_execute_command(context, command);
         }
-        workspace_sync_document_dirty(context->workspace);
+        tool_context_sync_document_dirty(context);
     }
 
-    if (context && context->workspace) {
-        context->workspace->session.selection_preview_active = 0;
-        context->workspace->session.selection_preview_delta = vec2_make(0.0f, 0.0f);
-    }
+    tool_context_set_selection_preview(context, 0, vec2_make(0.0f, 0.0f));
     state->dragging = 0;
     state->moved = 0;
     state->drag_delta_total = vec2_make(0.0f, 0.0f);

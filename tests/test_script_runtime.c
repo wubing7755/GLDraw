@@ -27,6 +27,43 @@
         }                                                                    \
     } while (0)
 
+typedef struct {
+    CommandExecutor* executor;
+} ScriptRuntimeTestPorts;
+
+static int test_ports_execute_command(void* user, Command* command, Document* document)
+{
+    ScriptRuntimeTestPorts* ports = (ScriptRuntimeTestPorts*)user;
+
+    if (!ports || !ports->executor || !document || !command) {
+        return 0;
+    }
+
+    return command_executor_execute(ports->executor, command, document);
+}
+
+static int test_ports_undo(void* user, Document* document)
+{
+    ScriptRuntimeTestPorts* ports = (ScriptRuntimeTestPorts*)user;
+
+    if (!ports || !ports->executor || !document) {
+        return 0;
+    }
+
+    return command_executor_undo(ports->executor, document);
+}
+
+static int test_ports_redo(void* user, Document* document)
+{
+    ScriptRuntimeTestPorts* ports = (ScriptRuntimeTestPorts*)user;
+
+    if (!ports || !ports->executor || !document) {
+        return 0;
+    }
+
+    return command_executor_redo(ports->executor, document);
+}
+
 static int make_temp_path(char* buffer, size_t buffer_size, const char* suffix)
 {
     char base_name[L_tmpnam] = {0};
@@ -96,6 +133,8 @@ static int test_script_runtime_uses_safe_env_and_caches_script(void)
     CommandExecutor executor;
     SelectionSet selection = {0};
     ScriptRuntime runtime;
+    ScriptRuntimeTestPorts ports;
+    ToolPorts tool_ports;
     ToolEvent event = {0};
     char script_path[512] = {0};
 
@@ -103,11 +142,17 @@ static int test_script_runtime_uses_safe_env_and_caches_script(void)
     document_init(&document);
     EXPECT_TRUE(command_executor_init(&executor));
     EXPECT_TRUE(script_runtime_init(&runtime));
+    ports.executor = &executor;
+    memset(&tool_ports, 0, sizeof(tool_ports));
+    tool_ports.execute_command = test_ports_execute_command;
+    tool_ports.undo = test_ports_undo;
+    tool_ports.redo = test_ports_redo;
+    tool_ports.user = &ports;
 
     EXPECT_TRUE(make_temp_path(script_path, sizeof(script_path), ".lua"));
     EXPECT_TRUE(write_script_file(script_path, script_source));
 
-    script_runtime_set_context(&runtime, &document, &selection, &executor);
+    script_runtime_set_context(&runtime, &document, &selection, &tool_ports);
     event.world_pos.x = 12.0f;
     event.world_pos.y = 34.0f;
 

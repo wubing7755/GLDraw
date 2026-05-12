@@ -4,14 +4,69 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+static int workspace_tool_execute_command(void* user, Command* command, Document* document)
+{
+    Workspace* workspace = (Workspace*)user;
+
+    if (!workspace || !command || !document) {
+        return 0;
+    }
+
+    return command_executor_execute(&workspace->core.commands, command, document);
+}
+
+static int workspace_tool_undo(void* user, Document* document)
+{
+    Workspace* workspace = (Workspace*)user;
+
+    if (!workspace || !document) {
+        return 0;
+    }
+
+    return command_executor_undo(&workspace->core.commands, document);
+}
+
+static int workspace_tool_redo(void* user, Document* document)
+{
+    Workspace* workspace = (Workspace*)user;
+
+    if (!workspace || !document) {
+        return 0;
+    }
+
+    return command_executor_redo(&workspace->core.commands, document);
+}
+
+static void workspace_tool_set_selection_preview(void* user, int active, Vec2 delta)
+{
+    Workspace* workspace = (Workspace*)user;
+
+    if (!workspace) {
+        return;
+    }
+
+    workspace->session.selection_preview_active = active;
+    workspace->session.selection_preview_delta = active ? delta : (Vec2){0.0f, 0.0f};
+}
+
+static void workspace_tool_sync_document_dirty(void* user)
+{
+    workspace_sync_document_dirty((Workspace*)user);
+}
+
 ToolContext workspace_tool_context(Workspace* workspace)
 {
     ToolContext context;
 
-    context.workspace = workspace;
     context.document = workspace ? &workspace->core.document : NULL;
     context.canvas = workspace ? &workspace->core.canvas : NULL;
     context.selection = workspace ? &workspace->session.selection : NULL;
+    context.ports.execute_command = workspace ? workspace_tool_execute_command : NULL;
+    context.ports.undo = workspace ? workspace_tool_undo : NULL;
+    context.ports.redo = workspace ? workspace_tool_redo : NULL;
+    context.ports.set_selection_preview = workspace ? workspace_tool_set_selection_preview : NULL;
+    context.ports.sync_document_dirty = workspace ? workspace_tool_sync_document_dirty : NULL;
+    context.ports.user = workspace;
     return context;
 }
 

@@ -15,7 +15,7 @@ struct ScriptRuntime {
     lua_State* state;
     Document* document;
     SelectionSet* selection;
-    CommandExecutor* executor;
+    ToolPorts ports;
     int environment_ref;
     int script_loaded;
     char loaded_script_path[GLDRAW_SCRIPT_MAX_PATH];
@@ -39,7 +39,7 @@ static int script_runtime_execute_command(ScriptRuntime* runtime,
 {
     CommandExecuteCheck check = COMMAND_EXECUTE_CHECK_INVALID_ARGUMENT;
 
-    if (!runtime || !runtime->document || !runtime->executor || !command) {
+    if (!runtime || !runtime->document || !runtime->ports.execute_command || !command) {
         if (out_error) {
             *out_error = command_execute_check_message(COMMAND_EXECUTE_CHECK_INVALID_ARGUMENT);
         }
@@ -57,7 +57,7 @@ static int script_runtime_execute_command(ScriptRuntime* runtime,
         return 0;
     }
 
-    if (!command_executor_execute(runtime->executor, command, runtime->document)) {
+    if (!runtime->ports.execute_command(runtime->ports.user, command, runtime->document)) {
         if (out_error) {
             *out_error = "Command execution failed.";
         }
@@ -120,7 +120,7 @@ static int script_api_document_add_object(lua_State* state)
     GraphicObject* object = NULL;
     Command* command = NULL;
 
-    if (!runtime || !runtime->document || !runtime->executor || !type_id) {
+    if (!runtime || !runtime->document || !runtime->ports.execute_command || !type_id) {
         lua_pushnil(state);
         return 1;
     }
@@ -161,12 +161,12 @@ static int script_api_command_undo(lua_State* state)
 {
     ScriptRuntime* runtime = script_runtime_from_lua(state);
 
-    if (!runtime || !runtime->document || !runtime->executor) {
+    if (!runtime || !runtime->document || !runtime->ports.undo) {
         lua_pushboolean(state, 0);
         return 1;
     }
 
-    lua_pushboolean(state, command_executor_undo(runtime->executor, runtime->document));
+    lua_pushboolean(state, runtime->ports.undo(runtime->ports.user, runtime->document));
     return 1;
 }
 
@@ -174,12 +174,12 @@ static int script_api_command_redo(lua_State* state)
 {
     ScriptRuntime* runtime = script_runtime_from_lua(state);
 
-    if (!runtime || !runtime->document || !runtime->executor) {
+    if (!runtime || !runtime->document || !runtime->ports.redo) {
         lua_pushboolean(state, 0);
         return 1;
     }
 
-    lua_pushboolean(state, command_executor_redo(runtime->executor, runtime->document));
+    lua_pushboolean(state, runtime->ports.redo(runtime->ports.user, runtime->document));
     return 1;
 }
 
@@ -309,7 +309,7 @@ void script_runtime_shutdown(ScriptRuntime* runtime)
 void script_runtime_set_context(ScriptRuntime* runtime,
                                 Document* document,
                                 SelectionSet* selection,
-                                CommandExecutor* executor)
+                                const ToolPorts* ports)
 {
     if (!runtime) {
         return;
@@ -317,7 +317,7 @@ void script_runtime_set_context(ScriptRuntime* runtime,
 
     runtime->document = document;
     runtime->selection = selection;
-    runtime->executor = executor;
+    runtime->ports = ports ? *ports : (ToolPorts){0};
 }
 
 static int script_runtime_ensure_script_loaded(ScriptRuntime* runtime, const char* script_path)

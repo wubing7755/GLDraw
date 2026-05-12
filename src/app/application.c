@@ -29,7 +29,6 @@
 #include <stdlib.h>
 
 #include "application_internal.h"
-#include "platform/window_internal.h"
 
 #define APP_KEYMAP_SETTINGS_PATH "gldraw.keymap.json"
 
@@ -43,13 +42,11 @@ static int app_workspace_execute_action(Workspace *workspace,
                                         void *user_data);
 
 static int app_exit_application(Application *app) {
-  GLFWwindow *handle = app ? platform_window_glfw_handle(&app->window) : NULL;
-
-  if (!app || !handle) {
+  if (!app) {
     return 0;
   }
 
-  glfwSetWindowShouldClose(handle, GLFW_TRUE);
+  platform_window_set_should_close(&app->window, 1);
   workspace_set_status_message(&app->workspace, "Closing application");
   return 1;
 }
@@ -112,21 +109,17 @@ static int app_workspace_execute_action(Workspace *workspace,
  * @param height New framebuffer height.
  * @return No return value.
  */
-static void framebuffer_size_callback(GLFWwindow *handle, int width,
-                                      int height) {
-  Application *app = (Application *)glfwGetWindowUserPointer(handle);
+static void framebuffer_size_callback(PlatformWindow *window, int width,
+                                      int height, void *user_data) {
+  Application *app = (Application *)user_data;
   int window_width = 0;
   int window_height = 0;
 
-  if (!app) {
+  if (!app || !window) {
     return;
   }
 
-  glfwGetWindowSize(handle, &window_width, &window_height);
-  app->window.width = window_width;
-  app->window.height = window_height;
-  app->window.framebuffer_width = width;
-  app->window.framebuffer_height = height;
+  platform_window_get_size(window, &window_width, &window_height);
   application_runtime_update_canvas_viewport(app);
   render_system_resize(app->renderer, window_width, window_height, width, height);
 }
@@ -138,10 +131,14 @@ static void framebuffer_size_callback(GLFWwindow *handle, int width,
  * @param ypos Cursor y position in screen coordinates.
  * @return No return value.
  */
-static void cursor_pos_callback(GLFWwindow *handle, double xpos, double ypos) {
-  Application *app = (Application *)glfwGetWindowUserPointer(handle);
+static void cursor_pos_callback(PlatformWindow *window,
+                                double xpos,
+                                double ypos,
+                                void *user_data) {
+  Application *app = (Application *)user_data;
   ToolContext context;
   ToolEvent event;
+  (void)window;
 
   if (!app) {
     return;
@@ -169,11 +166,15 @@ static void cursor_pos_callback(GLFWwindow *handle, double xpos, double ypos) {
  * @param mods Modifier key flags.
  * @return No return value.
  */
-static void mouse_button_callback(GLFWwindow *handle, int button, int action,
-                                  int mods) {
-  Application *app = (Application *)glfwGetWindowUserPointer(handle);
+static void mouse_button_callback(PlatformWindow *window,
+                                  int button,
+                                  int action,
+                                  int mods,
+                                  void *user_data) {
+  Application *app = (Application *)user_data;
   ToolContext context;
   ToolEvent event;
+  (void)window;
 
   if (!app) {
     return;
@@ -220,12 +221,17 @@ static void mouse_button_callback(GLFWwindow *handle, int button, int action,
  * - Global document/view commands must win over tool-specific key handlers
  *   for predictable editor behavior.
  */
-static void key_callback(GLFWwindow *handle, int key, int scancode, int action,
-                         int mods) {
-  Application *app = (Application *)glfwGetWindowUserPointer(handle);
+static void key_callback(PlatformWindow *window,
+                         int key,
+                         int scancode,
+                         int action,
+                         int mods,
+                         void *user_data) {
+  Application *app = (Application *)user_data;
   ToolContext context;
   InputRouterContext router_context;
   KeyEvent event;
+  (void)window;
   (void)scancode;
 
   if (!app) {
@@ -255,10 +261,13 @@ static void key_callback(GLFWwindow *handle, int key, int scancode, int action,
  * @param yoffset Vertical scroll delta.
  * @return No return value.
  */
-static void scroll_callback(GLFWwindow *handle, double xoffset,
-                            double yoffset) {
-  Application *app = (Application *)glfwGetWindowUserPointer(handle);
+static void scroll_callback(PlatformWindow *window,
+                            double xoffset,
+                            double yoffset,
+                            void *user_data) {
+  Application *app = (Application *)user_data;
   ToolContext context;
+  (void)window;
   (void)xoffset;
 
   if (!app) {
@@ -275,14 +284,14 @@ static void scroll_callback(GLFWwindow *handle, double xoffset,
                          (float)yoffset);
 }
 
-static void window_close_callback(GLFWwindow *handle) {
-  Application *app = (Application *)glfwGetWindowUserPointer(handle);
+static void window_close_callback(PlatformWindow *window, void *user_data) {
+  Application *app = (Application *)user_data;
 
-  if (!app) {
+  if (!app || !window) {
     return;
   }
 
-  glfwSetWindowShouldClose(handle, GLFW_FALSE);
+  platform_window_set_should_close(window, 0);
   workspace_request_action(&app->workspace, WORKSPACE_ACTION_EXIT_APPLICATION);
 }
 
@@ -296,7 +305,6 @@ static void window_close_callback(GLFWwindow *handle) {
  */
 static int app_init(Application *app) {
   RectF viewport = {0.0f, 0.0f, 1440.0f, 900.0f};
-  GLFWwindow *native_window = NULL;
 
   if (platform_window_init(&app->window, 1440, 900, "GLDraw Canvas") != 0) {
     LOG_ERROR("%s", "Failed to create window");
@@ -343,14 +351,12 @@ static int app_init(Application *app) {
     ui_system_set_action_sink(app->ui, &sink);
   }
 
-  native_window = platform_window_glfw_handle(&app->window);
-  glfwSetWindowUserPointer(native_window, app);
-  glfwSetFramebufferSizeCallback(native_window, framebuffer_size_callback);
-  glfwSetCursorPosCallback(native_window, cursor_pos_callback);
-  glfwSetMouseButtonCallback(native_window, mouse_button_callback);
-  glfwSetKeyCallback(native_window, key_callback);
-  glfwSetScrollCallback(native_window, scroll_callback);
-  glfwSetWindowCloseCallback(native_window, window_close_callback);
+  platform_window_on_framebuffer_size(&app->window, framebuffer_size_callback, app);
+  platform_window_on_cursor_pos(&app->window, cursor_pos_callback, app);
+  platform_window_on_mouse_button(&app->window, mouse_button_callback, app);
+  platform_window_on_key(&app->window, key_callback, app);
+  platform_window_on_scroll(&app->window, scroll_callback, app);
+  platform_window_on_close(&app->window, window_close_callback, app);
 
   render_system_resize(app->renderer,
                        app->window.width,
@@ -410,15 +416,14 @@ int app_run(void) {
   while (!platform_window_should_close(&app->window)) {
     int framebuffer_w = 0;
     int framebuffer_h = 0;
-    GLFWwindow *native_window = platform_window_glfw_handle(&app->window);
     ToolContext tool_context;
 
     platform_window_poll_events();
-    glfwGetFramebufferSize(native_window, &framebuffer_w, &framebuffer_h);
+    platform_window_get_framebuffer_size(&app->window, &framebuffer_w, &framebuffer_h);
     if (framebuffer_w <= 0 || framebuffer_h <= 0) {
       /* During monitor/fullscreen transitions some platforms briefly report
          zero-sized framebuffers. Avoid busy rendering loops in that state. */
-      glfwWaitEventsTimeout(0.02);
+      platform_window_wait_events_timeout(0.02);
       continue;
     }
     ui_system_begin_frame(app->ui);

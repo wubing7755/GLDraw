@@ -37,6 +37,7 @@
 #include <app/workspace.h>
 #include <base/path_utils.h>
 #include <base/types.h>
+#include <platform/window.h>
 #include <ui/editor_action.h>
 #include <ui/ui_menubar.h>
 #include <ui/ui_theme.h>
@@ -72,7 +73,7 @@ typedef struct UiSystem UiSystem;
 struct UiSystem {
   struct nk_glfw glfw;
   struct nk_context *ctx;
-  GLFWwindow *window_handle;
+  PlatformWindow *window;
   UiMenuBar *menu_bar;
   UiThemeTokens theme;
   char active_theme_id[UI_THEME_ID_CAPACITY];
