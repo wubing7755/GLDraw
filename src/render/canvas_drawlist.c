@@ -274,6 +274,7 @@ int canvas_drawlist_build(CanvasDrawList* draw_list,
     int* visible_indices = NULL;
     int visible_count = 0;
     int layer_index = 0;
+    int success = 0;
 
     if (!draw_list || !document || !canvas) {
         return 0;
@@ -284,16 +285,13 @@ int canvas_drawlist_build(CanvasDrawList* draw_list,
     draw_list->clear_color = canvas->background;
 
     if (canvas->show_grid && !canvas_drawlist_append_grid(draw_list, canvas)) {
-        return 0;
+        goto cleanup;
     }
 
     if (document->count > 0) {
-        visible_indices = (int*)render_arena_alloc(&draw_list->scratch_arena,
-                                                   (size_t)document->count *
-                                                       sizeof(visible_indices[0]),
-                                                   sizeof(visible_indices[0]));
+        visible_indices = (int*)malloc((size_t)document->count * sizeof(visible_indices[0]));
         if (!visible_indices) {
-            return 0;
+            goto cleanup;
         }
     }
 
@@ -334,7 +332,7 @@ int canvas_drawlist_build(CanvasDrawList* draw_list,
                                                object,
                                                selected,
                                                preview_delta)) {
-                return 0;
+                goto cleanup;
             }
         }
     }
@@ -345,8 +343,12 @@ int canvas_drawlist_build(CanvasDrawList* draw_list,
                                        overlay_object,
                                        0,
                                        vec2_make(0.0f, 0.0f))) {
-        return 0;
+        goto cleanup;
     }
 
-    return 1;
+    success = 1;
+
+cleanup:
+    free(visible_indices);
+    return success;
 }
