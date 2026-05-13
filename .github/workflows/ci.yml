@@ -19,6 +19,12 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v4
 
+    - name: Cache GLFW source
+      uses: actions/cache@v4
+      with:
+        path: build/_deps
+        key: ${{ runner.os }}-glfw-3.3.9-${{ hashFiles('CMakeLists.txt') }}
+
     - name: Install dependencies (Linux)
       if: runner.os == 'Linux'
       run: |
@@ -61,6 +67,12 @@ jobs:
     steps:
     - name: Checkout
       uses: actions/checkout@v4
+
+    - name: Cache GLFW source
+      uses: actions/cache@v4
+      with:
+        path: build/_deps
+        key: ${{ runner.os }}-glfw-3.3.9-${{ hashFiles('CMakeLists.txt') }}
 
     - name: Install dependencies (Linux)
       if: runner.os == 'Linux'

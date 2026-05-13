@@ -34,10 +34,12 @@ if(EXISTS "${GLDRAW_LOCAL_GLFW_DIR}/CMakeLists.txt")
     set(glfw_SOURCE_DIR "${GLDRAW_LOCAL_GLFW_DIR}")
 else()
     include(FetchContent)
+    set(FETCHCONTENT_BASE_DIR "${CMAKE_SOURCE_DIR}/build/_deps")
+    set(FETCHCONTENT_UPDATES_DISCONNECTED ON)
     FetchContent_Declare(
         glfw
-        GIT_REPOSITORY https://github.com/glfw/glfw.git
-        GIT_TAG 3.3.9
+        URL https://github.com/glfw/glfw/archive/refs/tags/3.3.9.tar.gz
+        DOWNLOAD_EXTRACT_TIMESTAMP FALSE
     )
     FetchContent_MakeAvailable(glfw)
 endif()
