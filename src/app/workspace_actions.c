@@ -10,6 +10,7 @@
  * - Sits between UI/application entry points and application-owned executors.
  * - Uses workspace callbacks for save operations before deferred execution.
  */
+#include <app/workspace_internal.h>
 #include <app/workspace_actions.h>
 
 /** Return non-zero when the requested action can discard the current document state. */

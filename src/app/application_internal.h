@@ -2,7 +2,7 @@
 #define GLDRAW_APP_APPLICATION_INTERNAL_H
 
 #include <app/command_dispatcher.h>
-#include <app/workspace.h>
+#include <app/workspace_internal.h>
 #include <platform/window.h>
 #include <render/render_system.h>
 #include <ui/editor_viewmodel.h>

@@ -1,5 +1,5 @@
 local function add_star(cx, cy, radius)
-    gldraw_document_add_object("fake_star", {
+    gldraw.document_add_object("fake_star", {
         x = cx - radius,
         y = cy - radius,
         width = radius * 2.0,

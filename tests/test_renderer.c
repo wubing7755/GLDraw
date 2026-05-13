@@ -2,6 +2,7 @@
 #include <document/document.h>
 #include <render/canvas_drawlist.h>
 #include <render/canvas_renderer.h>
+#include <render/render_system.h>
 
 #include <app/extension_loader.h>
 
@@ -42,17 +43,17 @@
 
 typedef struct MockDrawCall {
     int point_count;
-    RenderPathMode mode;
+    RenderPrimitiveType primitive;
     float line_width;
+    Vec2 first_point;
+    Color color;
 } MockDrawCall;
 
 typedef struct MockRenderDevice {
     RenderDevice base;
     char calls[16][16];
     int call_count;
-    RectF clip_rect;
-    RenderTransform transform;
-    Color last_color;
+    RenderPass pass;
     RenderFrameDesc frame_desc;
     MockDrawCall draw_calls[8];
     int draw_call_count;
@@ -80,55 +81,28 @@ static int mock_begin_frame(RenderDevice* device, const RenderFrameDesc* frame_d
     return 1;
 }
 
-static void mock_set_transform(RenderDevice* device, const RenderTransform* transform)
+static int mock_begin_pass(RenderDevice* device, const RenderPass* pass)
 {
     MockRenderDevice* mock = (MockRenderDevice*)device;
-    snprintf(mock->calls[mock->call_count++], sizeof(mock->calls[0]), "transform");
-    mock->transform = *transform;
+    snprintf(mock->calls[mock->call_count++], sizeof(mock->calls[0]), "pass");
+    mock->pass = *pass;
+    return 1;
 }
 
-static void mock_set_clip_rect(RenderDevice* device, RectF clip_rect)
+static int mock_draw_geometry(RenderDevice* device,
+                              const RenderGeometry* geometry,
+                              const RenderMaterial* material)
 {
     MockRenderDevice* mock = (MockRenderDevice*)device;
-    snprintf(mock->calls[mock->call_count++], sizeof(mock->calls[0]), "clip");
-    mock->clip_rect = clip_rect;
-}
-
-static void mock_set_color(RenderDevice* device, Color color)
-{
-    MockRenderDevice* mock = (MockRenderDevice*)device;
-    snprintf(mock->calls[mock->call_count++], sizeof(mock->calls[0]), "color");
-    mock->last_color = color;
-}
-
-static void mock_draw_line(RenderDevice* device, Vec2 from, Vec2 to, float line_width)
-{
-    (void)device;
-    (void)from;
-    (void)to;
-    (void)line_width;
-}
-
-static void mock_draw_rect(RenderDevice* device, RectF rect, float line_width)
-{
-    (void)device;
-    (void)rect;
-    (void)line_width;
-}
-
-static void mock_draw_path(RenderDevice* device,
-                           const Vec2* points,
-                           int point_count,
-                           RenderPathMode mode,
-                           float line_width)
-{
-    MockRenderDevice* mock = (MockRenderDevice*)device;
-    (void)points;
-    snprintf(mock->calls[mock->call_count++], sizeof(mock->calls[0]), "path");
-    mock->draw_calls[mock->draw_call_count].point_count = point_count;
-    mock->draw_calls[mock->draw_call_count].mode = mode;
-    mock->draw_calls[mock->draw_call_count].line_width = line_width;
+    snprintf(mock->calls[mock->call_count++], sizeof(mock->calls[0]), "draw");
+    mock->draw_calls[mock->draw_call_count].point_count = geometry->point_count;
+    mock->draw_calls[mock->draw_call_count].primitive = geometry->primitive;
+    mock->draw_calls[mock->draw_call_count].line_width = material->line_width;
+    mock->draw_calls[mock->draw_call_count].color = material->color;
+    mock->draw_calls[mock->draw_call_count].first_point =
+        geometry->point_count > 0 ? geometry->points[0] : (Vec2){0.0f, 0.0f};
     mock->draw_call_count++;
+    return 1;
 }
 
 static int mock_read_pixels(RenderDevice* device,
@@ -157,12 +131,8 @@ static void mock_destroy(RenderDevice* device)
 static const RenderDeviceVTable MOCK_VTABLE = {
     mock_resize,
     mock_begin_frame,
-    mock_set_transform,
-    mock_set_clip_rect,
-    mock_set_color,
-    mock_draw_line,
-    mock_draw_rect,
-    mock_draw_path,
+    mock_begin_pass,
+    mock_draw_geometry,
     mock_read_pixels,
     mock_end_frame,
     mock_destroy
@@ -171,6 +141,37 @@ static const RenderDeviceVTable MOCK_VTABLE = {
 static GraphicObject* make_rect(float x, float y, float w, float h)
 {
     return object_create_rect((RectF){x, y, w, h}, object_default_style());
+}
+
+static void mock_reset_frame_capture(MockRenderDevice* mock)
+{
+    if (!mock) {
+        return;
+    }
+
+    memset(mock->calls, 0, sizeof(mock->calls));
+    memset(mock->draw_calls, 0, sizeof(mock->draw_calls));
+    mock->call_count = 0;
+    mock->draw_call_count = 0;
+}
+
+static const MockDrawCall* mock_find_widest_draw_call(const MockRenderDevice* mock)
+{
+    const MockDrawCall* widest = NULL;
+    int i = 0;
+
+    if (!mock || mock->draw_call_count <= 0) {
+        return NULL;
+    }
+
+    widest = &mock->draw_calls[0];
+    for (i = 1; i < mock->draw_call_count; ++i) {
+        if (mock->draw_calls[i].line_width > widest->line_width) {
+            widest = &mock->draw_calls[i];
+        }
+    }
+
+    return widest;
 }
 
 static int test_canvas_renderer_submit_sequence(void)
@@ -206,17 +207,17 @@ static int test_canvas_renderer_submit_sequence(void)
     frame_desc.clear_color = draw_list.clear_color;
 
     EXPECT_TRUE(canvas_renderer_submit(&mock.base, &frame_desc, &transform, &draw_list));
-    EXPECT_INT_EQ(mock.call_count, 6);
+    EXPECT_INT_EQ(mock.call_count, 4);
     EXPECT_TRUE(strcmp(mock.calls[0], "begin") == 0);
-    EXPECT_TRUE(strcmp(mock.calls[1], "transform") == 0);
-    EXPECT_TRUE(strcmp(mock.calls[2], "clip") == 0);
-    EXPECT_TRUE(strcmp(mock.calls[3], "color") == 0);
-    EXPECT_TRUE(strcmp(mock.calls[4], "path") == 0);
-    EXPECT_TRUE(strcmp(mock.calls[5], "end") == 0);
-    EXPECT_FLOAT_EQ(mock.clip_rect.w, 800.0f);
-    EXPECT_FLOAT_EQ(mock.clip_rect.h, 600.0f);
+    EXPECT_TRUE(strcmp(mock.calls[1], "pass") == 0);
+    EXPECT_TRUE(strcmp(mock.calls[2], "draw") == 0);
+    EXPECT_TRUE(strcmp(mock.calls[3], "end") == 0);
+    EXPECT_FLOAT_EQ(mock.pass.clip_rect.w, 800.0f);
+    EXPECT_FLOAT_EQ(mock.pass.clip_rect.h, 600.0f);
+    EXPECT_FLOAT_EQ(mock.pass.transform.scale_x, 1.0f);
+    EXPECT_FLOAT_EQ(mock.pass.transform.scale_y, 1.0f);
     EXPECT_INT_EQ(mock.draw_calls[0].point_count, 5);
-    EXPECT_INT_EQ((int)mock.draw_calls[0].mode, (int)RENDER_PATH_LINE_STRIP);
+    EXPECT_INT_EQ((int)mock.draw_calls[0].primitive, (int)RENDER_PRIMITIVE_LINE_STRIP);
 
     canvas_drawlist_shutdown(&draw_list);
     document_shutdown(&document);
@@ -253,12 +254,105 @@ static int test_selected_object_emits_highlight_first(void)
     return 0;
 }
 
+static int test_render_system_invalidates_on_selection_revision(void)
+{
+    Document document;
+    CanvasView canvas;
+    SelectionSet selection = {0};
+    MockRenderDevice mock = {0};
+    PlatformWindow window = {0};
+    RenderSystem* renderer = NULL;
+    const MockDrawCall* first_highlight = NULL;
+    const MockDrawCall* second_highlight = NULL;
+    float first_highlight_x = 0.0f;
+    float second_highlight_x = 0.0f;
+
+    document_init(&document);
+    canvas_view_init(&canvas, &document, (RectF){0.0f, 0.0f, 640.0f, 480.0f});
+    canvas.show_grid = 0;
+    EXPECT_TRUE(document_add_object(&document, make_rect(0.0f, 0.0f, 10.0f, 20.0f)));
+    EXPECT_TRUE(document_add_object(&document, make_rect(100.0f, 0.0f, 10.0f, 20.0f)));
+    EXPECT_TRUE(selection_set_add(&selection, 1u));
+
+    mock.base.vtable = &MOCK_VTABLE;
+    window.width = 640;
+    window.height = 480;
+    window.framebuffer_width = 640;
+    window.framebuffer_height = 480;
+    renderer = render_system_create(&mock.base, &window);
+    EXPECT_TRUE(renderer != NULL);
+
+    render_system_draw(renderer, &document, &selection, &canvas, 0, (Vec2){0.0f, 0.0f}, NULL);
+    first_highlight = mock_find_widest_draw_call(&mock);
+    EXPECT_TRUE(first_highlight != NULL);
+    first_highlight_x = first_highlight->first_point.x;
+
+    mock_reset_frame_capture(&mock);
+    selection_set_clear(&selection);
+    EXPECT_TRUE(selection_set_add(&selection, 2u));
+    render_system_draw(renderer, &document, &selection, &canvas, 0, (Vec2){0.0f, 0.0f}, NULL);
+    second_highlight = mock_find_widest_draw_call(&mock);
+    EXPECT_TRUE(second_highlight != NULL);
+    second_highlight_x = second_highlight->first_point.x;
+    EXPECT_TRUE(first_highlight_x != second_highlight_x);
+
+    render_system_destroy(renderer);
+    selection_set_shutdown(&selection);
+    document_shutdown(&document);
+    return 0;
+}
+
+static int test_canvas_drawlist_reuses_scratch_arena_between_builds(void)
+{
+    Document document;
+    CanvasView canvas;
+    SelectionSet selection = {0};
+    CanvasDrawList draw_list;
+    unsigned char* first_memory = NULL;
+    size_t first_capacity = 0u;
+
+    document_init(&document);
+    canvas_view_init(&canvas, &document, (RectF){0.0f, 0.0f, 640.0f, 480.0f});
+    canvas.show_grid = 1;
+    EXPECT_TRUE(document_add_object(&document, make_rect(0.0f, 0.0f, 120.0f, 80.0f)));
+    EXPECT_TRUE(document_add_object(&document, make_rect(240.0f, 120.0f, 100.0f, 60.0f)));
+
+    canvas_drawlist_init(&draw_list);
+    EXPECT_TRUE(canvas_drawlist_build(&draw_list,
+                                      &document,
+                                      &selection,
+                                      &canvas,
+                                      0,
+                                      (Vec2){0.0f, 0.0f},
+                                      NULL));
+    EXPECT_TRUE(draw_list.scratch_arena.memory != NULL);
+    EXPECT_TRUE(draw_list.scratch_arena.capacity_bytes > 0u);
+    first_memory = draw_list.scratch_arena.memory;
+    first_capacity = draw_list.scratch_arena.capacity_bytes;
+
+    EXPECT_TRUE(canvas_drawlist_build(&draw_list,
+                                      &document,
+                                      &selection,
+                                      &canvas,
+                                      0,
+                                      (Vec2){0.0f, 0.0f},
+                                      NULL));
+    EXPECT_TRUE(draw_list.scratch_arena.memory == first_memory);
+    EXPECT_TRUE(draw_list.scratch_arena.capacity_bytes == first_capacity);
+
+    canvas_drawlist_shutdown(&draw_list);
+    document_shutdown(&document);
+    return 0;
+}
+
 int main(void)
 {
     extension_loader_register_all();
 
     if (test_canvas_renderer_submit_sequence()) return 1;
     if (test_selected_object_emits_highlight_first()) return 1;
+    if (test_render_system_invalidates_on_selection_revision()) return 1;
+    if (test_canvas_drawlist_reuses_scratch_arena_between_builds()) return 1;
 
     printf("[PASS] canvas draw list and renderer submission\n");
     return 0;

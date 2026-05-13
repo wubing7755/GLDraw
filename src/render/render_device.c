@@ -26,50 +26,24 @@ int render_device_begin_frame(RenderDevice* device, const RenderFrameDesc* frame
     return device->vtable->begin_frame(device, frame_desc);
 }
 
-void render_device_set_transform(RenderDevice* device, const RenderTransform* transform)
+int render_device_begin_pass(RenderDevice* device, const RenderPass* pass)
 {
-    if (device && device->vtable && device->vtable->set_transform) {
-        device->vtable->set_transform(device, transform);
+    if (!device || !device->vtable || !device->vtable->begin_pass) {
+        return 0;
     }
+
+    return device->vtable->begin_pass(device, pass);
 }
 
-void render_device_set_clip_rect(RenderDevice* device, RectF clip_rect)
+int render_device_draw_geometry(RenderDevice* device,
+                                const RenderGeometry* geometry,
+                                const RenderMaterial* material)
 {
-    if (device && device->vtable && device->vtable->set_clip_rect) {
-        device->vtable->set_clip_rect(device, clip_rect);
+    if (!device || !device->vtable || !device->vtable->draw_geometry) {
+        return 0;
     }
-}
 
-void render_device_set_color(RenderDevice* device, Color color)
-{
-    if (device && device->vtable && device->vtable->set_color) {
-        device->vtable->set_color(device, color);
-    }
-}
-
-void render_device_draw_line(RenderDevice* device, Vec2 from, Vec2 to, float line_width)
-{
-    if (device && device->vtable && device->vtable->draw_line) {
-        device->vtable->draw_line(device, from, to, line_width);
-    }
-}
-
-void render_device_draw_rect(RenderDevice* device, RectF rect, float line_width)
-{
-    if (device && device->vtable && device->vtable->draw_rect) {
-        device->vtable->draw_rect(device, rect, line_width);
-    }
-}
-
-void render_device_draw_path(RenderDevice* device,
-                             const Vec2* points,
-                             int point_count,
-                             RenderPathMode mode,
-                             float line_width)
-{
-    if (device && device->vtable && device->vtable->draw_path) {
-        device->vtable->draw_path(device, points, point_count, mode, line_width);
-    }
+    return device->vtable->draw_geometry(device, geometry, material);
 }
 
 int render_device_read_pixels(RenderDevice* device,

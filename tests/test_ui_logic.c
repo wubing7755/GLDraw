@@ -1,6 +1,6 @@
 #include <app/command_dispatcher.h>
 #include <app/extension_loader.h>
-#include <app/workspace.h>
+#include <app/workspace_internal.h>
 #include <app/workspace_dialogs.h>
 #include <base/math2d.h>
 #include <canvas/canvas_view.h>
@@ -11,6 +11,7 @@
 
 #include <math.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #define EXPECT_TRUE(expr)                                                     \
@@ -306,10 +307,12 @@ static int test_workspace_tool_context_and_preview_accessors(void)
     context = workspace_tool_context(&workspace);
     preview_delta = workspace_selection_preview_delta(&workspace);
 
-    EXPECT_TRUE(context.workspace == &workspace);
     EXPECT_TRUE(context.document == &workspace.core.document);
     EXPECT_TRUE(context.canvas == &workspace.core.canvas);
     EXPECT_TRUE(context.selection == &workspace.session.selection);
+    EXPECT_TRUE(context.ports.execute_command != NULL);
+    EXPECT_TRUE(context.ports.set_selection_preview != NULL);
+    EXPECT_TRUE(context.ports.sync_document_dirty != NULL);
     EXPECT_TRUE(workspace_selection_preview_active(&workspace) == 1);
     EXPECT_FLOAT_EQ(preview_delta.x, 7.0f);
     EXPECT_FLOAT_EQ(preview_delta.y, -3.0f);
@@ -344,11 +347,7 @@ static int test_locked_layers_block_pick_and_shape_creation(void)
     EXPECT_TRUE(document_set_active_layer(&workspace.core.document, locked_layer));
     EXPECT_TRUE(tool_controller_set_active(&workspace.core.tools, NULL, "rect"));
 
-    memset(&context, 0, sizeof(context));
-    context.workspace = &workspace;
-    context.document = &workspace.core.document;
-    context.canvas = &workspace.core.canvas;
-    context.selection = &workspace.session.selection;
+    context = workspace_tool_context(&workspace);
 
     memset(&down_event, 0, sizeof(down_event));
     down_event.button = 0; /* GLFW_MOUSE_BUTTON_LEFT */
@@ -385,11 +384,7 @@ static int test_command_registry_respects_locked_layers(void)
     EXPECT_TRUE(document_add_object(&workspace.core.document,
                                     make_rect(20.0f, 0.0f, 10.0f, 10.0f)));
 
-    memset(&context, 0, sizeof(context));
-    context.workspace = &workspace;
-    context.document = &workspace.core.document;
-    context.canvas = &workspace.core.canvas;
-    context.selection = &workspace.session.selection;
+    context = workspace_tool_context(&workspace);
 
     EXPECT_TRUE(command_registry_execute(&workspace, &context, EDITOR_COMMAND_EDIT_SELECT_ALL));
     EXPECT_INT_EQ(workspace.session.selection.count, 1);

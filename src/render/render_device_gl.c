@@ -1,12 +1,14 @@
 #include "render_device_gl.h"
 
-#include <base/file_utils.h>
 #include <base/log.h>
 #include <base/math2d.h>
 
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
 #include <glad/glad.h>
+
+#include <render/buffer_pool.h>
+#include <render/shader_manager.h>
 
 #include <math.h>
 #include <stdlib.h>
@@ -16,9 +18,10 @@
 
 typedef struct GLRenderDevice {
     RenderDevice base;
-    GLuint program;
-    GLuint vao;
-    GLuint vbo;
+    ShaderManager shader_manager;
+    BufferPool buffer_pool;
+    RenderShaderProgram basic_program;
+    RenderVertexStream stroke_stream;
     GLint screen_size_loc;
     int logical_width;
     int logical_height;
@@ -28,82 +31,10 @@ typedef struct GLRenderDevice {
     float scale_y;
     float* vertex_buffer;
     size_t vertex_capacity;
-    Color current_color;
-    RenderTransform transform;
     Color clear_color;
+    RenderPass active_pass;
     GLint clip_box[4];
 } GLRenderDevice;
-
-static GLuint gl_render_compile_shader(GLenum type, const char* source, const char* label)
-{
-    GLuint shader = glCreateShader(type);
-    GLint success = 0;
-
-    glShaderSource(shader, 1, &source, NULL);
-    glCompileShader(shader);
-    glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
-    if (!success) {
-        char info[1024];
-        glGetShaderInfoLog(shader, (GLsizei)sizeof(info), NULL, info);
-        LOG_ERROR("Shader compilation failed for %s: %s",
-                  label ? label : "unknown stage",
-                  info);
-        glDeleteShader(shader);
-        return 0;
-    }
-
-    return shader;
-}
-
-static GLuint gl_render_load_program(const char* vertex_path, const char* fragment_path)
-{
-    char* vertex_source = file_utils_read_text_file(vertex_path);
-    char* fragment_source = file_utils_read_text_file(fragment_path);
-    GLuint vertex_shader = 0;
-    GLuint fragment_shader = 0;
-    GLuint program = 0;
-    GLint success = 0;
-
-    if (!vertex_source || !fragment_source) {
-        free(vertex_source);
-        free(fragment_source);
-        return 0;
-    }
-
-    vertex_shader = gl_render_compile_shader(GL_VERTEX_SHADER, vertex_source, vertex_path);
-    fragment_shader = gl_render_compile_shader(GL_FRAGMENT_SHADER, fragment_source, fragment_path);
-    free(vertex_source);
-    free(fragment_source);
-
-    if (!vertex_shader || !fragment_shader) {
-        if (vertex_shader) {
-            glDeleteShader(vertex_shader);
-        }
-        if (fragment_shader) {
-            glDeleteShader(fragment_shader);
-        }
-        return 0;
-    }
-
-    program = glCreateProgram();
-    glAttachShader(program, vertex_shader);
-    glAttachShader(program, fragment_shader);
-    glLinkProgram(program);
-    glGetProgramiv(program, GL_LINK_STATUS, &success);
-
-    glDeleteShader(vertex_shader);
-    glDeleteShader(fragment_shader);
-
-    if (!success) {
-        char info[1024];
-        glGetProgramInfoLog(program, (GLsizei)sizeof(info), NULL, info);
-        LOG_ERROR("Program link failed: %s", info);
-        glDeleteProgram(program);
-        return 0;
-    }
-
-    return program;
-}
 
 static int gl_render_reserve_vertices(GLRenderDevice* device, size_t vertex_count)
 {
@@ -124,12 +55,9 @@ static int gl_render_reserve_vertices(GLRenderDevice* device, size_t vertex_coun
 
     device->vertex_buffer = buffer;
     device->vertex_capacity = required;
-    glBindBuffer(GL_ARRAY_BUFFER, device->vbo);
-    glBufferData(GL_ARRAY_BUFFER,
-                 (GLsizeiptr)(required * sizeof(device->vertex_buffer[0])),
-                 NULL,
-                 GL_DYNAMIC_DRAW);
-    return 1;
+    return buffer_pool_reserve(&device->buffer_pool,
+                               &device->stroke_stream,
+                               required * sizeof(device->vertex_buffer[0]));
 }
 
 static Vec2 gl_render_transform_point(const GLRenderDevice* device, Vec2 point)
@@ -140,8 +68,8 @@ static Vec2 gl_render_transform_point(const GLRenderDevice* device, Vec2 point)
         return out;
     }
 
-    out.x *= device->transform.scale_x;
-    out.y *= device->transform.scale_y;
+    out.x *= device->active_pass.transform.scale_x;
+    out.y *= device->active_pass.transform.scale_y;
     return out;
 }
 
@@ -156,26 +84,24 @@ static void gl_render_write_vertex(float** cursor, Vec2 point, Color color)
 }
 
 static int gl_render_upload_and_draw(GLRenderDevice* device,
-                                     const Vec2* points,
-                                     int point_count,
-                                     RenderPathMode mode,
-                                     float line_width)
+                                     const RenderGeometry* geometry,
+                                     const RenderMaterial* material)
 {
     int vertex_count = 0;
     GLenum primitive = GL_LINES;
     float* cursor = NULL;
     int i = 0;
 
-    if (!device || !points || point_count <= 1) {
+    if (!device || !geometry || !geometry->points || geometry->point_count <= 1 || !material) {
         return 0;
     }
 
-    if (mode == RENDER_PATH_LINE_STRIP) {
+    if (geometry->primitive == RENDER_PRIMITIVE_LINE_STRIP) {
         primitive = GL_LINES;
-        vertex_count = (point_count - 1) * 2;
+        vertex_count = (geometry->point_count - 1) * 2;
     } else {
         primitive = GL_LINES;
-        vertex_count = point_count;
+        vertex_count = geometry->point_count;
     }
 
     if (!gl_render_reserve_vertices(device, (size_t)vertex_count)) {
@@ -183,32 +109,31 @@ static int gl_render_upload_and_draw(GLRenderDevice* device,
     }
 
     cursor = device->vertex_buffer;
-    if (mode == RENDER_PATH_LINE_STRIP) {
-        for (i = 0; i < point_count - 1; ++i) {
+    if (geometry->primitive == RENDER_PRIMITIVE_LINE_STRIP) {
+        for (i = 0; i < geometry->point_count - 1; ++i) {
             gl_render_write_vertex(&cursor,
-                                   gl_render_transform_point(device, points[i]),
-                                   device->current_color);
+                                   gl_render_transform_point(device, geometry->points[i]),
+                                   material->color);
             gl_render_write_vertex(&cursor,
-                                   gl_render_transform_point(device, points[i + 1]),
-                                   device->current_color);
+                                   gl_render_transform_point(device, geometry->points[i + 1]),
+                                   material->color);
         }
     } else {
-        for (i = 0; i < point_count; ++i) {
+        for (i = 0; i < geometry->point_count; ++i) {
             gl_render_write_vertex(&cursor,
-                                   gl_render_transform_point(device, points[i]),
-                                   device->current_color);
+                                   gl_render_transform_point(device, geometry->points[i]),
+                                   material->color);
         }
     }
 
-    glUseProgram(device->program);
-    glBindVertexArray(device->vao);
-    glBindBuffer(GL_ARRAY_BUFFER, device->vbo);
+    glUseProgram(shader_program_handle(&device->basic_program));
+    buffer_pool_bind_vertex_stream(&device->stroke_stream);
     glBufferSubData(GL_ARRAY_BUFFER,
                     0,
                     (GLsizeiptr)(vertex_count * GL_RENDER_VERTEX_STRIDE_FLOATS *
                                  sizeof(device->vertex_buffer[0])),
                     device->vertex_buffer);
-    glLineWidth((line_width > 0.5f) ? line_width : 1.0f);
+    glLineWidth((material->line_width > 0.5f) ? material->line_width : 1.0f);
     glDrawArrays(primitive, 0, vertex_count);
     return 1;
 }
@@ -235,7 +160,7 @@ static int gl_render_resize(RenderDevice* render_device,
                                            : 1.0f;
 
     glViewport(0, 0, framebuffer_width, framebuffer_height);
-    glUseProgram(device->program);
+    glUseProgram(shader_program_handle(&device->basic_program));
     if (device->screen_size_loc >= 0) {
         glUniform2f(device->screen_size_loc,
                     (float)framebuffer_width,
@@ -259,30 +184,21 @@ static int gl_render_begin_frame(RenderDevice* render_device, const RenderFrameD
                      frame_desc->framebuffer_width,
                      frame_desc->framebuffer_height);
     device->clear_color = frame_desc->clear_color;
-    device->current_color = (Color){1.0f, 1.0f, 1.0f, 1.0f};
-    device->transform.scale_x = device->scale_x;
-    device->transform.scale_y = device->scale_y;
+    device->active_pass.transform.scale_x = device->scale_x;
+    device->active_pass.transform.scale_y = device->scale_y;
+    device->active_pass.clip_rect = (RectF){0.0f,
+                                            0.0f,
+                                            (float)frame_desc->logical_width,
+                                            (float)frame_desc->logical_height};
 
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    glUseProgram(device->program);
-    glBindVertexArray(device->vao);
-    glBindBuffer(GL_ARRAY_BUFFER, device->vbo);
+    glUseProgram(shader_program_handle(&device->basic_program));
+    buffer_pool_bind_vertex_stream(&device->stroke_stream);
     return 1;
 }
 
-static void gl_render_set_transform(RenderDevice* render_device, const RenderTransform* transform)
-{
-    GLRenderDevice* device = (GLRenderDevice*)render_device;
-
-    if (!device || !transform) {
-        return;
-    }
-
-    device->transform = *transform;
-}
-
-static void gl_render_set_clip_rect(RenderDevice* render_device, RectF clip_rect)
+static int gl_render_begin_pass(RenderDevice* render_device, const RenderPass* pass)
 {
     GLRenderDevice* device = (GLRenderDevice*)render_device;
     int x = 0;
@@ -291,14 +207,15 @@ static void gl_render_set_clip_rect(RenderDevice* render_device, RectF clip_rect
     int h = 0;
     int y = 0;
 
-    if (!device) {
-        return;
+    if (!device || !pass) {
+        return 0;
     }
 
-    x = (int)floorf(clip_rect.x * device->scale_x);
-    y_top = (int)floorf(clip_rect.y * device->scale_y);
-    w = (int)ceilf(clip_rect.w * device->scale_x);
-    h = (int)ceilf(clip_rect.h * device->scale_y);
+    device->active_pass = *pass;
+    x = (int)floorf(pass->clip_rect.x * device->scale_x);
+    y_top = (int)floorf(pass->clip_rect.y * device->scale_y);
+    w = (int)ceilf(pass->clip_rect.w * device->scale_x);
+    h = (int)ceilf(pass->clip_rect.h * device->scale_y);
     y = device->framebuffer_height - y_top - h;
 
     if (x < 0) {
@@ -316,7 +233,7 @@ static void gl_render_set_clip_rect(RenderDevice* render_device, RectF clip_rect
         h = device->framebuffer_height - y;
     }
     if (w <= 0 || h <= 0) {
-        return;
+        return 0;
     }
 
     device->clip_box[0] = x;
@@ -331,64 +248,14 @@ static void gl_render_set_clip_rect(RenderDevice* render_device, RectF clip_rect
                  device->clear_color.b,
                  device->clear_color.a);
     glClear(GL_COLOR_BUFFER_BIT);
+    return 1;
 }
 
-static void gl_render_set_color(RenderDevice* render_device, Color color)
+static int gl_render_draw_geometry(RenderDevice* render_device,
+                                   const RenderGeometry* geometry,
+                                   const RenderMaterial* material)
 {
-    GLRenderDevice* device = (GLRenderDevice*)render_device;
-
-    if (!device) {
-        return;
-    }
-
-    device->current_color = color;
-}
-
-static void gl_render_draw_line(RenderDevice* render_device,
-                                Vec2 from,
-                                Vec2 to,
-                                float line_width)
-{
-    Vec2 points[2];
-
-    points[0] = from;
-    points[1] = to;
-    gl_render_upload_and_draw((GLRenderDevice*)render_device,
-                              points,
-                              2,
-                              RENDER_PATH_LINES,
-                              line_width);
-}
-
-static void gl_render_draw_rect(RenderDevice* render_device,
-                                RectF rect,
-                                float line_width)
-{
-    Vec2 points[5];
-
-    points[0] = vec2_make(rect.x, rect.y);
-    points[1] = vec2_make(rect.x + rect.w, rect.y);
-    points[2] = vec2_make(rect.x + rect.w, rect.y + rect.h);
-    points[3] = vec2_make(rect.x, rect.y + rect.h);
-    points[4] = points[0];
-    gl_render_upload_and_draw((GLRenderDevice*)render_device,
-                              points,
-                              5,
-                              RENDER_PATH_LINE_STRIP,
-                              line_width);
-}
-
-static void gl_render_draw_path(RenderDevice* render_device,
-                                const Vec2* points,
-                                int point_count,
-                                RenderPathMode mode,
-                                float line_width)
-{
-    gl_render_upload_and_draw((GLRenderDevice*)render_device,
-                              points,
-                              point_count,
-                              mode,
-                              line_width);
+    return gl_render_upload_and_draw((GLRenderDevice*)render_device, geometry, material);
 }
 
 static int gl_render_read_pixels(RenderDevice* render_device,
@@ -446,22 +313,17 @@ static void gl_render_destroy(RenderDevice* render_device)
         return;
     }
 
-    glDeleteBuffers(1, &device->vbo);
-    glDeleteVertexArrays(1, &device->vao);
-    glDeleteProgram(device->program);
     free(device->vertex_buffer);
+    buffer_pool_shutdown(&device->buffer_pool);
+    shader_manager_shutdown(&device->shader_manager);
     free(device);
 }
 
 static const RenderDeviceVTable GL_RENDER_DEVICE_VTABLE = {
     gl_render_resize,
     gl_render_begin_frame,
-    gl_render_set_transform,
-    gl_render_set_clip_rect,
-    gl_render_set_color,
-    gl_render_draw_line,
-    gl_render_draw_rect,
-    gl_render_draw_path,
+    gl_render_begin_pass,
+    gl_render_draw_geometry,
     gl_render_read_pixels,
     gl_render_end_frame,
     gl_render_destroy
@@ -470,6 +332,21 @@ static const RenderDeviceVTable GL_RENDER_DEVICE_VTABLE = {
 RenderDevice* gl_render_device_create(PlatformWindow* window)
 {
     GLRenderDevice* device = NULL;
+    static const RenderShaderProgramDesc BASIC_PROGRAM_DESC = {
+        "shaders/basic.vert",
+        "shaders/basic.frag",
+        "basic"
+    };
+    static const RenderVertexAttribute STROKE_ATTRIBUTES[] = {
+        {0u, 2, 0u},
+        {1u, 4, 2u * sizeof(float)}
+    };
+    static const RenderVertexStreamDesc STROKE_STREAM_DESC = {
+        GL_RENDER_VERTEX_STRIDE_FLOATS * sizeof(float),
+        STROKE_ATTRIBUTES,
+        sizeof(STROKE_ATTRIBUTES) / sizeof(STROKE_ATTRIBUTES[0]),
+        0u
+    };
 
     if (!window) {
         return NULL;
@@ -484,23 +361,25 @@ RenderDevice* gl_render_device_create(PlatformWindow* window)
     }
 
     device->base.vtable = &GL_RENDER_DEVICE_VTABLE;
-    device->program = gl_render_load_program("shaders/basic.vert", "shaders/basic.frag");
-    if (!device->program) {
+    shader_manager_init(&device->shader_manager);
+    buffer_pool_init(&device->buffer_pool);
+
+    if (!shader_manager_load_program(&device->shader_manager,
+                                     &BASIC_PROGRAM_DESC,
+                                     &device->basic_program)) {
         gl_render_destroy(&device->base);
         return NULL;
     }
 
-    glGenVertexArrays(1, &device->vao);
-    glGenBuffers(1, &device->vbo);
-    glBindVertexArray(device->vao);
-    glBindBuffer(GL_ARRAY_BUFFER, device->vbo);
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(2 * sizeof(float)));
-    glEnableVertexAttribArray(1);
-    glBindVertexArray(0);
+    if (!buffer_pool_create_vertex_stream(&device->buffer_pool,
+                                          &STROKE_STREAM_DESC,
+                                          &device->stroke_stream)) {
+        gl_render_destroy(&device->base);
+        return NULL;
+    }
 
-    device->screen_size_loc = glGetUniformLocation(device->program, "uScreenSize");
+    device->screen_size_loc = shader_program_uniform_location(&device->basic_program,
+                                                              "uScreenSize");
     if (!gl_render_resize(&device->base,
                           window->width,
                           window->height,

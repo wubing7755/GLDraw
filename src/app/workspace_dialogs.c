@@ -2,6 +2,7 @@
  * @file workspace_dialogs.c
  * @brief Reusable workspace-owned dialog builders and lifecycle helpers.
  */
+#include <app/workspace_internal.h>
 #include <app/workspace_dialogs.h>
 
 #include <stdio.h>

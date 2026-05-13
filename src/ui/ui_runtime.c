@@ -6,7 +6,6 @@
 
 #include <base/math2d.h>
 #include <glad/glad.h>
-#include "platform/window_internal.h"
 
 #define NK_INCLUDE_FIXED_TYPES
 #define NK_INCLUDE_STANDARD_IO
@@ -66,20 +65,20 @@ UiSystem *ui_system_create(PlatformWindow *window) {
     return NULL;
   }
 
-  ui->ctx = nk_glfw3_init(&ui->glfw, platform_window_glfw_handle(window), 0);
+  ui->ctx = platform_window_nuklear_init(&ui->glfw, window);
   if (!ui->ctx) {
     free(ui);
     return NULL;
   }
 
-  nk_glfw3_font_stash_begin(&ui->glfw, &atlas);
-  nk_glfw3_font_stash_end(&ui->glfw);
+  platform_window_nuklear_font_stash_begin(&ui->glfw, &atlas);
+  platform_window_nuklear_font_stash_end(&ui->glfw);
 
   snprintf(ui->theme_settings_path, sizeof(ui->theme_settings_path), "%s",
            UI_THEME_SETTINGS_PATH);
 
   ui_system_reload_themes(ui, 0, UI_THEME_RELOAD_REASON_STARTUP);
-  ui->theme_watch_last_check_seconds = glfwGetTime();
+  ui->theme_watch_last_check_seconds = platform_time_seconds();
 
   ui->menu_bar = ui_menubar_create(ui->ctx);
   if (ui->menu_bar) {
@@ -90,8 +89,8 @@ UiSystem *ui_system_create(PlatformWindow *window) {
   ui->inspector_anim_t = 1.0f;
   ui->inspector_target_visible = 1;
   ui->inspector_anim_initialized = 0;
-  ui->last_frame_seconds = glfwGetTime();
-  ui->window_handle = platform_window_glfw_handle(window);
+  ui->last_frame_seconds = platform_time_seconds();
+  ui->window = window;
 
   return ui;
 }
@@ -104,13 +103,13 @@ void ui_system_destroy(UiSystem *ui) {
     ui_menubar_destroy(ui->menu_bar);
     ui->menu_bar = NULL;
   }
-  nk_glfw3_shutdown(&ui->glfw);
+  platform_window_nuklear_shutdown(&ui->glfw);
   free(ui);
 }
 
 void ui_system_begin_frame(UiSystem *ui) {
   if (ui) {
-    nk_glfw3_new_frame(&ui->glfw);
+    platform_window_nuklear_new_frame(&ui->glfw);
   }
 }
 
@@ -158,14 +157,8 @@ void ui_system_build(UiSystem *ui, const EditorViewModel *view_model) {
     ui->dialog_kind_snapshot = UI_DIALOG_NONE;
   }
 
-  if (ui->window_handle) {
-    glfwGetWindowSize(ui->window_handle, &width, &height);
-  }
-  if (width <= 0 || height <= 0) {
-    GLFWwindow *current_context = glfwGetCurrentContext();
-    if (current_context) {
-      glfwGetWindowSize(current_context, &width, &height);
-    }
+  if (ui->window) {
+    platform_window_get_size(ui->window, &width, &height);
   }
 
   if (width <= 0 || height <= 0) {
@@ -173,7 +166,7 @@ void ui_system_build(UiSystem *ui, const EditorViewModel *view_model) {
     return;
   }
 
-  now_seconds = glfwGetTime();
+  now_seconds = platform_time_seconds();
   dt_seconds = (float)(now_seconds - ui->last_frame_seconds);
   ui->last_frame_seconds = now_seconds;
   dt_seconds = ui_clampf(dt_seconds, 0.0f, 0.10f);
@@ -307,8 +300,10 @@ void ui_system_render(UiSystem *ui) {
   if (!ui) {
     return;
   }
-  nk_glfw3_render(&ui->glfw, NK_ANTI_ALIASING_ON, UI_MAX_VERTEX_BUFFER,
-                  UI_MAX_ELEMENT_BUFFER);
+  platform_window_nuklear_render(&ui->glfw,
+                                 NK_ANTI_ALIASING_ON,
+                                 UI_MAX_VERTEX_BUFFER,
+                                 UI_MAX_ELEMENT_BUFFER);
 }
 
 int ui_system_has_active_interaction(const UiSystem *ui) {

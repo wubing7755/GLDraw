@@ -1,4 +1,3 @@
-#include <app/workspace.h>
 #include <tools/tool.h>
 
 #include <script/script_runtime.h>
@@ -57,14 +56,14 @@ static void script_tool_dispatch(Tool* tool,
 {
     ScriptToolState* state = tool ? (ScriptToolState*)tool->state : NULL;
 
-    if (!state || !context || !event || !context->workspace) {
+    if (!state || !context || !event) {
         return;
     }
 
     script_runtime_set_context(&state->runtime,
                                context->document,
                                context->selection,
-                               &context->workspace->core.commands);
+                               &context->ports);
     script_runtime_execute_file_event(&state->runtime,
                                       state->script_path,
                                       event_name,

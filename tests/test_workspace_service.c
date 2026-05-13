@@ -1,4 +1,5 @@
 #include <app/workspace_service.h>
+#include <app/workspace_internal.h>
 
 #include <base/math2d.h>
 

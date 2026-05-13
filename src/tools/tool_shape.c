@@ -1,6 +1,5 @@
 #include "tool_internal.h"
 
-#include <app/workspace.h>
 #include <commands/command.h>
 #include <document/document.h>
 
@@ -157,7 +156,7 @@ static void shape_tool_pointer_up(Tool* tool, ToolContext* context,
     ObjectId created_id = 0u;
 
     (void)event;
-    if (!state || !config || !context || !context->workspace || !state->drawing) {
+    if (!state || !config || !context || !state->drawing) {
         return;
     }
 
@@ -173,17 +172,14 @@ static void shape_tool_pointer_up(Tool* tool, ToolContext* context,
     }
 
     command = command_create_create_object(object);
-    if (!command ||
-        !command_executor_execute(&context->workspace->core.commands,
-                                  command,
-                                  context->document)) {
+    if (!command || !tool_context_execute_command(context, command)) {
         return;
     }
 
     created_id = object->id;
     selection_set_clear(context->selection);
     selection_set_add(context->selection, created_id);
-    workspace_sync_document_dirty(context->workspace);
+    tool_context_sync_document_dirty(context);
 }
 
 static void shape_tool_key_down(Tool* tool, ToolContext* context, int key, int mods)
