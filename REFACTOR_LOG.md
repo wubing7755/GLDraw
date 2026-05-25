@@ -342,6 +342,21 @@
   `ctest --test-dir build --output-on-failure -R "renderer|ui_logic|registry"` passed.
   `ctest --test-dir build --output-on-failure` passed with 11/11 tests passing.
 
+## 2026-05-25 - P2: Extract Render Scene Cache Key
+
+- Branch:
+  `refactor-editor-architecture-roadmap`
+- Modified files:
+  `src/render/render_system.c`
+- Key changes:
+  Replaced the individual cached document/selection/canvas fields with a `RenderSceneCacheKey` value.
+  Added helpers to build and compare cache keys from `RenderSceneDesc`.
+  Kept draw-list invalidation behavior unchanged while making the cache comparison path easier to audit.
+- Validation:
+  `cmake --build build --parallel` passed.
+  `ctest --test-dir build --output-on-failure -R "renderer|ui_logic|registry"` passed.
+  `ctest --test-dir build --output-on-failure` passed with 11/11 tests passing.
+
 ## 2026-05-12 21:25:51 CST - Baseline Check
 
 - Build system: CMake (`CMakeLists.txt` at repository root).
