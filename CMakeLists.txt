@@ -132,14 +132,20 @@ set(EDITOR_TOOLS_SOURCES
 
 set(EDITOR_RUNTIME_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/editor_action.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/app/command_availability.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/app/command_catalog.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/app/command_registry.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/app/command_dispatcher.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/app/editor_action_handler.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/app/editor_controller.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/app/editor_viewmodel.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/app/registration_manifest.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/app/workspace.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/app/workspace_actions.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/app/workspace_clipboard.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/app/workspace_dialogs.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/app/workspace_service.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/app/workspace_view_commands.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/input/key_chord.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/input/keymap.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/input/input_router.c

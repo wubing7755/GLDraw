@@ -3,7 +3,7 @@
 > Audience: contributors, maintainers
 > Purpose: provide fast entrypoints into the source tree by task
 > Source of truth: current source tree layout
-> Last reviewed with code: 2026-05-07
+> Last reviewed with code: 2026-05-25
 > Related: [../architecture/overview.md](../architecture/overview.md)
 
 ## First Entry Points
@@ -12,6 +12,8 @@
   Process entrypoint, forwards to `app_run()`.
 - `src/app/application.c`
   App bootstrap and frame loop.
+- `include/app/editor_controller.h`
+  Workspace-level editor runtime facade for tool input and render scene state.
 - `include/app/workspace.h`
   Main runtime container and workspace-facing helpers.
 - `include/commands/command.h`
@@ -39,12 +41,20 @@
 
 ### Understand durable edit behavior
 
+- `include/app/command_availability.h`
+- `src/app/command_availability.c`
+- `include/app/command_catalog.h`
+- `src/app/command_catalog.c`
 - `src/commands/command_executor.c`
 - `src/commands/command_object_ops.c`
 - `src/commands/command_layer_ops.c`
 - `src/commands/command_transaction.c`
 - `src/app/command_dispatcher.c`
+- `src/app/editor_action_handler.c`
+- `src/app/editor_controller.c`
 - `src/app/command_registry.c`
+- `src/app/workspace_clipboard.c`
+- `src/app/workspace_view_commands.c`
 
 ### Understand tool interactions
 

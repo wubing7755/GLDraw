@@ -17,7 +17,7 @@ void application_dialog_actions_update_save_as_message(Application* app,
         return;
     }
 
-    if (!path_utils_dirname(workspace_service_document_path(&app->workspace),
+    if (!path_utils_dirname(workspace_service_document_path(app->workspace),
                             directory,
                             sizeof(directory))) {
         snprintf(directory, sizeof(directory), ".");
@@ -31,7 +31,7 @@ void application_dialog_actions_update_save_as_message(Application* app,
                  "%s\n\nEnter a new filename.\nThe file will be saved in the same directory:\n%s",
                  error_text,
                  directory);
-        workspace_dialog_set_message(&app->workspace, message);
+        workspace_dialog_set_message(app->workspace, message);
         return;
     }
 
@@ -42,7 +42,7 @@ void application_dialog_actions_update_save_as_message(Application* app,
                  sizeof(message),
                  "Enter a new filename.\nThe file will be saved in the same directory:\n%s",
                  directory);
-        workspace_dialog_set_message(&app->workspace, message);
+        workspace_dialog_set_message(app->workspace, message);
     }
 }
 
@@ -53,7 +53,7 @@ void application_dialog_actions_report_startup_load_failure(Application* app,
         return;
     }
 
-    workspace_set_statusf(&app->workspace, "Startup load failed: %s", path);
+    workspace_set_statusf(app->workspace, "Startup load failed: %s", path);
 }
 
 void application_dialog_actions_report_open_cancelled(Application* app)
@@ -62,7 +62,7 @@ void application_dialog_actions_report_open_cancelled(Application* app)
         return;
     }
 
-    workspace_set_status_message(&app->workspace, "Open cancelled.");
+    workspace_set_status_message(app->workspace, "Open cancelled.");
 }
 
 void application_dialog_actions_report_open_picker_error(Application* app)
@@ -71,7 +71,7 @@ void application_dialog_actions_report_open_picker_error(Application* app)
         return;
     }
 
-    workspace_set_status_message(&app->workspace,
+    workspace_set_status_message(app->workspace,
                                  "Open failed: file picker unavailable or failed.");
 }
 
@@ -81,7 +81,7 @@ void application_dialog_actions_report_export_cancelled(Application* app)
         return;
     }
 
-    workspace_set_status_message(&app->workspace, "Export PNG cancelled.");
+    workspace_set_status_message(app->workspace, "Export PNG cancelled.");
 }
 
 void application_dialog_actions_report_export_picker_error(Application* app)
@@ -90,6 +90,6 @@ void application_dialog_actions_report_export_picker_error(Application* app)
         return;
     }
 
-    workspace_set_status_message(&app->workspace,
+    workspace_set_status_message(app->workspace,
                                  "Export PNG failed: save dialog unavailable or failed.");
 }

@@ -5,7 +5,7 @@
 #include <input/input_router.h>
 
 #include <app/command_registry.h>
-#include <app/workspace_internal.h>
+#include <app/workspace.h>
 #include <app/workspace_actions.h>
 #include <tools/tool.h>
 #include <tools/tool_controller.h>
@@ -18,6 +18,8 @@ int input_router_handle_key(const InputRouterContext* context, const KeyEvent* e
     KeyScope scope = KEY_SCOPE_GLOBAL;
     const char* command_id = NULL;
     const CommandDescriptor* descriptor = NULL;
+    EditorKeymap* keymap = NULL;
+    ToolController* tools = NULL;
 
     if (!context || !context->workspace || !context->tool_context || !event ||
         event->action != GLFW_PRESS) {
@@ -32,7 +34,8 @@ int input_router_handle_key(const InputRouterContext* context, const KeyEvent* e
 
     chord.key = event->key;
     chord.mods = event->mods;
-    command_id = keymap_lookup_command(&context->workspace->session.keymap, scope, chord);
+    keymap = workspace_get_keymap(context->workspace);
+    command_id = keymap ? keymap_lookup_command(keymap, scope, chord) : NULL;
     if (command_id) {
         descriptor = command_registry_find_by_id(command_id);
         if (descriptor &&
@@ -48,9 +51,11 @@ int input_router_handle_key(const InputRouterContext* context, const KeyEvent* e
         return 0;
     }
 
-    tool_controller_key_down(&context->workspace->core.tools,
-                             context->tool_context,
-                             event->key,
-                             event->mods);
+    tools = workspace_get_tool_controller(context->workspace);
+    if (!tools) {
+        return 0;
+    }
+
+    tool_controller_key_down(tools, context->tool_context, event->key, event->mods);
     return 1;
 }

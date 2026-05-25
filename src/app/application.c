@@ -16,6 +16,7 @@
 #include <app/application_runtime.h>
 #include <app/command_registry.h>
 #include <app/command_dispatcher.h>
+#include <app/editor_controller.h>
 #include <app/workspace_actions.h>
 #include <app/workspace.h>
 #include <app/workspace_service.h>
@@ -47,7 +48,7 @@ static int app_exit_application(Application *app) {
   }
 
   platform_window_set_should_close(&app->window, 1);
-  workspace_set_status_message(&app->workspace, "Closing application");
+  workspace_set_status_message(app->workspace, "Closing application");
   return 1;
 }
 
@@ -147,7 +148,7 @@ static void cursor_pos_callback(PlatformWindow *window,
   app->cursor_screen = vec2_make((float)xpos, (float)ypos);
   application_runtime_sync_canvas_boundary(app);
 
-  if (!tool_controller_is_pointer_captured(&app->workspace.core.tools) &&
+  if (!editor_controller_pointer_captured(app->workspace) &&
       application_runtime_pointer_blocks_canvas(app, app->cursor_screen)) {
     return;
   }
@@ -155,7 +156,7 @@ static void cursor_pos_callback(PlatformWindow *window,
   context = application_runtime_tool_context(app);
   event = application_runtime_make_tool_event(app, -1, 0, 0.0f);
 
-  tool_controller_pointer_move(&app->workspace.core.tools, &context, &event);
+  editor_controller_pointer_move(app->workspace, &context, &event);
 }
 
 /**
@@ -186,18 +187,18 @@ static void mouse_button_callback(PlatformWindow *window,
                                       action)) {
       return;
     }
-    if (!tool_controller_is_pointer_captured(&app->workspace.core.tools) &&
+    if (!editor_controller_pointer_captured(app->workspace) &&
         application_runtime_pointer_blocks_canvas(app, app->cursor_screen)) {
       return;
     }
     context = application_runtime_tool_context(app);
     event = application_runtime_make_tool_event(app, button, mods, 0.0f);
-    tool_controller_pointer_down(&app->workspace.core.tools, &context, &event);
+    editor_controller_pointer_down(app->workspace, &context, &event);
   } else if (action == GLFW_RELEASE) {
     /* Ignore release outside canvas unless we previously captured the pointer.
        This keeps drag/end-state transitions consistent across window regions.
      */
-    if (!tool_controller_is_pointer_captured(&app->workspace.core.tools)) {
+    if (!editor_controller_pointer_captured(app->workspace)) {
       if (application_runtime_pointer_blocks_canvas(app, app->cursor_screen)) {
         return;
       }
@@ -205,7 +206,7 @@ static void mouse_button_callback(PlatformWindow *window,
     }
     context = application_runtime_tool_context(app);
     event = application_runtime_make_tool_event(app, button, mods, 0.0f);
-    tool_controller_pointer_up(&app->workspace.core.tools, &context, &event);
+    editor_controller_pointer_up(app->workspace, &context, &event);
   }
 }
 
@@ -243,7 +244,7 @@ static void key_callback(PlatformWindow *window,
   }
 
   context = application_runtime_tool_context(app);
-  router_context.workspace = &app->workspace;
+  router_context.workspace = app->workspace;
   router_context.tool_context = &context;
   router_context.ui_has_keyboard_focus =
       app->ui ? ui_system_has_active_interaction(app->ui) : 0;
@@ -274,14 +275,14 @@ static void scroll_callback(PlatformWindow *window,
     return;
   }
 
-  if (!tool_controller_is_pointer_captured(&app->workspace.core.tools) &&
+  if (!editor_controller_pointer_captured(app->workspace) &&
       application_runtime_pointer_blocks_canvas(app, app->cursor_screen)) {
     return;
   }
 
   context = application_runtime_tool_context(app);
-  tool_controller_scroll(&app->workspace.core.tools, &context, app->cursor_screen,
-                         (float)yoffset);
+  editor_controller_scroll(app->workspace, &context, app->cursor_screen,
+                           (float)yoffset);
 }
 
 static void window_close_callback(PlatformWindow *window, void *user_data) {
@@ -292,7 +293,7 @@ static void window_close_callback(PlatformWindow *window, void *user_data) {
   }
 
   platform_window_set_should_close(window, 0);
-  workspace_request_action(&app->workspace, WORKSPACE_ACTION_EXIT_APPLICATION);
+  workspace_request_action(app->workspace, WORKSPACE_ACTION_EXIT_APPLICATION);
 }
 
 /**
@@ -311,21 +312,23 @@ static int app_init(Application *app) {
     return -1;
   }
 
-  if (!workspace_init(&app->workspace, viewport, APP_KEYMAP_SETTINGS_PATH)) {
+  app->workspace = workspace_create(viewport, APP_KEYMAP_SETTINGS_PATH);
+  if (!app->workspace) {
     LOG_ERROR("%s", "Failed to initialize workspace");
     return -1;
   }
-  workspace_service_set_document_path(&app->workspace,
-                                      workspace_service_document_path(&app->workspace));
-  app->workspace.services.save_document = app_workspace_save;
-  app->workspace.services.save_as_document = app_workspace_save_as;
-  app->workspace.services.export_png = app_workspace_export_png;
-  app->workspace.services.load_document = app_workspace_load;
-  app->workspace.services.execute_action = app_workspace_execute_action;
-  app->workspace.services.command_user_data = app;
-  command_dispatcher_init(&app->dispatcher, &app->workspace);
-  workspace_mark_saved(&app->workspace);
-  workspace_set_status_message(&app->workspace, "Initializing editor");
+  workspace_service_set_document_path(app->workspace,
+                                      workspace_service_document_path(app->workspace));
+  workspace_set_service_callbacks(app->workspace,
+                                  app_workspace_save,
+                                  app_workspace_save_as,
+                                  app_workspace_export_png,
+                                  app_workspace_load,
+                                  app_workspace_execute_action,
+                                  app);
+  command_dispatcher_init(&app->dispatcher, app->workspace);
+  workspace_mark_saved(app->workspace);
+  workspace_set_status_message(app->workspace, "Initializing editor");
   app->cursor_screen =
       vec2_make(app->window.width * 0.5f, app->window.height * 0.5f);
   app->cursor_inside_canvas = 1;
@@ -388,7 +391,8 @@ static void app_shutdown(Application *app) {
   ui_system_destroy(app->ui);
   render_system_destroy(app->renderer);
   editor_viewmodel_shutdown(&app->view_model);
-  workspace_shutdown(&app->workspace);
+  workspace_destroy(app->workspace);
+  app->workspace = NULL;
   platform_window_shutdown(&app->window);
 }
 
@@ -416,7 +420,7 @@ int app_run(void) {
   while (!platform_window_should_close(&app->window)) {
     int framebuffer_w = 0;
     int framebuffer_h = 0;
-    ToolContext tool_context;
+    EditorRenderScene scene;
 
     platform_window_poll_events();
     platform_window_get_framebuffer_size(&app->window, &framebuffer_w, &framebuffer_h);
@@ -427,18 +431,18 @@ int app_run(void) {
       continue;
     }
     ui_system_begin_frame(app->ui);
-    editor_viewmodel_build(&app->view_model, &app->workspace);
+    editor_viewmodel_build(&app->view_model, app->workspace);
     ui_system_build(app->ui, &app->view_model);
     application_runtime_update_canvas_viewport(app);
-    tool_context = application_runtime_tool_context(app);
-    render_system_draw(app->renderer,
-                       &app->workspace.core.document,
-                       &app->workspace.session.selection,
-                       &app->workspace.core.canvas,
-                       workspace_selection_preview_active(&app->workspace),
-                       workspace_selection_preview_delta(&app->workspace),
-                       tool_controller_overlay_object(&app->workspace.core.tools,
-                                                      &tool_context));
+    if (editor_controller_render_scene(app->workspace, &scene)) {
+      render_system_draw(app->renderer,
+                         scene.document,
+                         scene.selection,
+                         scene.canvas,
+                         scene.selection_preview_active,
+                         scene.selection_preview_delta,
+                         scene.overlay_object);
+    }
     application_flush_pending_export_png(app);
     ui_system_render(app->ui);
     platform_window_swap_buffers(&app->window);

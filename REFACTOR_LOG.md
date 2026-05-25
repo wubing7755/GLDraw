@@ -1,5 +1,281 @@
 # Refactor Log
 
+## 2026-05-25 - Architecture Refactor Roadmap Baseline
+
+- Branch:
+  `refactor-editor-architecture-roadmap`
+- Modified files:
+  `doc/architecture/refactor-roadmap.md`,
+  `doc/architecture/overview.md`,
+  `doc/README.md`
+- Key changes:
+  Added a current architecture refactor roadmap that sequences command registry cleanup, action handling consolidation, workspace boundary tightening, UI frame decomposition, view-model cleanup, and render scene descriptor work.
+  Linked the roadmap from the architecture overview and documentation index.
+- Validation:
+  `cmake --build build --parallel` passed before documentation changes.
+  `ctest --test-dir build --output-on-failure` passed before documentation changes with 11/11 tests passing.
+
+## 2026-05-25 - P1: Extract Command Catalog Metadata
+
+- Branch:
+  `refactor-editor-architecture-roadmap`
+- Modified files:
+  `include/app/command_catalog.h`,
+  `src/app/command_catalog.c`,
+  `src/app/command_registry.c`,
+  `CMakeLists.txt`,
+  `doc/reference/file-map.md`
+- Key changes:
+  Added a dedicated command catalog module for stable command descriptors, menu ID lookup, command ID lookup, and dynamic tool command descriptor creation.
+  Kept `command_registry_*` metadata lookup functions as compatibility wrappers while command execution and availability remain in `command_registry.c`.
+  Added the new catalog source to the `editor_runtime` target and updated the file map.
+- Validation:
+  `cmake --build build --parallel` passed.
+  `ctest --test-dir build --output-on-failure -R "registry|ui_logic|command"` passed.
+  `ctest --test-dir build --output-on-failure` passed with 11/11 tests passing.
+
+## 2026-05-25 - P1: Extract Command Availability Rules
+
+- Branch:
+  `refactor-editor-architecture-roadmap`
+- Modified files:
+  `include/app/command_availability.h`,
+  `src/app/command_availability.c`,
+  `src/app/command_registry.c`,
+  `CMakeLists.txt`,
+  `doc/reference/file-map.md`
+- Key changes:
+  Added a dedicated command availability module for command executable-state checks, unavailable-reason strings, and menu-backed availability queries.
+  Kept the existing `command_registry_is_available()`, `command_registry_unavailable_reason()`, and `command_registry_is_menu_action_available()` functions as compatibility wrappers.
+  Reduced `command_registry.c` to command execution plus compatibility lookup/query wrappers for this slice.
+- Validation:
+  `cmake --build build --parallel` passed.
+  `ctest --test-dir build --output-on-failure -R "registry|ui_logic|command"` passed.
+  `ctest --test-dir build --output-on-failure` passed with 11/11 tests passing.
+
+## 2026-05-25 - P1: Extract Workspace Clipboard Operations
+
+- Branch:
+  `refactor-editor-architecture-roadmap`
+- Modified files:
+  `include/app/workspace_clipboard.h`,
+  `src/app/workspace_clipboard.c`,
+  `src/app/command_registry.c`,
+  `tests/test_ui_logic.c`,
+  `CMakeLists.txt`,
+  `doc/reference/file-map.md`
+- Key changes:
+  Added a workspace clipboard module for selection copy, paste, and cut behavior, including paste offset handling and the cut transaction flow.
+  Updated `command_registry_execute()` to delegate cut/copy/paste commands to the clipboard module.
+  Added UI logic regression coverage for copy/paste/cut behavior and for cut pruning locked-layer selections before deleting editable objects.
+- Validation:
+  `cmake --build build --parallel` passed.
+  `ctest --test-dir build --output-on-failure -R "ui_logic|command|workspace"` passed.
+  `ctest --test-dir build --output-on-failure` passed with 11/11 tests passing.
+
+## 2026-05-25 - P1: Extract Workspace View Commands
+
+- Branch:
+  `refactor-editor-architecture-roadmap`
+- Modified files:
+  `include/app/workspace_view_commands.h`,
+  `src/app/workspace_view_commands.c`,
+  `src/app/command_registry.c`,
+  `tests/test_ui_logic.c`,
+  `CMakeLists.txt`,
+  `doc/reference/file-map.md`
+- Key changes:
+  Added a workspace view command module for zoom in, zoom out, zoom-to-fit, and grid toggling.
+  Updated `command_registry_execute()` to delegate view commands to the new module.
+  Added UI logic regression coverage for zoom in/out, zoom-to-fit on an empty document, zoom-to-fit on a small object, and grid toggling.
+- Validation:
+  `cmake --build build --parallel` passed.
+  `ctest --test-dir build --output-on-failure -R "ui_logic|command|registry"` passed.
+  `ctest --test-dir build --output-on-failure` passed with 11/11 tests passing.
+
+## 2026-05-25 - P1: Introduce Editor Action Handler
+
+- Branch:
+  `refactor-editor-architecture-roadmap`
+- Modified files:
+  `include/app/editor_action_handler.h`,
+  `src/app/editor_action_handler.c`,
+  `src/app/command_dispatcher.c`,
+  `CMakeLists.txt`,
+  `doc/reference/file-map.md`
+- Key changes:
+  Added an editor action handler module that owns execution of `EditorAction` payloads against a workspace.
+  Reduced `command_dispatcher.c` to dispatcher state, null checks, and delegation to the handler.
+  Preserved existing command dispatcher API so UI action sinks and tests continue to use the same entry point.
+- Validation:
+  `cmake --build build --parallel` passed.
+  `ctest --test-dir build --output-on-failure -R "ui_logic|command|registry"` passed.
+  `ctest --test-dir build --output-on-failure` passed with 11/11 tests passing.
+
+## 2026-05-25 - P1: Introduce Editor Controller Facade
+
+- Branch:
+  `refactor-editor-architecture-roadmap`
+- Modified files:
+  `include/app/editor_controller.h`,
+  `src/app/editor_controller.c`,
+  `include/app/application_runtime.h`,
+  `src/app/application_runtime.c`,
+  `src/app/application.c`,
+  `tests/test_ui_logic.c`,
+  `CMakeLists.txt`,
+  `doc/reference/file-map.md`
+- Key changes:
+  Added a workspace-level editor controller facade for tool context creation, pointer capture checks, pointer event dispatch, scroll handling, pointer-anchor synchronization, tool event construction, and render scene snapshots.
+  Migrated `application.c` pointer callbacks and render submission setup away from direct `app->workspace.core.*` / `app->workspace.session.*` access for those paths.
+  Added UI logic regression coverage for editor-controller tool event construction and render scene snapshot creation.
+- Validation:
+  `cmake --build build --parallel` passed.
+  `ctest --test-dir build --output-on-failure -R "ui_logic|registry|command|renderer"` passed.
+  `ctest --test-dir build --output-on-failure` passed with 11/11 tests passing.
+
+## 2026-05-25 - P1: Extend Editor Controller Canvas Access
+
+- Branch:
+  `refactor-editor-architecture-roadmap`
+- Modified files:
+  `include/app/editor_controller.h`,
+  `src/app/editor_controller.c`,
+  `src/app/application_runtime.c`,
+  `src/app/application_file_actions.c`,
+  `tests/test_ui_logic.c`
+- Key changes:
+  Added controller APIs for canvas viewport updates, canvas background updates, canvas content-bounds queries, and read-only canvas access for export.
+  Migrated resize and PNG export paths away from direct application-layer access to `Workspace` internals for those canvas operations.
+  Added UI logic regression coverage for the new canvas controller APIs.
+- Validation:
+  `cmake --build build --parallel` passed.
+  `ctest --test-dir build --output-on-failure -R "ui_logic|workspace|renderer"` passed.
+  `ctest --test-dir build --output-on-failure` passed with 11/11 tests passing.
+
+## 2026-05-25 - P1: Remove Input Router Internal Workspace Dependency
+
+- Branch:
+  `refactor-editor-architecture-roadmap`
+- Modified files:
+  `include/app/workspace.h`,
+  `src/app/workspace.c`,
+  `src/app/application.c`,
+  `src/input/input_router.c`
+- Key changes:
+  Updated `input_router.c` to use public workspace accessors for keymap lookup and tool-controller key dispatch instead of including `workspace_internal.h`.
+  Added `workspace_set_service_callbacks()` so application startup can register save/load/export/action callbacks without directly writing the internal `workspace.services` fields.
+  Replaced the direct service-field assignments in `application.c` with the new workspace registration API.
+- Validation:
+  `cmake --build build --parallel` passed.
+  `ctest --test-dir build --output-on-failure -R "ui_logic|registry|workspace|command"` passed.
+  `ctest --test-dir build --output-on-failure` passed with 11/11 tests passing.
+
+## 2026-05-25 - P1: Remove Command Availability Internal Workspace Dependency
+
+- Branch:
+  `refactor-editor-architecture-roadmap`
+- Modified files:
+  `include/app/workspace.h`,
+  `src/app/workspace.c`,
+  `src/app/command_availability.c`
+- Key changes:
+  Added read-only workspace accessors for document, command executor, selection, clipboard count, and service availability checks.
+  Updated command availability rules to use the public workspace query surface instead of `workspace_internal.h`.
+  Kept the command availability behavior unchanged while moving internal layout knowledge back behind `workspace.c`.
+- Validation:
+  `cmake --build build --parallel` passed.
+  `ctest --test-dir build --output-on-failure -R "registry|ui_logic|command|workspace"` passed.
+  `ctest --test-dir build --output-on-failure` passed with 11/11 tests passing.
+
+## 2026-05-25 - P1: Remove Editor ViewModel Internal Workspace Dependency
+
+- Branch:
+  `refactor-editor-architecture-roadmap`
+- Modified files:
+  `include/app/workspace.h`,
+  `src/app/workspace.c`,
+  `src/app/editor_viewmodel.c`
+- Key changes:
+  Added const workspace accessors for canvas, tool controller, and keymap so read-only UI model building can stay outside the internal workspace layout.
+  Updated `editor_viewmodel.c` to build command, tool, property, layer, dialog, and summary views through public workspace accessors instead of `workspace_internal.h`.
+  Preserved the existing view-model output shape and UI-facing API while reducing direct `Workspace` field coupling.
+- Validation:
+  `cmake --build build --parallel` passed.
+  `ctest --test-dir build --output-on-failure -R "ui_logic|registry|workspace|command"` passed.
+  `ctest --test-dir build --output-on-failure` passed with 11/11 tests passing.
+
+## 2026-05-25 - P1: Remove Editor Action Handler Internal Workspace Dependency
+
+- Branch:
+  `refactor-editor-architecture-roadmap`
+- Modified files:
+  `src/app/editor_action_handler.c`
+- Key changes:
+  Updated action dispatch to use public workspace accessors for document, command executor, selection, and tool-controller access instead of `workspace_internal.h`.
+  Replaced direct dialog-state inspection with `workspace_active_dialog_kind()`.
+  Added a local command-execution helper to keep repeated command/executor/document dispatch logic in one place while preserving existing action behavior.
+- Validation:
+  `cmake --build build --parallel` passed.
+  `ctest --test-dir build --output-on-failure -R "ui_logic|registry|workspace|command"` passed.
+  `ctest --test-dir build --output-on-failure` passed with 11/11 tests passing.
+
+## 2026-05-25 - P1: Remove Command Registry Internal Workspace Dependency
+
+- Branch:
+  `refactor-editor-architecture-roadmap`
+- Modified files:
+  `include/app/workspace.h`,
+  `src/app/workspace.c`,
+  `src/app/command_registry.c`
+- Key changes:
+  Added `workspace_execute_service()` so command execution can invoke save/export callbacks without direct access to `workspace.services`.
+  Updated command registry selection pruning, delete, select-all, undo/redo, tool activation, Save As path lookup, and shortcut formatting to use public workspace accessors.
+  Removed `workspace_internal.h` from `command_registry.c`, leaving the command registry dependent on workspace behavior rather than workspace layout.
+- Validation:
+  `cmake --build build --parallel` passed.
+  `ctest --test-dir build --output-on-failure -R "registry|ui_logic|command|workspace"` passed.
+  `ctest --test-dir build --output-on-failure` passed with 11/11 tests passing.
+
+## 2026-05-25 - P1: Remove Editor Controller Internal Workspace Dependency
+
+- Branch:
+  `refactor-editor-architecture-roadmap`
+- Modified files:
+  `src/app/editor_controller.c`
+- Key changes:
+  Updated the editor controller facade to use public workspace accessors for canvas, document, selection, layout, and tool-controller access.
+  Removed `workspace_internal.h` from `editor_controller.c` while keeping the existing controller API and render-scene snapshot behavior unchanged.
+  Left internal workspace layout access limited to workspace-owned modules and the application storage struct.
+- Validation:
+  `cmake --build build --parallel` passed.
+  `ctest --test-dir build --output-on-failure -R "ui_logic|renderer|workspace|registry"` passed.
+  `ctest --test-dir build --output-on-failure` passed with 11/11 tests passing.
+
+## 2026-05-25 - P1: Make Application Hold an Opaque Workspace
+
+- Branch:
+  `refactor-editor-architecture-roadmap`
+- Modified files:
+  `include/app/workspace_service.h`,
+  `src/app/workspace_service.c`,
+  `src/app/registration_manifest.c`,
+  `src/app/application_internal.h`,
+  `src/app/application.c`,
+  `src/app/application_runtime.c`,
+  `src/app/application_file_actions.c`,
+  `src/app/application_dialog_actions.c`,
+  `tests/test_workspace_service.c`
+- Key changes:
+  Added `workspace_create()` / `workspace_destroy()` so application code can own `Workspace` through an opaque pointer instead of embedding the internal struct layout.
+  Updated `Application` to store `Workspace*`, removing the final app-layer include of `workspace_internal.h` and adjusting application runtime/file/dialog paths to pass the workspace pointer directly.
+  Made `app_register_all_manifests()` idempotent so multiple workspace lifetimes in the same process do not fail on duplicate global object/tool registration.
+  Added workspace service coverage for opaque workspace allocation and destruction.
+- Validation:
+  `cmake --build build --parallel` passed.
+  `ctest --test-dir build --output-on-failure -R "workspace|ui_logic|registry|command|renderer"` passed.
+  `ctest --test-dir build --output-on-failure` passed with 11/11 tests passing.
+
 ## 2026-05-12 21:25:51 CST - Baseline Check
 
 - Build system: CMake (`CMakeLists.txt` at repository root).

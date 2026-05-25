@@ -1,4 +1,5 @@
 #include <app/command_dispatcher.h>
+#include <app/editor_controller.h>
 #include <app/extension_loader.h>
 #include <app/workspace_internal.h>
 #include <app/workspace_dialogs.h>
@@ -72,6 +73,12 @@ static EditorCommand tool_command(const char* command_id)
 {
     const CommandDescriptor* descriptor = command_registry_find_by_id(command_id);
     return descriptor ? descriptor->command : EDITOR_COMMAND_NONE;
+}
+
+static int object_scalar(Document* document, ObjectId id, const char* key, float* out_value)
+{
+    GraphicObject* object = document_find_object(document, id);
+    return object && object_get_scalar(object, key, out_value);
 }
 
 static int init_workspace(Workspace* workspace)
@@ -321,6 +328,55 @@ static int test_workspace_tool_context_and_preview_accessors(void)
     return 0;
 }
 
+static int test_editor_controller_builds_tool_events_and_render_scene(void)
+{
+    Workspace workspace;
+    EditorRenderScene scene;
+    ToolEvent event;
+
+    EXPECT_TRUE(init_workspace(&workspace));
+    EXPECT_TRUE(document_add_object(&workspace.core.document,
+                                    make_rect(0.0f, 0.0f, 10.0f, 10.0f)));
+    EXPECT_TRUE(selection_set_add(&workspace.session.selection, 1u));
+
+    editor_controller_sync_pointer_anchor(&workspace, vec2_make(400.0f, 300.0f));
+    event = editor_controller_make_tool_event(&workspace,
+                                              vec2_make(410.0f, 290.0f),
+                                              -1,
+                                              0,
+                                              0.0f);
+    EXPECT_FLOAT_EQ(event.delta_screen.x, 10.0f);
+    EXPECT_FLOAT_EQ(event.delta_screen.y, -10.0f);
+    EXPECT_FLOAT_EQ(event.world_pos.x, 10.0f);
+    EXPECT_FLOAT_EQ(event.world_pos.y, 10.0f);
+    EXPECT_FLOAT_EQ(event.delta_world.x, 10.0f);
+    EXPECT_FLOAT_EQ(event.delta_world.y, 10.0f);
+
+    EXPECT_TRUE(editor_controller_render_scene(&workspace, &scene));
+    EXPECT_TRUE(scene.document == &workspace.core.document);
+    EXPECT_TRUE(scene.selection == &workspace.session.selection);
+    EXPECT_TRUE(scene.canvas == &workspace.core.canvas);
+    EXPECT_INT_EQ(scene.selection->count, 1);
+    EXPECT_TRUE(scene.overlay_object == NULL);
+
+    editor_controller_set_canvas_background(&workspace,
+                                            (Color){0.25f, 0.50f, 0.75f, 1.0f});
+    EXPECT_FLOAT_EQ(workspace.core.canvas.background.r, 0.25f);
+    EXPECT_FLOAT_EQ(workspace.core.canvas.background.g, 0.50f);
+    EXPECT_FLOAT_EQ(workspace.core.canvas.background.b, 0.75f);
+
+    editor_controller_set_canvas_viewport(&workspace,
+                                          (RectF){5.0f, 6.0f, 320.0f, 240.0f});
+    EXPECT_FLOAT_EQ(canvas_view_viewport(&workspace.core.canvas).x, 5.0f);
+    EXPECT_FLOAT_EQ(canvas_view_viewport(&workspace.core.canvas).y, 6.0f);
+    EXPECT_FLOAT_EQ(canvas_view_viewport(&workspace.core.canvas).w, 320.0f);
+    EXPECT_FLOAT_EQ(canvas_view_viewport(&workspace.core.canvas).h, 240.0f);
+    EXPECT_TRUE(editor_controller_canvas(&workspace) == &workspace.core.canvas);
+
+    shutdown_workspace(&workspace);
+    return 0;
+}
+
 static int test_locked_layers_block_pick_and_shape_creation(void)
 {
     Workspace workspace;
@@ -412,6 +468,142 @@ static int test_command_registry_respects_locked_layers(void)
     return 0;
 }
 
+static int test_clipboard_copy_paste_cut_commands(void)
+{
+    Workspace workspace;
+    ToolContext context;
+    ObjectId source_id = 1u;
+    ObjectId pasted_id = 0u;
+    float source_x = 0.0f;
+    float pasted_x = 0.0f;
+
+    EXPECT_TRUE(init_workspace(&workspace));
+    context = workspace_tool_context(&workspace);
+
+    EXPECT_TRUE(document_add_object(&workspace.core.document,
+                                    make_rect(10.0f, 20.0f, 30.0f, 40.0f)));
+    EXPECT_TRUE(selection_set_add(&workspace.session.selection, source_id));
+
+    EXPECT_TRUE(command_registry_execute(&workspace, &context, EDITOR_COMMAND_EDIT_COPY));
+    EXPECT_INT_EQ(workspace.session.clipboard_count, 1);
+    EXPECT_INT_EQ(workspace.session.clipboard_paste_serial, 0);
+    EXPECT_TRUE(workspace.session.clipboard_objects[0] != NULL);
+
+    EXPECT_TRUE(command_registry_execute(&workspace, &context, EDITOR_COMMAND_EDIT_PASTE));
+    EXPECT_INT_EQ(workspace.core.document.count, 2);
+    EXPECT_INT_EQ(workspace.session.selection.count, 1);
+    pasted_id = workspace.session.selection.ids[0];
+    EXPECT_TRUE(pasted_id != source_id);
+    EXPECT_INT_EQ(workspace.session.clipboard_paste_serial, 1);
+    EXPECT_TRUE(object_scalar(&workspace.core.document, source_id, "x", &source_x));
+    EXPECT_TRUE(object_scalar(&workspace.core.document, pasted_id, "x", &pasted_x));
+    EXPECT_TRUE(pasted_x > source_x);
+
+    EXPECT_TRUE(command_registry_execute(&workspace, &context, EDITOR_COMMAND_EDIT_CUT));
+    EXPECT_TRUE(document_find_object(&workspace.core.document, pasted_id) == NULL);
+    EXPECT_INT_EQ(workspace.core.document.count, 1);
+    EXPECT_INT_EQ(workspace.session.clipboard_count, 1);
+    EXPECT_INT_EQ(workspace.session.selection.count, 0);
+    EXPECT_TRUE(command_executor_can_undo(&workspace.core.commands));
+
+    EXPECT_TRUE(command_registry_execute(&workspace, &context, EDITOR_COMMAND_EDIT_UNDO));
+    EXPECT_TRUE(document_find_object(&workspace.core.document, pasted_id) != NULL);
+    EXPECT_INT_EQ(workspace.core.document.count, 2);
+
+    shutdown_workspace(&workspace);
+    return 0;
+}
+
+static int test_clipboard_cut_prunes_locked_selection(void)
+{
+    Workspace workspace;
+    ToolContext context;
+    LayerId locked_layer = 0u;
+    ObjectId locked_id = 1u;
+    ObjectId editable_id = 2u;
+
+    EXPECT_TRUE(init_workspace(&workspace));
+    context = workspace_tool_context(&workspace);
+
+    locked_layer = document_create_layer(&workspace.core.document, "Locked");
+    EXPECT_TRUE(locked_layer != 0u);
+    EXPECT_TRUE(document_set_active_layer(&workspace.core.document, locked_layer));
+    EXPECT_TRUE(document_add_object(&workspace.core.document,
+                                    make_rect(0.0f, 0.0f, 10.0f, 10.0f)));
+    EXPECT_TRUE(document_set_layer_locked(&workspace.core.document, locked_layer, 1));
+
+    EXPECT_TRUE(document_set_active_layer(&workspace.core.document, 1u));
+    EXPECT_TRUE(document_add_object(&workspace.core.document,
+                                    make_rect(20.0f, 0.0f, 10.0f, 10.0f)));
+    EXPECT_TRUE(selection_set_add(&workspace.session.selection, locked_id));
+    EXPECT_TRUE(selection_set_add(&workspace.session.selection, editable_id));
+
+    EXPECT_TRUE(command_registry_execute(&workspace, &context, EDITOR_COMMAND_EDIT_CUT));
+    EXPECT_TRUE(document_find_object(&workspace.core.document, locked_id) != NULL);
+    EXPECT_TRUE(document_find_object(&workspace.core.document, editable_id) == NULL);
+    EXPECT_INT_EQ(workspace.core.document.count, 1);
+    EXPECT_INT_EQ(workspace.session.clipboard_count, 1);
+
+    EXPECT_TRUE(command_registry_execute(&workspace, &context, EDITOR_COMMAND_EDIT_UNDO));
+    EXPECT_TRUE(document_find_object(&workspace.core.document, editable_id) != NULL);
+    EXPECT_INT_EQ(workspace.core.document.count, 2);
+
+    shutdown_workspace(&workspace);
+    return 0;
+}
+
+static int test_view_commands_update_canvas_state(void)
+{
+    Workspace workspace;
+    ToolContext context;
+
+    EXPECT_TRUE(init_workspace(&workspace));
+    context = workspace_tool_context(&workspace);
+
+    EXPECT_FLOAT_EQ(canvas_view_zoom(&workspace.core.canvas), 1.0f);
+    EXPECT_TRUE(command_registry_execute(&workspace, &context, EDITOR_COMMAND_VIEW_ZOOM_IN));
+    EXPECT_FLOAT_EQ(canvas_view_zoom(&workspace.core.canvas), 1.25f);
+    EXPECT_TRUE(command_registry_execute(&workspace, &context, EDITOR_COMMAND_VIEW_ZOOM_OUT));
+    EXPECT_FLOAT_EQ(canvas_view_zoom(&workspace.core.canvas), 1.0f);
+
+    EXPECT_TRUE(workspace.core.canvas.show_grid);
+    EXPECT_TRUE(command_registry_execute(&workspace, &context, EDITOR_COMMAND_VIEW_TOGGLE_GRID));
+    EXPECT_TRUE(!workspace.core.canvas.show_grid);
+    EXPECT_TRUE(command_registry_execute(&workspace, &context, EDITOR_COMMAND_VIEW_TOGGLE_GRID));
+    EXPECT_TRUE(workspace.core.canvas.show_grid);
+
+    canvas_view_set_center_zoom(&workspace.core.canvas, vec2_make(42.0f, -17.0f), 3.0f);
+    EXPECT_TRUE(command_registry_execute(&workspace, &context, EDITOR_COMMAND_VIEW_ZOOM_FIT));
+    EXPECT_FLOAT_EQ(canvas_view_center(&workspace.core.canvas).x, 0.0f);
+    EXPECT_FLOAT_EQ(canvas_view_center(&workspace.core.canvas).y, 0.0f);
+    EXPECT_FLOAT_EQ(canvas_view_zoom(&workspace.core.canvas), 1.0f);
+
+    shutdown_workspace(&workspace);
+    return 0;
+}
+
+static int test_view_zoom_fit_frames_small_document(void)
+{
+    Workspace workspace;
+    ToolContext context;
+    Vec2 center;
+
+    EXPECT_TRUE(init_workspace(&workspace));
+    context = workspace_tool_context(&workspace);
+
+    EXPECT_TRUE(document_add_object(&workspace.core.document,
+                                    make_rect(10.0f, 20.0f, 1.0f, 1.0f)));
+    EXPECT_TRUE(command_registry_execute(&workspace, &context, EDITOR_COMMAND_VIEW_ZOOM_FIT));
+
+    center = canvas_view_center(&workspace.core.canvas);
+    EXPECT_FLOAT_EQ(center.x, 10.5f);
+    EXPECT_FLOAT_EQ(center.y, 20.5f);
+    EXPECT_FLOAT_EQ(canvas_view_zoom(&workspace.core.canvas), 12.0f);
+
+    shutdown_workspace(&workspace);
+    return 0;
+}
+
 int main(void)
 {
     extension_loader_register_all();
@@ -421,8 +613,13 @@ int main(void)
     if (test_command_dispatcher_updates_save_as_dialog_input()) return 1;
     if (test_tool_controller_pointer_anchor_accessors()) return 1;
     if (test_workspace_tool_context_and_preview_accessors()) return 1;
+    if (test_editor_controller_builds_tool_events_and_render_scene()) return 1;
     if (test_locked_layers_block_pick_and_shape_creation()) return 1;
     if (test_command_registry_respects_locked_layers()) return 1;
+    if (test_clipboard_copy_paste_cut_commands()) return 1;
+    if (test_clipboard_cut_prunes_locked_selection()) return 1;
+    if (test_view_commands_update_canvas_state()) return 1;
+    if (test_view_zoom_fit_frames_small_document()) return 1;
 
     printf("[PASS] editor viewmodel and dispatcher\n");
     return 0;

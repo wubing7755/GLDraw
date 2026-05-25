@@ -215,6 +215,18 @@ static int test_load_document_resets_runtime_state(Workspace* workspace)
     return 0;
 }
 
+static int test_workspace_create_destroy_allocates_opaque_workspace(void)
+{
+    Workspace* workspace = workspace_create((RectF){0.0f, 0.0f, 640.0f, 480.0f},
+                                            "gldraw.test.keymap.json");
+
+    EXPECT_TRUE(workspace != NULL);
+    EXPECT_INT_EQ(workspace->core.document.count, 0);
+    EXPECT_FLOAT_EQ(canvas_view_zoom(&workspace->core.canvas), 1.0f);
+    workspace_destroy(workspace);
+    return 0;
+}
+
 int main(void)
 {
     Workspace workspace;
@@ -235,6 +247,10 @@ int main(void)
         goto cleanup;
     }
     if (test_load_document_resets_runtime_state(&workspace)) {
+        result = 1;
+        goto cleanup;
+    }
+    if (test_workspace_create_destroy_allocates_opaque_workspace()) {
         result = 1;
         goto cleanup;
     }

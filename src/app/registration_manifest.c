@@ -9,6 +9,12 @@
 
 int app_register_all_manifests(void)
 {
+    static int registered = 0;
+
+    if (registered) {
+        return 1;
+    }
+
     if (!object_manifest_register_all()) {
         return 0;
     }
@@ -17,5 +23,6 @@ int app_register_all_manifests(void)
         return 0;
     }
 
+    registered = 1;
     return 1;
 }

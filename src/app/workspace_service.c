@@ -19,6 +19,7 @@
 #include <model/selection.h>
 #include <tools/tool_controller.h>
 
+#include <stdlib.h>
 #include <string.h>
 
 static const char* service_default_document_path(void)
@@ -71,6 +72,22 @@ int workspace_init(Workspace* workspace, RectF viewport, const char* keymap_path
     return 1;
 }
 
+Workspace* workspace_create(RectF viewport, const char* keymap_path)
+{
+    Workspace* workspace = (Workspace*)calloc(1u, sizeof(*workspace));
+
+    if (!workspace) {
+        return NULL;
+    }
+
+    if (!workspace_init(workspace, viewport, keymap_path)) {
+        workspace_destroy(workspace);
+        return NULL;
+    }
+
+    return workspace;
+}
+
 void workspace_shutdown(Workspace* workspace)
 {
     if (!workspace) {
@@ -83,6 +100,16 @@ void workspace_shutdown(Workspace* workspace)
     workspace_clear_clipboard(workspace);
     selection_set_shutdown(&workspace->session.selection);
     document_shutdown(&workspace->core.document);
+}
+
+void workspace_destroy(Workspace* workspace)
+{
+    if (!workspace) {
+        return;
+    }
+
+    workspace_shutdown(workspace);
+    free(workspace);
 }
 
 int workspace_service_new_document(Workspace* workspace)
