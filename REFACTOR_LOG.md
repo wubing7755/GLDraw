@@ -276,6 +276,54 @@
   `ctest --test-dir build --output-on-failure -R "workspace|ui_logic|registry|command|renderer"` passed.
   `ctest --test-dir build --output-on-failure` passed with 11/11 tests passing.
 
+## 2026-05-25 - P2: Reuse Command Catalog in ViewModel Construction
+
+- Branch:
+  `refactor-editor-architecture-roadmap`
+- Modified files:
+  `src/app/editor_viewmodel.c`
+- Key changes:
+  Removed the duplicate static command ID/scope mapping from `editor_viewmodel.c`.
+  Updated command view construction to read command IDs and key scopes from `command_catalog_find_by_command()`.
+  Kept command availability and unavailable-reason lookup behavior unchanged.
+- Validation:
+  `cmake --build build --parallel` passed.
+  `ctest --test-dir build --output-on-failure -R "ui_logic|registry|command"` passed.
+  `ctest --test-dir build --output-on-failure` passed with 11/11 tests passing.
+
+## 2026-05-25 - P2: Decompose UI Frame Build Helpers
+
+- Branch:
+  `refactor-editor-architecture-roadmap`
+- Modified files:
+  `src/ui/ui_runtime.c`
+- Key changes:
+  Split `ui_system_build()` internals into private helpers for modal state update, frame timing/theme polling, menu/theme request handling, inspector animation/rendering, and canvas-content bounds publishing.
+  Kept Nuklear rendering calls, layout fields, theme behavior, context-menu behavior, and published layout semantics unchanged.
+  Left helper functions in `ui_runtime.c` for this first pass to reduce risk before moving UI build concerns into separate files.
+- Validation:
+  `cmake --build build --parallel` passed.
+  `ctest --test-dir build --output-on-failure -R "ui_logic|registry|command|renderer"` passed.
+  `ctest --test-dir build --output-on-failure` passed with 11/11 tests passing.
+
+## 2026-05-25 - P2: Move UI Frame Build Into Dedicated Module
+
+- Branch:
+  `refactor-editor-architecture-roadmap`
+- Modified files:
+  `CMakeLists.txt`,
+  `src/ui/ui_runtime.c`,
+  `src/ui/ui_frame.c`,
+  `doc/reference/file-map.md`
+- Key changes:
+  Moved `ui_system_build()` and its private frame-composition helpers from `ui_runtime.c` into the new `ui_frame.c` module.
+  Kept `ui_runtime.c` focused on UI lifecycle, action emission, input forwarding, rendering, and layout query APIs.
+  Added `ui_frame.c` to the Nuklear UI target and file map.
+- Validation:
+  `cmake --build build --parallel` passed.
+  `ctest --test-dir build --output-on-failure -R "ui_logic|registry|renderer|command"` passed.
+  `ctest --test-dir build --output-on-failure` passed with 11/11 tests passing.
+
 ## 2026-05-12 21:25:51 CST - Baseline Check
 
 - Build system: CMake (`CMakeLists.txt` at repository root).

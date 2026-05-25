@@ -1,42 +1,12 @@
 #include <ui/editor_viewmodel.h>
 
+#include <app/command_catalog.h>
 #include <app/workspace.h>
 #include <canvas/canvas_view.h>
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
-typedef struct EditorCommandMapEntry {
-    EditorCommand command;
-    const char* command_id;
-    KeyScope scope;
-} EditorCommandMapEntry;
-
-static const EditorCommandMapEntry g_command_map[] = {
-    {EDITOR_COMMAND_FILE_NEW, "file.new", KEY_SCOPE_GLOBAL},
-    {EDITOR_COMMAND_FILE_OPEN, "file.open", KEY_SCOPE_GLOBAL},
-    {EDITOR_COMMAND_FILE_SAVE, "file.save", KEY_SCOPE_GLOBAL},
-    {EDITOR_COMMAND_FILE_SAVE_AS, "file.save_as", KEY_SCOPE_GLOBAL},
-    {EDITOR_COMMAND_FILE_EXPORT_PNG, "file.export_png", KEY_SCOPE_GLOBAL},
-    {EDITOR_COMMAND_FILE_EXIT, "file.exit", KEY_SCOPE_GLOBAL},
-    {EDITOR_COMMAND_EDIT_UNDO, "edit.undo", KEY_SCOPE_GLOBAL},
-    {EDITOR_COMMAND_EDIT_REDO, "edit.redo", KEY_SCOPE_GLOBAL},
-    {EDITOR_COMMAND_EDIT_CUT, "edit.cut", KEY_SCOPE_GLOBAL},
-    {EDITOR_COMMAND_EDIT_COPY, "edit.copy", KEY_SCOPE_GLOBAL},
-    {EDITOR_COMMAND_EDIT_PASTE, "edit.paste", KEY_SCOPE_GLOBAL},
-    {EDITOR_COMMAND_EDIT_DELETE, "edit.delete", KEY_SCOPE_GLOBAL},
-    {EDITOR_COMMAND_EDIT_SELECT_ALL, "edit.select_all", KEY_SCOPE_GLOBAL},
-    {EDITOR_COMMAND_VIEW_ZOOM_IN, "view.zoom_in", KEY_SCOPE_GLOBAL},
-    {EDITOR_COMMAND_VIEW_ZOOM_OUT, "view.zoom_out", KEY_SCOPE_GLOBAL},
-    {EDITOR_COMMAND_VIEW_ZOOM_FIT, "view.zoom_fit", KEY_SCOPE_GLOBAL},
-    {EDITOR_COMMAND_VIEW_TOGGLE_GRID, "view.toggle_grid", KEY_SCOPE_GLOBAL},
-    {EDITOR_COMMAND_VIEW_TOGGLE_INSPECTOR, "view.toggle_inspector", KEY_SCOPE_GLOBAL},
-    {EDITOR_COMMAND_HELP_SHORTCUTS, "help.shortcuts", KEY_SCOPE_GLOBAL},
-    {EDITOR_COMMAND_HELP_ABOUT, "help.about", KEY_SCOPE_GLOBAL},
-    {EDITOR_COMMAND_MODAL_CONFIRM, "modal.confirm", KEY_SCOPE_MODAL},
-    {EDITOR_COMMAND_MODAL_CANCEL, "modal.cancel", KEY_SCOPE_MODAL}
-};
 
 static void editor_copy_string(char* dst, size_t dst_size, const char* src)
 {
@@ -66,19 +36,6 @@ static void editor_build_tooltip(char* dst,
     }
 
     editor_copy_string(dst, dst_size, base_tooltip);
-}
-
-static const EditorCommandMapEntry* editor_command_map_lookup(EditorCommand command)
-{
-    size_t i = 0u;
-
-    for (i = 0u; i < sizeof(g_command_map) / sizeof(g_command_map[0]); ++i) {
-        if (g_command_map[i].command == command) {
-            return &g_command_map[i];
-        }
-    }
-
-    return NULL;
 }
 
 void editor_viewmodel_init(EditorViewModel* view_model)
@@ -118,18 +75,18 @@ static void editor_viewmodel_build_commands(EditorViewModel* view_model,
     }
 
     for (i = 1; i < EDITOR_VIEWMODEL_MAX_COMMANDS; ++i) {
-        const EditorCommandMapEntry* map_entry =
-            editor_command_map_lookup((EditorCommand)i);
+        const CommandDescriptor* descriptor =
+            command_catalog_find_by_command((EditorCommand)i);
 
         view_model->commands[i].available =
             command_registry_is_available(workspace, (EditorCommand)i);
         view_model->commands[i].shortcut[0] = '\0';
         view_model->commands[i].unavailable_reason[0] = '\0';
 
-        if (map_entry && keymap) {
+        if (descriptor && keymap) {
             keymap_format_command_shortcut(keymap,
-                                           map_entry->command_id,
-                                           map_entry->scope,
+                                           descriptor->id,
+                                           descriptor->scope,
                                            view_model->commands[i].shortcut,
                                            sizeof(view_model->commands[i].shortcut));
         }
