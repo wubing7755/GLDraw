@@ -421,6 +421,7 @@ int app_run(void) {
     int framebuffer_w = 0;
     int framebuffer_h = 0;
     EditorRenderScene scene;
+    RenderSceneDesc render_scene;
 
     platform_window_poll_events();
     platform_window_get_framebuffer_size(&app->window, &framebuffer_w, &framebuffer_h);
@@ -435,13 +436,13 @@ int app_run(void) {
     ui_system_build(app->ui, &app->view_model);
     application_runtime_update_canvas_viewport(app);
     if (editor_controller_render_scene(app->workspace, &scene)) {
-      render_system_draw(app->renderer,
-                         scene.document,
-                         scene.selection,
-                         scene.canvas,
-                         scene.selection_preview_active,
-                         scene.selection_preview_delta,
-                         scene.overlay_object);
+      render_scene.document = scene.document;
+      render_scene.selection = scene.selection;
+      render_scene.canvas = scene.canvas;
+      render_scene.selection_preview_active = scene.selection_preview_active;
+      render_scene.selection_preview_delta = scene.selection_preview_delta;
+      render_scene.overlay_object = scene.overlay_object;
+      render_system_draw(app->renderer, &render_scene);
     }
     application_flush_pending_export_png(app);
     ui_system_render(app->ui);

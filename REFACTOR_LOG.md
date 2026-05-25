@@ -324,6 +324,24 @@
   `ctest --test-dir build --output-on-failure -R "ui_logic|registry|renderer|command"` passed.
   `ctest --test-dir build --output-on-failure` passed with 11/11 tests passing.
 
+## 2026-05-25 - P2: Introduce Render Scene Descriptor
+
+- Branch:
+  `refactor-editor-architecture-roadmap`
+- Modified files:
+  `include/render/render_system.h`,
+  `src/render/render_system.c`,
+  `src/app/application.c`,
+  `tests/test_renderer.c`
+- Key changes:
+  Added `RenderSceneDesc` as the render-system input snapshot for document, selection, canvas, selection preview, and overlay object state.
+  Replaced the long `render_system_draw()` parameter list with a single scene descriptor pointer.
+  Updated application frame submission and renderer regression tests to pass the descriptor.
+- Validation:
+  `cmake --build build --parallel` passed.
+  `ctest --test-dir build --output-on-failure -R "renderer|ui_logic|registry"` passed.
+  `ctest --test-dir build --output-on-failure` passed with 11/11 tests passing.
+
 ## 2026-05-12 21:25:51 CST - Baseline Check
 
 - Build system: CMake (`CMakeLists.txt` at repository root).

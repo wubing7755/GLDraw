@@ -6,12 +6,21 @@
 #define GLDRAW_RENDER_RENDER_SYSTEM_H
 
 #include <canvas/canvas_view.h>
-#include <app/editor_session.h>
 #include <document/document.h>
+#include <model/selection.h>
 #include <platform/window.h>
 #include <render/render_device.h>
 
 typedef struct RenderSystem RenderSystem;
+
+typedef struct RenderSceneDesc {
+    const Document* document;
+    const SelectionSet* selection;
+    const CanvasView* canvas;
+    int selection_preview_active;
+    Vec2 selection_preview_delta;
+    const GraphicObject* overlay_object;
+} RenderSceneDesc;
 
 /**
  * @brief Create the rendering system and initialize GPU resources.
@@ -48,19 +57,10 @@ void render_system_resize(RenderSystem* renderer,
  * Main flow: clear -> draw grid/axes -> draw document objects -> draw tool overlay preview.
  *
  * @param renderer Renderer instance.
- * @param document Current document.
- * @param selection Current editor selection state.
- * @param canvas Current canvas view.
- * @param overlay_object Tool overlay preview object (may be `NULL`).
+ * @param scene Current editor scene snapshot.
  * @return No return value.
  */
-void render_system_draw(RenderSystem* renderer,
-                        const Document* document,
-                        const SelectionSet* selection,
-                        const CanvasView* canvas,
-                        int selection_preview_active,
-                        Vec2 selection_preview_delta,
-                        const GraphicObject* overlay_object);
+void render_system_draw(RenderSystem* renderer, const RenderSceneDesc* scene);
 
 /**
  * @brief Export the current canvas viewport pixels from the framebuffer to a PNG file.

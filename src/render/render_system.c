@@ -99,16 +99,17 @@ void render_system_resize(RenderSystem* renderer,
                          framebuffer_height);
 }
 
-void render_system_draw(RenderSystem* renderer,
-                        const Document* document,
-                        const SelectionSet* selection,
-                        const CanvasView* canvas,
-                        int selection_preview_active,
-                        Vec2 selection_preview_delta,
-                        const GraphicObject* overlay_object)
+void render_system_draw(RenderSystem* renderer, const RenderSceneDesc* scene)
 {
     RenderFrameDesc frame_desc;
     RenderTransform transform;
+    const Document* document = scene ? scene->document : NULL;
+    const SelectionSet* selection = scene ? scene->selection : NULL;
+    const CanvasView* canvas = scene ? scene->canvas : NULL;
+    const GraphicObject* overlay_object = scene ? scene->overlay_object : NULL;
+    int selection_preview_active = scene ? scene->selection_preview_active : 0;
+    Vec2 selection_preview_delta = scene ? scene->selection_preview_delta
+                                         : (Vec2){0.0f, 0.0f};
 
     if (!renderer || !document || !canvas) {
         return;

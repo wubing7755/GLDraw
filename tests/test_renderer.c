@@ -259,6 +259,7 @@ static int test_render_system_invalidates_on_selection_revision(void)
     Document document;
     CanvasView canvas;
     SelectionSet selection = {0};
+    RenderSceneDesc scene;
     MockRenderDevice mock = {0};
     PlatformWindow window = {0};
     RenderSystem* renderer = NULL;
@@ -282,7 +283,13 @@ static int test_render_system_invalidates_on_selection_revision(void)
     renderer = render_system_create(&mock.base, &window);
     EXPECT_TRUE(renderer != NULL);
 
-    render_system_draw(renderer, &document, &selection, &canvas, 0, (Vec2){0.0f, 0.0f}, NULL);
+    scene.document = &document;
+    scene.selection = &selection;
+    scene.canvas = &canvas;
+    scene.selection_preview_active = 0;
+    scene.selection_preview_delta = (Vec2){0.0f, 0.0f};
+    scene.overlay_object = NULL;
+    render_system_draw(renderer, &scene);
     first_highlight = mock_find_widest_draw_call(&mock);
     EXPECT_TRUE(first_highlight != NULL);
     first_highlight_x = first_highlight->first_point.x;
@@ -290,7 +297,7 @@ static int test_render_system_invalidates_on_selection_revision(void)
     mock_reset_frame_capture(&mock);
     selection_set_clear(&selection);
     EXPECT_TRUE(selection_set_add(&selection, 2u));
-    render_system_draw(renderer, &document, &selection, &canvas, 0, (Vec2){0.0f, 0.0f}, NULL);
+    render_system_draw(renderer, &scene);
     second_highlight = mock_find_widest_draw_call(&mock);
     EXPECT_TRUE(second_highlight != NULL);
     second_highlight_x = second_highlight->first_point.x;
