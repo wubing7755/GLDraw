@@ -15,7 +15,7 @@
 #include "ui_menu_def.h"
 #include "ui_menu_actions.h"
 
-#include <app/command_registry.h>
+#include <app/command_catalog.h>
 
 #include <glad/glad.h>
 
@@ -93,7 +93,7 @@ static void ui_build_menu_item_text(const EditorViewModel* view_model,
 
     shortcut[0] = '\0';
     if (view_model && item->type == MENU_ITEM_ACTION) {
-        const CommandDescriptor* descriptor = command_registry_find_by_menu_id(item->id);
+        const CommandDescriptor* descriptor = command_catalog_find_by_menu_id(item->id);
 
         if (descriptor) {
             snprintf(shortcut,
@@ -541,7 +541,7 @@ void ui_menubar_build(UiMenuBar* menubar,
             char tooltip[96];
             struct nk_rect widget_bounds;
             const CommandDescriptor* descriptor =
-                command_registry_find_by_menu_id(g_quick_actions[i].menu_id);
+                command_catalog_find_by_menu_id(g_quick_actions[i].menu_id);
             int enabled = ui_menu_is_action_available(view_model, g_quick_actions[i].menu_id);
             int hovered = 0;
             nk_layout_row_push(ctx, g_quick_actions[i].width);

@@ -14,12 +14,22 @@ The next refactor should not reduce layering for its own sake. It should turn pa
 
 ## Current Pressure Points
 
-- `src/app/command_registry.c` mixes command metadata, availability checks, command execution, clipboard behavior, dialog opening, view commands, and tool activation.
-- `src/app/command_dispatcher.c` overlaps with `command_registry.c`; some UI actions execute through the registry while others create commands directly.
-- `src/app/application.c` and helper modules still reach into `app->workspace.core` and `app->workspace.session`, so the public `Workspace` boundary is not fully enforced.
-- `src/ui/ui_runtime.c` builds menu, layout, animation, panels, dialogs, context menus, theme reload, and layout publishing in one large frame function.
-- `src/app/editor_viewmodel.c` includes `workspace_internal.h` and duplicates command mapping data that should belong to the command catalog.
-- `render_system_draw()` takes a long parameter list where a render-scene descriptor would communicate intent better.
+- `src/app/command_registry.c` still owns command execution for file, edit, tool, modal, and help commands. Metadata and availability have moved out, but execution paths are still grouped in one switch.
+- Command metadata and availability compatibility wrappers remain in `command_registry.c` for tests and external callers. They should be deleted after all call sites use `command_catalog` and `command_availability` directly.
+- View-model construction now uses public workspace accessors, but it still reads model objects and command state in one pass. A later pass can split summary, command, tool, layer, and property snapshots if the UI grows.
+- UI frame construction has moved to `src/ui/ui_frame.c`, but Nuklear-specific composition remains broad enough that future UI changes should continue decomposing by view concern.
+- Render submission now uses `RenderSceneDesc` and a cache-key value. The next render cleanup should focus on ownership and lifetime of scene snapshots rather than parameter shape.
+
+## Progress Snapshot
+
+- Command descriptors live in `command_catalog`.
+- Command executable-state checks live in `command_availability`.
+- Clipboard and view commands have dedicated workspace modules.
+- Editor actions dispatch through `editor_action_handler`.
+- Application code owns an opaque `Workspace*` instead of embedding workspace internals.
+- Outer app/input/UI/view-model/controller layers no longer include `workspace_internal.h`.
+- `ui_system_build()` lives in `ui_frame.c`.
+- `render_system_draw()` consumes `RenderSceneDesc`.
 
 ## Boundary Rules
 
@@ -104,6 +114,12 @@ These rules are the target state for the refactor:
 - Delete temporary wrappers after call sites have migrated.
 - Update architecture docs and file maps with the final ownership map.
 - Run the full build and test suite after each cleanup.
+
+### 13. Split Remaining Command Execution Groups
+
+- Move file/service commands, modal/help commands, and edit selection commands into small owner modules if the registry switch continues to grow.
+- Keep `command_registry_execute()` as the public execution entry point until the replacement action executor API is stable.
+- Prefer focused regression tests around each moved behavior before deleting the old switch cases.
 
 ## Per-Step Completion Criteria
 

@@ -1,5 +1,6 @@
 #include <ui/editor_viewmodel.h>
 
+#include <app/command_availability.h>
 #include <app/command_catalog.h>
 #include <app/workspace.h>
 #include <canvas/canvas_view.h>
@@ -79,7 +80,7 @@ static void editor_viewmodel_build_commands(EditorViewModel* view_model,
             command_catalog_find_by_command((EditorCommand)i);
 
         view_model->commands[i].available =
-            command_registry_is_available(workspace, (EditorCommand)i);
+            command_availability_is_available(workspace, (EditorCommand)i);
         view_model->commands[i].shortcut[0] = '\0';
         view_model->commands[i].unavailable_reason[0] = '\0';
 
@@ -92,8 +93,8 @@ static void editor_viewmodel_build_commands(EditorViewModel* view_model,
         }
         editor_copy_string(view_model->commands[i].unavailable_reason,
                            sizeof(view_model->commands[i].unavailable_reason),
-                           command_registry_unavailable_reason(workspace,
-                                                               (EditorCommand)i));
+                           command_availability_unavailable_reason(workspace,
+                                                                   (EditorCommand)i));
     }
 }
 
@@ -166,12 +167,13 @@ static void editor_viewmodel_build_tools(EditorViewModel* view_model,
         tool_view->unavailable_reason[0] = '\0';
 
         command_descriptor = descriptor->command_id
-                                 ? command_registry_find_by_id(descriptor->command_id)
+                                 ? command_catalog_find_by_id(descriptor->command_id)
                                  : NULL;
         if (command_descriptor) {
             tool_view->command = command_descriptor->command;
-            tool_view->available = command_registry_is_available(workspace,
-                                                                 command_descriptor->command);
+            tool_view->available =
+                command_availability_is_available(workspace,
+                                                 command_descriptor->command);
             if (keymap) {
                 keymap_format_command_shortcut(keymap,
                                                descriptor->command_id,
@@ -181,8 +183,8 @@ static void editor_viewmodel_build_tools(EditorViewModel* view_model,
             }
             editor_copy_string(tool_view->unavailable_reason,
                                sizeof(tool_view->unavailable_reason),
-                               command_registry_unavailable_reason(workspace,
-                                                                   command_descriptor->command));
+                               command_availability_unavailable_reason(workspace,
+                                                                       command_descriptor->command));
         }
 
         editor_build_tooltip(tool_view->tooltip,

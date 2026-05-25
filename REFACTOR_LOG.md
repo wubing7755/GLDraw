@@ -1,5 +1,25 @@
 # Refactor Log
 
+## 2026-05-25 - P2: Migrate Command Metadata Callers
+
+- Branch:
+  `refactor-editor-architecture-roadmap`
+- Modified files:
+  `src/input/input_router.c`,
+  `src/ui/ui_menubar.c`,
+  `src/ui/ui_menu_actions.c`,
+  `src/app/editor_viewmodel.c`,
+  `src/app/command_registry.c`,
+  `doc/architecture/refactor-roadmap.md`
+- Key changes:
+  Updated input routing, menu UI, menu action emission, and view-model construction to query command metadata through `command_catalog` and command state through `command_availability`.
+  Updated `command_registry.c` internals to call the extracted catalog/availability modules directly instead of routing through its own compatibility wrappers.
+  Refreshed the roadmap pressure points and progress snapshot so it reflects completed workspace, UI frame, view-model, and render descriptor work.
+- Validation:
+  `cmake --build build --parallel` passed.
+  `ctest --test-dir build --output-on-failure -R "ui_logic|registry|command"` passed.
+  `ctest --test-dir build --output-on-failure` passed with 11/11 tests passing.
+
 ## 2026-05-25 - Architecture Refactor Roadmap Baseline
 
 - Branch:

@@ -4,6 +4,8 @@
  */
 #include <input/input_router.h>
 
+#include <app/command_availability.h>
+#include <app/command_catalog.h>
 #include <app/command_registry.h>
 #include <app/workspace.h>
 #include <app/workspace_actions.h>
@@ -37,10 +39,10 @@ int input_router_handle_key(const InputRouterContext* context, const KeyEvent* e
     keymap = workspace_get_keymap(context->workspace);
     command_id = keymap ? keymap_lookup_command(keymap, scope, chord) : NULL;
     if (command_id) {
-        descriptor = command_registry_find_by_id(command_id);
+        descriptor = command_catalog_find_by_id(command_id);
         if (descriptor &&
-            command_registry_is_available(context->workspace,
-                                          descriptor->command)) {
+            command_availability_is_available(context->workspace,
+                                              descriptor->command)) {
             return command_registry_execute(context->workspace,
                                             context->tool_context,
                                             descriptor->command);

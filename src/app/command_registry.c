@@ -266,7 +266,7 @@ int command_registry_execute(Workspace* workspace,
     if (!workspace) {
         return 0;
     }
-    if (!command_registry_is_available(workspace, command)) {
+    if (!command_availability_is_available(workspace, command)) {
         return 0;
     }
     if (command >= EDITOR_COMMAND_DYNAMIC_TOOL_BASE) {
@@ -363,7 +363,7 @@ void command_registry_format_menu_shortcut(const Workspace* workspace,
         return;
     }
 
-    descriptor = command_registry_find_by_menu_id(id);
+    descriptor = command_catalog_find_by_menu_id(id);
     if (!descriptor) {
         return;
     }
