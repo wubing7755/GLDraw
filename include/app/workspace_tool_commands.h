@@ -5,7 +5,8 @@
 #ifndef GLDRAW_APP_WORKSPACE_TOOL_COMMANDS_H
 #define GLDRAW_APP_WORKSPACE_TOOL_COMMANDS_H
 
-#include <app/command_registry.h>
+#include <app/command_types.h>
+#include <tools/tool.h>
 
 struct Workspace;
 

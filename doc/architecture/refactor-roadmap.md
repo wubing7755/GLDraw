@@ -27,6 +27,7 @@ The next refactor should not reduce layering for its own sake. It should turn pa
 ## Progress Snapshot
 
 - Command descriptors live in `command_catalog`.
+- Command identifiers and descriptor value types live in `command_types`.
 - Command executable-state checks live in `command_availability`.
 - Command metadata and availability compatibility wrappers have been removed from `command_registry`.
 - File/service commands have a dedicated workspace command module.

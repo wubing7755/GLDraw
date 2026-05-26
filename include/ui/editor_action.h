@@ -1,7 +1,7 @@
 #ifndef GLDRAW_UI_EDITOR_ACTION_H
 #define GLDRAW_UI_EDITOR_ACTION_H
 
-#include <app/command_registry.h>
+#include <app/command_types.h>
 #include <app/workspace.h>
 #include <base/types.h>
 

@@ -4,7 +4,6 @@
  */
 #include <input/keymap.h>
 
-#include <app/command_registry.h>
 #include <tools/tool.h>
 
 #include <stdio.h>

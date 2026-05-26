@@ -1,7 +1,7 @@
 #ifndef GLDRAW_UI_EDITOR_VIEWMODEL_H
 #define GLDRAW_UI_EDITOR_VIEWMODEL_H
 
-#include <app/command_registry.h>
+#include <app/command_types.h>
 #include <app/workspace.h>
 #include <document/object.h>
 #include <tools/tool.h>

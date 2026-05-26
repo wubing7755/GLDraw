@@ -1,5 +1,33 @@
 # Refactor Log
 
+## 2026-05-26 - P2: Split Command Types From Execution
+
+- Branch:
+  `refactor-editor-architecture-roadmap`
+- Modified files:
+  `include/app/command_types.h`,
+  `include/app/command_registry.h`,
+  `include/app/command_catalog.h`,
+  `include/app/command_availability.h`,
+  `include/app/workspace_tool_commands.h`,
+  `include/ui/editor_action.h`,
+  `include/ui/editor_viewmodel.h`,
+  `src/input/keymap.c`,
+  `src/ui/ui_context_menu.c`,
+  `src/app/application.c`,
+  `tests/test_registry.c`,
+  `doc/reference/file-map.md`,
+  `doc/architecture/refactor-roadmap.md`
+- Key changes:
+  Moved `EditorCommand` and `CommandDescriptor` into `command_types.h`.
+  Kept `command_registry.h` focused on the execution entry point and `ToolContext` dependency.
+  Replaced type-only command-registry includes with `command_types.h` in catalog, availability, UI, keymap, and registry tests.
+  Updated the architecture roadmap progress snapshot and file map for the new type boundary.
+- Validation:
+  `cmake --build build --parallel` passed.
+  `ctest --test-dir build --output-on-failure -R "ui_logic|registry|command"` passed.
+  `ctest --test-dir build --output-on-failure` passed with 11/11 tests passing.
+
 ## 2026-05-26 - P2: Route Inspector Toggle Through View Commands
 
 - Branch:

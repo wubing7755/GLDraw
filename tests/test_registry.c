@@ -1,5 +1,5 @@
 #include <app/command_catalog.h>
-#include <app/command_registry.h>
+#include <app/command_types.h>
 #include <app/workspace_internal.h>
 #include <commands/command.h>
 #include <input/keymap.h>

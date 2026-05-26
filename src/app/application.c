@@ -14,7 +14,6 @@
 
 #include <app/application_file_actions.h>
 #include <app/application_runtime.h>
-#include <app/command_registry.h>
 #include <app/command_dispatcher.h>
 #include <app/editor_controller.h>
 #include <app/workspace_actions.h>

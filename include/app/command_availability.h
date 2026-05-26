@@ -5,7 +5,7 @@
 #ifndef GLDRAW_APP_COMMAND_AVAILABILITY_H
 #define GLDRAW_APP_COMMAND_AVAILABILITY_H
 
-#include <app/command_registry.h>
+#include <app/command_types.h>
 
 struct Workspace;
 

@@ -5,7 +5,8 @@
 #ifndef GLDRAW_APP_COMMAND_CATALOG_H
 #define GLDRAW_APP_COMMAND_CATALOG_H
 
-#include <app/command_registry.h>
+#include <app/command_types.h>
+#include <tools/tool.h>
 
 /** Convert a registered tool index into its dynamic editor command value. */
 EditorCommand command_catalog_tool_command(int tool_index);

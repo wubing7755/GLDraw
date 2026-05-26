@@ -5,7 +5,7 @@
 #include "ui/ui_context_menu.h"
 #include "ui/ui_system_internal.h"
 
-#include <app/command_registry.h>
+#include <app/command_types.h>
 #include <base/math2d.h>
 
 #include <stdio.h>
