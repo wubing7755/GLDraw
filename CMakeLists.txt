@@ -170,6 +170,7 @@ set(PLATFORM_GLFW_SOURCES
 set(UI_NUKLEAR_GLFW_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ui_chrome.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ui_context_menu.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ui_context_menu_render.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ui_frame.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ui_inspector_panel.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ui_layer_panel.c

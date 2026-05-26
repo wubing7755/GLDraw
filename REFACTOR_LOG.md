@@ -1,5 +1,31 @@
 # Refactor Log
 
+## 2026-05-26 - P2: Complete UI Composition Refactor Round
+
+- Branch:
+  `refactor-editor-architecture-roadmap`
+- Modified files:
+  `src/ui/ui_context_menu_internal.h`,
+  `src/ui/ui_context_menu_render.c`,
+  `src/ui/ui_context_menu.c`,
+  `CMakeLists.txt`,
+  `doc/reference/file-map.md`,
+  `doc/architecture/refactor-roadmap.md`
+- Key changes:
+  Moved canvas context menu item rendering and popup host rendering into `ui_context_menu_render.c`.
+  Kept `ui_context_menu.c` focused on context menu lifecycle, open/reset state, and input handling.
+  Added a small private `ui_context_menu_internal.h` boundary for shared context menu constants and popup bounds.
+  Updated roadmap and file map to mark this refactor round complete for command routing, workspace API coupling, view-model construction, and low-risk UI composition cleanup.
+- Boundary audit:
+  Public app/UI headers no longer include `workspace_internal.h`.
+  Remaining `workspace_internal.h` includes are limited to workspace implementation modules and tests that inspect internal lifecycle/state.
+  Remaining `workspace.h` includes are implementation-level consumers or application/input integration points that call workspace accessors directly.
+- Validation:
+  `cmake --build build --parallel` passed.
+  `ctest --test-dir build --output-on-failure -R "ui_logic|registry|command"` passed.
+  `ctest --test-dir build --output-on-failure` passed with 11/11 tests passing.
+  `git diff --check` passed.
+
 ## 2026-05-26 - P2: Split Menu Bar Rendering From State
 
 - Branch:

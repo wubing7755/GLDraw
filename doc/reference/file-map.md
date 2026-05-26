@@ -86,6 +86,8 @@
 - `src/ui/ui_runtime.c`
 - `src/ui/ui_frame.c`
 - `src/ui/ui_chrome.c`
+- `src/ui/ui_context_menu.c`
+- `src/ui/ui_context_menu_render.c`
 - `src/ui/ui_inspector_panel.c`
 - `src/ui/ui_layer_panel.c`
 - `src/ui/ui_dialog_runtime.c`
@@ -108,6 +110,7 @@
 - `src/ui/ui_menu_def.c`
 - `src/ui/ui_menubar.c`
 - `src/ui/ui_menubar_render.c`
+  Menu bar and context menu rendering are split from their lifecycle/state modules.
 
 ### Understand test coverage
 
