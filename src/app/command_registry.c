@@ -5,28 +5,13 @@
 #include <app/command_registry.h>
 
 #include <app/command_availability.h>
-#include <app/command_catalog.h>
 #include <app/workspace.h>
 #include <app/workspace_clipboard.h>
 #include <app/workspace_dialog_commands.h>
 #include <app/workspace_edit_commands.h>
 #include <app/workspace_file_commands.h>
+#include <app/workspace_tool_commands.h>
 #include <app/workspace_view_commands.h>
-#include <tools/tool_controller.h>
-
-static int command_registry_activate_tool(Workspace* workspace,
-                                          ToolContext* tool_context,
-                                          EditorCommand command)
-{
-    const CommandDescriptor* descriptor = command_catalog_find_by_command(command);
-    ToolController* tools = workspace_get_tool_controller(workspace);
-
-    if (!tools || !tool_context || !descriptor || !descriptor->tool_id) {
-        return 0;
-    }
-
-    return tool_controller_set_active(tools, tool_context, descriptor->tool_id);
-}
 
 int command_registry_execute(Workspace* workspace,
                              ToolContext* tool_context,
@@ -39,7 +24,7 @@ int command_registry_execute(Workspace* workspace,
         return 0;
     }
     if (command >= EDITOR_COMMAND_DYNAMIC_TOOL_BASE) {
-        return command_registry_activate_tool(workspace, tool_context, command);
+        return workspace_tool_activate_command(workspace, tool_context, command);
     }
 
     switch (command) {

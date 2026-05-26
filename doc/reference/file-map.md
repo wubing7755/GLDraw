@@ -60,6 +60,8 @@
 - `src/app/workspace_edit_commands.c`
 - `include/app/workspace_file_commands.h`
 - `src/app/workspace_file_commands.c`
+- `include/app/workspace_tool_commands.h`
+- `src/app/workspace_tool_commands.c`
 - `src/app/workspace_view_commands.c`
 
 ### Understand tool interactions

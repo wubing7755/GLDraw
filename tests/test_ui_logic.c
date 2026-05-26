@@ -574,6 +574,21 @@ static int test_locked_layers_block_pick_and_shape_creation(void)
     return 0;
 }
 
+static int test_dynamic_tool_command_activates_tool(void)
+{
+    Workspace workspace;
+    ToolContext context;
+
+    EXPECT_TRUE(init_workspace(&workspace));
+    context = workspace_tool_context(&workspace);
+
+    EXPECT_TRUE(command_registry_execute(&workspace, &context, tool_command("tool.rect")));
+    EXPECT_STR_EQ(tool_controller_active_id(&workspace.core.tools), "rect");
+
+    shutdown_workspace(&workspace);
+    return 0;
+}
+
 static int test_command_registry_respects_locked_layers(void)
 {
     Workspace workspace;
@@ -807,6 +822,7 @@ int main(void)
     if (test_workspace_tool_context_and_preview_accessors()) return 1;
     if (test_editor_controller_builds_tool_events_and_render_scene()) return 1;
     if (test_locked_layers_block_pick_and_shape_creation()) return 1;
+    if (test_dynamic_tool_command_activates_tool()) return 1;
     if (test_command_registry_respects_locked_layers()) return 1;
     if (test_edit_delete_prunes_locked_selection()) return 1;
     if (test_clipboard_copy_paste_cut_commands()) return 1;

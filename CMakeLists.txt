@@ -148,6 +148,7 @@ set(EDITOR_RUNTIME_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/app/workspace_edit_commands.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/app/workspace_file_commands.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/app/workspace_service.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/app/workspace_tool_commands.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/app/workspace_view_commands.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/input/key_chord.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/input/keymap.c
