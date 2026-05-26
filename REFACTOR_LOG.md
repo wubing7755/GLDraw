@@ -1,5 +1,23 @@
 # Refactor Log
 
+## 2026-05-26 - P2: Route Inspector Toggle Through View Commands
+
+- Branch:
+  `refactor-editor-architecture-roadmap`
+- Modified files:
+  `include/app/workspace_view_commands.h`,
+  `src/app/workspace_view_commands.c`,
+  `src/app/command_registry.c`,
+  `tests/test_ui_logic.c`
+- Key changes:
+  Added `workspace_view_toggle_inspector()` so all view commands are represented in the workspace view-command module.
+  Updated `command_registry_execute()` to delegate `EDITOR_COMMAND_VIEW_TOGGLE_INSPECTOR` to the view-command module instead of returning directly.
+  Added a UI logic regression assertion for the command route.
+- Validation:
+  `cmake --build build --parallel` passed.
+  `ctest --test-dir build --output-on-failure -R "ui_logic|registry|command"` passed.
+  `ctest --test-dir build --output-on-failure` passed with 11/11 tests passing.
+
 ## 2026-05-26 - P2: Extract Workspace Tool Commands
 
 - Branch:

@@ -776,6 +776,7 @@ static int test_view_commands_update_canvas_state(void)
     EXPECT_TRUE(!workspace.core.canvas.show_grid);
     EXPECT_TRUE(command_registry_execute(&workspace, &context, EDITOR_COMMAND_VIEW_TOGGLE_GRID));
     EXPECT_TRUE(workspace.core.canvas.show_grid);
+    EXPECT_TRUE(command_registry_execute(&workspace, &context, EDITOR_COMMAND_VIEW_TOGGLE_INSPECTOR));
 
     canvas_view_set_center_zoom(&workspace.core.canvas, vec2_make(42.0f, -17.0f), 3.0f);
     EXPECT_TRUE(command_registry_execute(&workspace, &context, EDITOR_COMMAND_VIEW_ZOOM_FIT));

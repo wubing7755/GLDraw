@@ -149,3 +149,8 @@ int workspace_view_toggle_grid(Workspace* workspace)
     workspace->core.canvas.show_grid = !workspace->core.canvas.show_grid;
     return 1;
 }
+
+int workspace_view_toggle_inspector(Workspace* workspace)
+{
+    return workspace != NULL;
+}

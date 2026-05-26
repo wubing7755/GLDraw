@@ -63,7 +63,7 @@ int command_registry_execute(Workspace* workspace,
     case EDITOR_COMMAND_VIEW_TOGGLE_GRID:
         return workspace_view_toggle_grid(workspace);
     case EDITOR_COMMAND_VIEW_TOGGLE_INSPECTOR:
-        return 1;
+        return workspace_view_toggle_inspector(workspace);
     case EDITOR_COMMAND_HELP_SHORTCUTS:
         return workspace_dialog_command_toggle_shortcuts(workspace);
     case EDITOR_COMMAND_HELP_ABOUT:
