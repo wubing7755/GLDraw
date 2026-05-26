@@ -1,5 +1,22 @@
 # Refactor Log
 
+## 2026-05-26 - P2: Split Editor ViewModel Snapshot Builders
+
+- Branch:
+  `refactor-editor-architecture-roadmap`
+- Modified files:
+  `src/app/editor_viewmodel.c`,
+  `doc/architecture/refactor-roadmap.md`
+- Key changes:
+  Added an internal `EditorViewModelBuildContext` so workspace accessors are captured once at the view-model build boundary.
+  Added an internal selection snapshot shared by summary and property builders.
+  Split view-model population into summary, command, tool, property, layer, and dialog builders while keeping the public `EditorViewModel` shape and call sites stable.
+  Updated the architecture roadmap to mark view-model construction cleanup complete and move the suggested next slice to UI implementation decomposition.
+- Validation:
+  `cmake --build build --parallel` passed.
+  `ctest --test-dir build --output-on-failure -R "ui_logic|registry|command"` passed.
+  `ctest --test-dir build --output-on-failure` passed with 11/11 tests passing.
+
 ## 2026-05-26 - P2: Replace Command Registry Switch With Route Table
 
 - Branch:

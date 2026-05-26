@@ -20,7 +20,7 @@ The next refactor should not reduce layering for its own sake. It should turn pa
 - Help and modal dialog command behavior now lives in `workspace_dialog_commands`.
 - Undo, redo, delete selection, and select-all behavior now lives in `workspace_edit_commands`.
 - Dynamic tool activation now lives in `workspace_tool_commands`.
-- View-model construction now uses public workspace accessors, but it still reads model objects and command state in one pass. A later pass can split summary, command, tool, layer, and property snapshots if the UI grows.
+- View-model construction now captures workspace state into a build context and emits summary, command, tool, layer, property, and dialog snapshots through separate builders.
 - UI frame construction has moved to `src/ui/ui_frame.c`, but Nuklear-specific composition remains broad enough that future UI changes should continue decomposing by view concern.
 - Render submission now uses `RenderSceneDesc` and a cache-key value. The next render cleanup should focus on ownership and lifetime of scene snapshots rather than parameter shape.
 
@@ -39,6 +39,7 @@ The next refactor should not reduce layering for its own sake. It should turn pa
 - Editor actions dispatch through `editor_action_handler`.
 - Application code owns an opaque `Workspace*` instead of embedding workspace internals.
 - Outer app/input/UI/view-model/controller layers no longer include `workspace_internal.h`.
+- `EditorViewModel` construction is split by view concern behind the stable public view-model shape.
 - `ui_system_build()` lives in `ui_frame.c`.
 - `render_system_draw()` consumes `RenderSceneDesc`.
 
@@ -142,4 +143,4 @@ These rules are the target state for the refactor:
 
 ## Suggested Next Implementation Slice
 
-Continue by splitting `EditorViewModel` construction into smaller snapshot builders for summary, commands, tools, layers, properties, and dialogs. Keep the public view-model shape stable while reducing the amount of workspace state read in one pass.
+Continue by decomposing the remaining broad Nuklear UI implementation files by view concern, starting with menu/context-menu or inspector helpers where local state and rendering code are still intertwined.
