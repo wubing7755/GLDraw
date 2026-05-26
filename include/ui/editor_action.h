@@ -2,8 +2,9 @@
 #define GLDRAW_UI_EDITOR_ACTION_H
 
 #include <app/command_types.h>
-#include <app/workspace.h>
+#include <app/ui_dialog_types.h>
 #include <base/types.h>
+#include <document/object.h>
 
 typedef enum EditorActionType {
     EDITOR_ACTION_NONE = 0,

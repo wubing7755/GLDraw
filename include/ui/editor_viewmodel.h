@@ -2,7 +2,8 @@
 #define GLDRAW_UI_EDITOR_VIEWMODEL_H
 
 #include <app/command_types.h>
-#include <app/workspace.h>
+#include <app/ui_dialog_types.h>
+#include <base/path_utils.h>
 #include <document/object.h>
 #include <tools/tool.h>
 #include <ui/editor_action.h>

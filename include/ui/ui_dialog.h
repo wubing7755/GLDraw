@@ -5,7 +5,7 @@
 #ifndef GLDRAW_UI_UI_DIALOG_H
 #define GLDRAW_UI_UI_DIALOG_H
 
-#include <app/workspace.h>
+#include <app/ui_dialog_types.h>
 
 #ifndef NK_NUKLEAR_H_
 struct nk_context;

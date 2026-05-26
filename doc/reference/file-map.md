@@ -46,6 +46,7 @@
 - `include/app/command_catalog.h`
 - `src/app/command_catalog.c`
 - `include/app/command_types.h`
+- `include/app/ui_dialog_types.h`
 - `src/commands/command_executor.c`
 - `src/commands/command_object_ops.c`
 - `src/commands/command_layer_ops.c`

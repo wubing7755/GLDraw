@@ -1,5 +1,27 @@
 # Refactor Log
 
+## 2026-05-26 - P2: Split UI Dialog Types From Workspace API
+
+- Branch:
+  `refactor-editor-architecture-roadmap`
+- Modified files:
+  `include/app/ui_dialog_types.h`,
+  `include/app/workspace.h`,
+  `include/ui/editor_action.h`,
+  `include/ui/editor_viewmodel.h`,
+  `include/ui/ui_dialog.h`,
+  `include/ui/ui_system.h`,
+  `doc/reference/file-map.md`
+- Key changes:
+  Moved shared `UiDialog*` request, kind, result, payload, button, and state types into `ui_dialog_types.h`.
+  Kept `workspace.h` as a consumer of those types instead of their owner.
+  Removed Workspace API includes from UI action, view-model, and dialog headers where only dialog value types were needed.
+  Added an explicit `ui_system.h` dependency for the `WorkspaceLayout` return type that was previously supplied transitively.
+- Validation:
+  `cmake --build build --parallel` passed.
+  `ctest --test-dir build --output-on-failure -R "ui_logic|registry|command"` passed.
+  `ctest --test-dir build --output-on-failure` passed with 11/11 tests passing.
+
 ## 2026-05-26 - P2: Forward Declare ToolContext In Command Entry Headers
 
 - Branch:
