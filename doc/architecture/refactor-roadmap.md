@@ -17,6 +17,7 @@ The next refactor should not reduce layering for its own sake. It should turn pa
 - `src/app/command_registry.c` still owns command execution for file, edit, tool, modal, and help commands. Metadata and availability have moved out, but execution paths are still grouped in one switch.
 - `command_registry_execute()` remains the execution entry point, while command metadata and availability callers now use `command_catalog` and `command_availability` directly.
 - File command behavior now lives in `workspace_file_commands`, leaving the registry to delegate New/Open/Save/Save As/Export/Exit commands.
+- Help and modal dialog command behavior now lives in `workspace_dialog_commands`.
 - View-model construction now uses public workspace accessors, but it still reads model objects and command state in one pass. A later pass can split summary, command, tool, layer, and property snapshots if the UI grows.
 - UI frame construction has moved to `src/ui/ui_frame.c`, but Nuklear-specific composition remains broad enough that future UI changes should continue decomposing by view concern.
 - Render submission now uses `RenderSceneDesc` and a cache-key value. The next render cleanup should focus on ownership and lifetime of scene snapshots rather than parameter shape.
@@ -27,6 +28,7 @@ The next refactor should not reduce layering for its own sake. It should turn pa
 - Command executable-state checks live in `command_availability`.
 - Command metadata and availability compatibility wrappers have been removed from `command_registry`.
 - File/service commands have a dedicated workspace command module.
+- Help/modal commands have a dedicated workspace dialog command module.
 - Clipboard and view commands have dedicated workspace modules.
 - Editor actions dispatch through `editor_action_handler`.
 - Application code owns an opaque `Workspace*` instead of embedding workspace internals.

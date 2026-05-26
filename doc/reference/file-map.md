@@ -54,6 +54,8 @@
 - `src/app/editor_controller.c`
 - `src/app/command_registry.c`
 - `src/app/workspace_clipboard.c`
+- `include/app/workspace_dialog_commands.h`
+- `src/app/workspace_dialog_commands.c`
 - `include/app/workspace_file_commands.h`
 - `src/app/workspace_file_commands.c`
 - `src/app/workspace_view_commands.c`

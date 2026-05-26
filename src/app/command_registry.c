@@ -7,18 +7,13 @@
 #include <app/command_availability.h>
 #include <app/command_catalog.h>
 #include <app/workspace.h>
-#include <app/workspace_actions.h>
 #include <app/workspace_clipboard.h>
-#include <app/workspace_dialogs.h>
+#include <app/workspace_dialog_commands.h>
 #include <app/workspace_file_commands.h>
 #include <app/workspace_view_commands.h>
 #include <commands/command.h>
 #include <document/document.h>
 #include <tools/tool_controller.h>
-#include <ui/ui_menu_def.h>
-
-#include <stdio.h>
-#include <string.h>
 
 static void command_registry_prune_noneditable_selection(Workspace* workspace)
 {
@@ -41,103 +36,6 @@ static void command_registry_prune_noneditable_selection(Workspace* workspace)
     }
 }
 
-static void command_registry_append_shortcut_line(char* buffer,
-                                                  size_t buffer_size,
-                                                  const Workspace* workspace,
-                                                  const char* command_id,
-                                                  KeyScope scope,
-                                                  const char* label)
-{
-    const EditorKeymap* keymap = workspace_get_keymap_const(workspace);
-    char shortcut[64];
-
-    if (!buffer || buffer_size == 0u || !keymap || !command_id || !label) {
-        return;
-    }
-
-    shortcut[0] = '\0';
-    keymap_format_command_shortcut(keymap,
-                                   command_id,
-                                   scope,
-                                   shortcut,
-                                   sizeof(shortcut));
-    if (shortcut[0] == '\0') {
-        return;
-    }
-
-    snprintf(buffer + strlen(buffer),
-             buffer_size - strlen(buffer),
-             "  %-16s %s\n",
-             shortcut,
-             label);
-}
-
-static int command_registry_toggle_shortcuts_dialog(Workspace* workspace)
-{
-    char content[1024];
-    int i = 0;
-
-    if (!workspace) {
-        return 0;
-    }
-
-    if (workspace_active_dialog_kind(workspace) == UI_DIALOG_SHORTCUTS) {
-        workspace_confirm_pending_action_cancel(workspace);
-        return 1;
-    }
-    if (workspace_modal_is_active(workspace)) {
-        return 0;
-    }
-
-    content[0] = '\0';
-    snprintf(content + strlen(content),
-             sizeof(content) - strlen(content),
-             "Tools\n");
-    for (i = 0; i < tool_registry_count(); ++i) {
-        const ToolDescriptor* descriptor = tool_registry_at(i);
-        if (!descriptor || !descriptor->command_id || !descriptor->name) {
-            continue;
-        }
-        command_registry_append_shortcut_line(content,
-                                              sizeof(content),
-                                              workspace,
-                                              descriptor->command_id,
-                                              KEY_SCOPE_GLOBAL,
-                                              descriptor->name);
-    }
-
-    snprintf(content + strlen(content),
-             sizeof(content) - strlen(content),
-             "\nFile\n");
-    command_registry_append_shortcut_line(content, sizeof(content), workspace, "file.new", KEY_SCOPE_GLOBAL, "New Document");
-    command_registry_append_shortcut_line(content, sizeof(content), workspace, "file.open", KEY_SCOPE_GLOBAL, "Open Document");
-    command_registry_append_shortcut_line(content, sizeof(content), workspace, "file.save", KEY_SCOPE_GLOBAL, "Save Document");
-
-    snprintf(content + strlen(content),
-             sizeof(content) - strlen(content),
-             "\nEdit\n");
-    command_registry_append_shortcut_line(content, sizeof(content), workspace, "edit.undo", KEY_SCOPE_GLOBAL, "Undo");
-    command_registry_append_shortcut_line(content, sizeof(content), workspace, "edit.redo", KEY_SCOPE_GLOBAL, "Redo");
-    command_registry_append_shortcut_line(content, sizeof(content), workspace, "edit.cut", KEY_SCOPE_GLOBAL, "Cut");
-    command_registry_append_shortcut_line(content, sizeof(content), workspace, "edit.copy", KEY_SCOPE_GLOBAL, "Copy");
-    command_registry_append_shortcut_line(content, sizeof(content), workspace, "edit.paste", KEY_SCOPE_GLOBAL, "Paste");
-    command_registry_append_shortcut_line(content, sizeof(content), workspace, "edit.delete", KEY_SCOPE_GLOBAL, "Delete Selection");
-    command_registry_append_shortcut_line(content, sizeof(content), workspace, "edit.select_all", KEY_SCOPE_GLOBAL, "Select All");
-
-    snprintf(content + strlen(content),
-             sizeof(content) - strlen(content),
-             "\nView\n");
-    command_registry_append_shortcut_line(content, sizeof(content), workspace, "view.zoom_fit", KEY_SCOPE_GLOBAL, "Zoom to Fit");
-    command_registry_append_shortcut_line(content, sizeof(content), workspace, "view.zoom_in", KEY_SCOPE_GLOBAL, "Zoom In");
-    command_registry_append_shortcut_line(content, sizeof(content), workspace, "view.zoom_out", KEY_SCOPE_GLOBAL, "Zoom Out");
-
-    snprintf(content + strlen(content),
-             sizeof(content) - strlen(content),
-             "\nHelp\n");
-    command_registry_append_shortcut_line(content, sizeof(content), workspace, "help.shortcuts", KEY_SCOPE_GLOBAL, "Toggle This Dialog");
-
-    return workspace_dialog_open_shortcuts(workspace, content);
-}
 static int command_registry_delete_selection(Workspace* workspace)
 {
     Document* document = workspace_get_document(workspace);
@@ -274,16 +172,13 @@ int command_registry_execute(Workspace* workspace,
     case EDITOR_COMMAND_VIEW_TOGGLE_INSPECTOR:
         return 1;
     case EDITOR_COMMAND_HELP_SHORTCUTS:
-        return command_registry_toggle_shortcuts_dialog(workspace);
+        return workspace_dialog_command_toggle_shortcuts(workspace);
     case EDITOR_COMMAND_HELP_ABOUT:
-        return workspace_dialog_open_info(workspace,
-                                          "About GLDraw",
-                                          "GLDraw\nCanvas-oriented OpenGL drawing editor.\n\nCurrent build includes core document editing, undo/redo, persistence, and themeable UI.");
+        return workspace_dialog_command_open_about(workspace);
     case EDITOR_COMMAND_MODAL_CONFIRM:
-        return workspace_confirm_pending_action_save(workspace);
+        return workspace_dialog_command_confirm(workspace);
     case EDITOR_COMMAND_MODAL_CANCEL:
-        workspace_confirm_pending_action_cancel(workspace);
-        return 1;
+        return workspace_dialog_command_cancel(workspace);
     case EDITOR_COMMAND_NONE:
     default:
         return 0;

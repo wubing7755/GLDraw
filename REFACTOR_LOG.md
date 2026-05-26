@@ -1,5 +1,26 @@
 # Refactor Log
 
+## 2026-05-26 - P2: Extract Workspace Dialog Commands
+
+- Branch:
+  `refactor-editor-architecture-roadmap`
+- Modified files:
+  `include/app/workspace_dialog_commands.h`,
+  `src/app/workspace_dialog_commands.c`,
+  `src/app/command_registry.c`,
+  `tests/test_ui_logic.c`,
+  `CMakeLists.txt`,
+  `doc/reference/file-map.md`,
+  `doc/architecture/refactor-roadmap.md`
+- Key changes:
+  Added a dedicated workspace dialog-command module for keyboard shortcuts help, About, modal confirm, and modal cancel behavior.
+  Updated `command_registry_execute()` to delegate help and modal commands to the new module.
+  Added UI logic regression coverage for shortcut dialog toggling, About dialog construction, and unsaved-change modal confirm/cancel routing.
+- Validation:
+  `cmake --build build --parallel` passed.
+  `ctest --test-dir build --output-on-failure -R "ui_logic|registry|command"` passed.
+  `ctest --test-dir build --output-on-failure` passed with 11/11 tests passing.
+
 ## 2026-05-26 - P2: Extract Workspace File Commands
 
 - Branch:

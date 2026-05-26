@@ -431,6 +431,56 @@ static int test_file_commands_route_to_workspace_services(void)
     return 0;
 }
 
+static int test_dialog_commands_route_to_workspace_dialogs(void)
+{
+    Workspace workspace;
+    ToolContext context;
+    TestWorkspaceCallbacks callbacks = {0};
+
+    EXPECT_TRUE(init_workspace(&workspace));
+    context = workspace_tool_context(&workspace);
+    workspace_set_service_callbacks(&workspace,
+                                    test_workspace_save_callback,
+                                    test_workspace_save_as_callback,
+                                    test_workspace_export_callback,
+                                    NULL,
+                                    test_workspace_action_callback,
+                                    &callbacks);
+
+    EXPECT_TRUE(command_registry_execute(&workspace, &context, EDITOR_COMMAND_HELP_SHORTCUTS));
+    EXPECT_INT_EQ(workspace.session.active_dialog.kind, UI_DIALOG_SHORTCUTS);
+    EXPECT_SUBSTR(workspace.session.active_dialog.message, "Tools");
+    EXPECT_SUBSTR(workspace.session.active_dialog.message, "Toggle This Dialog");
+    EXPECT_TRUE(command_registry_execute(&workspace, &context, EDITOR_COMMAND_HELP_SHORTCUTS));
+    EXPECT_INT_EQ(workspace.session.active_dialog.kind, UI_DIALOG_NONE);
+
+    EXPECT_TRUE(command_registry_execute(&workspace, &context, EDITOR_COMMAND_HELP_ABOUT));
+    EXPECT_INT_EQ(workspace.session.active_dialog.kind, UI_DIALOG_INFO);
+    EXPECT_STR_EQ(workspace.session.active_dialog.title, "About GLDraw");
+    EXPECT_SUBSTR(workspace.session.active_dialog.message, "Canvas-oriented");
+    workspace_dialog_close(&workspace);
+
+    workspace.session.document_dirty = 1;
+    EXPECT_TRUE(command_registry_execute(&workspace, &context, EDITOR_COMMAND_FILE_OPEN));
+    EXPECT_INT_EQ(workspace.session.active_dialog.kind, UI_DIALOG_CONFIRM_UNSAVED);
+    EXPECT_TRUE(command_registry_execute(&workspace, &context, EDITOR_COMMAND_MODAL_CANCEL));
+    EXPECT_INT_EQ(workspace.session.active_dialog.kind, UI_DIALOG_NONE);
+    EXPECT_INT_EQ(callbacks.save_count, 0);
+    EXPECT_INT_EQ(callbacks.action_count, 0);
+
+    workspace.session.document_dirty = 1;
+    EXPECT_TRUE(command_registry_execute(&workspace, &context, EDITOR_COMMAND_FILE_NEW));
+    EXPECT_INT_EQ(workspace.session.active_dialog.kind, UI_DIALOG_CONFIRM_UNSAVED);
+    EXPECT_TRUE(command_registry_execute(&workspace, &context, EDITOR_COMMAND_MODAL_CONFIRM));
+    EXPECT_INT_EQ(workspace.session.active_dialog.kind, UI_DIALOG_NONE);
+    EXPECT_INT_EQ(callbacks.save_count, 1);
+    EXPECT_INT_EQ(callbacks.action_count, 1);
+    EXPECT_INT_EQ(callbacks.last_action, WORKSPACE_ACTION_NEW_DOCUMENT);
+
+    shutdown_workspace(&workspace);
+    return 0;
+}
+
 static int test_editor_controller_builds_tool_events_and_render_scene(void)
 {
     Workspace workspace;
@@ -714,6 +764,7 @@ int main(void)
     if (test_editor_viewmodel_builds_selection_properties()) return 1;
     if (test_command_dispatcher_routes_actions()) return 1;
     if (test_file_commands_route_to_workspace_services()) return 1;
+    if (test_dialog_commands_route_to_workspace_dialogs()) return 1;
     if (test_command_dispatcher_updates_save_as_dialog_input()) return 1;
     if (test_tool_controller_pointer_anchor_accessors()) return 1;
     if (test_workspace_tool_context_and_preview_accessors()) return 1;
