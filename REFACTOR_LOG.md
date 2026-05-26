@@ -1,5 +1,22 @@
 # Refactor Log
 
+## 2026-05-26 - P2: Forward Declare Workspace In App Facade Headers
+
+- Branch:
+  `refactor-editor-architecture-roadmap`
+- Modified files:
+  `include/app/command_dispatcher.h`,
+  `include/app/editor_action_handler.h`,
+  `include/app/editor_controller.h`
+- Key changes:
+  Replaced full `workspace.h` includes in command dispatcher, editor action handler, and editor controller public headers with lightweight workspace service type declarations where possible.
+  Kept concrete workspace API dependencies in implementation files that actually call workspace accessors.
+  Reduced public app facade header coupling while preserving the existing controller and action dispatch contracts.
+- Validation:
+  `cmake --build build --parallel` passed.
+  `ctest --test-dir build --output-on-failure -R "ui_logic|registry|command"` passed.
+  `ctest --test-dir build --output-on-failure` passed with 11/11 tests passing.
+
 ## 2026-05-26 - P2: Split Workspace Service Types From Workspace API
 
 - Branch:

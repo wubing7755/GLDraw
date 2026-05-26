@@ -5,11 +5,14 @@
 #ifndef GLDRAW_APP_EDITOR_CONTROLLER_H
 #define GLDRAW_APP_EDITOR_CONTROLLER_H
 
-#include <app/workspace.h>
-#include <canvas/canvas_view.h>
-#include <document/document.h>
+#include <app/workspace_service_types.h>
+#include <base/types.h>
+#include <document/object.h>
 #include <model/selection.h>
 #include <tools/tool.h>
+
+typedef struct CanvasView CanvasView;
+typedef struct Document Document;
 
 typedef struct EditorRenderScene {
     const Document* document;

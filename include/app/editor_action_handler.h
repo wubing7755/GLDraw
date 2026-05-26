@@ -5,7 +5,7 @@
 #ifndef GLDRAW_APP_EDITOR_ACTION_HANDLER_H
 #define GLDRAW_APP_EDITOR_ACTION_HANDLER_H
 
-#include <app/workspace.h>
+#include <app/workspace_service_types.h>
 #include <ui/editor_action.h>
 
 /** Execute one editor action against the current workspace state. */
