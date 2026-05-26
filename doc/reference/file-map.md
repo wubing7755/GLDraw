@@ -87,6 +87,7 @@
 - `src/ui/ui_frame.c`
 - `src/ui/ui_chrome.c`
 - `src/ui/ui_inspector_panel.c`
+- `src/ui/ui_layer_panel.c`
 - `src/ui/ui_dialog_runtime.c`
 - `src/ui/ui_layout.c`
 

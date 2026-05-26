@@ -21,7 +21,7 @@ The next refactor should not reduce layering for its own sake. It should turn pa
 - Undo, redo, delete selection, and select-all behavior now lives in `workspace_edit_commands`.
 - Dynamic tool activation now lives in `workspace_tool_commands`.
 - View-model construction now captures workspace state into a build context and emits summary, command, tool, layer, property, and dialog snapshots through separate builders.
-- UI frame construction has moved to `src/ui/ui_frame.c`, but Nuklear-specific composition remains broad enough that future UI changes should continue decomposing by view concern.
+- UI frame construction has moved to `src/ui/ui_frame.c`, and the inspector's layer controls now live in `src/ui/ui_layer_panel.c`; broader Nuklear files should continue decomposing by view concern.
 - Render submission now uses `RenderSceneDesc` and a cache-key value. The next render cleanup should focus on ownership and lifetime of scene snapshots rather than parameter shape.
 
 ## Progress Snapshot
@@ -41,6 +41,7 @@ The next refactor should not reduce layering for its own sake. It should turn pa
 - Outer app/input/UI/view-model/controller layers no longer include `workspace_internal.h`.
 - `EditorViewModel` construction is split by view concern behind the stable public view-model shape.
 - `ui_system_build()` lives in `ui_frame.c`.
+- Inspector selection/property rendering and layer controls are split across `ui_inspector_panel.c` and `ui_layer_panel.c`.
 - `render_system_draw()` consumes `RenderSceneDesc`.
 
 ## Boundary Rules

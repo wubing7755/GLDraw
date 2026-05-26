@@ -1,5 +1,26 @@
 # Refactor Log
 
+## 2026-05-26 - P2: Split Layer Panel From Inspector UI
+
+- Branch:
+  `refactor-editor-architecture-roadmap`
+- Modified files:
+  `src/ui/ui_layer_panel.c`,
+  `src/ui/ui_inspector_panel.c`,
+  `src/ui/ui_system_internal.h`,
+  `CMakeLists.txt`,
+  `doc/reference/file-map.md`,
+  `doc/architecture/refactor-roadmap.md`
+- Key changes:
+  Moved active-layer controls, layer rename state synchronization, and layer list rendering into `ui_layer_panel.c`.
+  Kept `ui_inspector_panel.c` focused on selection overview and editable property rendering.
+  Exposed `ui_layers_panel()` through the private UI system internal header for inspector composition.
+  Registered the new UI implementation file in the Nuklear UI target and updated architecture/file-map docs.
+- Validation:
+  `cmake --build build --parallel` passed.
+  `ctest --test-dir build --output-on-failure -R "ui_logic|registry|command"` passed.
+  `ctest --test-dir build --output-on-failure` passed with 11/11 tests passing.
+
 ## 2026-05-26 - P2: Split Editor ViewModel Snapshot Builders
 
 - Branch:
