@@ -227,38 +227,6 @@ static int command_registry_activate_tool(Workspace* workspace,
     return tool_controller_set_active(tools, tool_context, descriptor->tool_id);
 }
 
-const CommandDescriptor* command_registry_find_by_id(const char* command_id)
-{
-    return command_catalog_find_by_id(command_id);
-}
-
-const CommandDescriptor* command_registry_find_by_command(EditorCommand command)
-{
-    return command_catalog_find_by_command(command);
-}
-
-const CommandDescriptor* command_registry_find_by_menu_id(int id)
-{
-    return command_catalog_find_by_menu_id(id);
-}
-
-int command_registry_is_available(const Workspace* workspace,
-                                  EditorCommand command)
-{
-    return command_availability_is_available(workspace, command);
-}
-
-const char* command_registry_unavailable_reason(const Workspace* workspace,
-                                                EditorCommand command)
-{
-    return command_availability_unavailable_reason(workspace, command);
-}
-
-int command_registry_is_menu_action_available(const Workspace* workspace, int id)
-{
-    return command_availability_is_menu_action_available(workspace, id);
-}
-
 int command_registry_execute(Workspace* workspace,
                              ToolContext* tool_context,
                              EditorCommand command)
@@ -344,33 +312,4 @@ int command_registry_execute(Workspace* workspace,
     default:
         return 0;
     }
-}
-
-void command_registry_format_menu_shortcut(const Workspace* workspace,
-                                           int id,
-                                           char* buffer,
-                                           size_t buffer_size)
-{
-    const CommandDescriptor* descriptor = NULL;
-    const EditorKeymap* keymap = workspace_get_keymap_const(workspace);
-
-    if (!buffer || buffer_size == 0u) {
-        return;
-    }
-
-    buffer[0] = '\0';
-    if (!keymap) {
-        return;
-    }
-
-    descriptor = command_catalog_find_by_menu_id(id);
-    if (!descriptor) {
-        return;
-    }
-
-    keymap_format_command_shortcut(keymap,
-                                   descriptor->id,
-                                   descriptor->scope,
-                                   buffer,
-                                   buffer_size);
 }

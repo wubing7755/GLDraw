@@ -1,5 +1,24 @@
 # Refactor Log
 
+## 2026-05-26 - P2: Remove Command Registry Compatibility Shims
+
+- Branch:
+  `refactor-editor-architecture-roadmap`
+- Modified files:
+  `include/app/command_registry.h`,
+  `src/app/command_registry.c`,
+  `tests/test_ui_logic.c`,
+  `tests/test_registry.c`,
+  `doc/architecture/refactor-roadmap.md`
+- Key changes:
+  Migrated remaining tests from command-registry metadata and availability wrappers to `command_catalog` and `command_availability`.
+  Removed the now-unused command-registry descriptor lookup, availability, unavailable-reason, menu availability, and shortcut-format compatibility functions.
+  Updated the roadmap to reflect that command metadata and availability callers are now fully separated from command execution.
+- Validation:
+  `cmake --build build --parallel` passed.
+  `ctest --test-dir build --output-on-failure -R "ui_logic|registry|command"` passed.
+  `ctest --test-dir build --output-on-failure` passed with 11/11 tests passing.
+
 ## 2026-05-25 - P2: Migrate Command Metadata Callers
 
 - Branch:

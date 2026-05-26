@@ -1,3 +1,4 @@
+#include <app/command_catalog.h>
 #include <app/command_registry.h>
 #include <app/workspace_internal.h>
 #include <commands/command.h>
@@ -84,12 +85,12 @@ static int test_dynamic_tool_command_and_menu_registration(void)
     fake_tool_index = find_fake_tool_index();
     EXPECT_TRUE(fake_tool_index >= 0);
 
-    command_descriptor = command_registry_find_by_id("tool.fake");
+    command_descriptor = command_catalog_find_by_id("tool.fake");
     EXPECT_TRUE(command_descriptor != NULL);
     EXPECT_TRUE(command_descriptor->command >= EDITOR_COMMAND_DYNAMIC_TOOL_BASE);
     EXPECT_STR_EQ(command_descriptor->tool_id, "fake-tool");
 
-    menu_descriptor = command_registry_find_by_menu_id(MENU_ID_TOOL_DYNAMIC_BASE + fake_tool_index);
+    menu_descriptor = command_catalog_find_by_menu_id(MENU_ID_TOOL_DYNAMIC_BASE + fake_tool_index);
     EXPECT_TRUE(menu_descriptor != NULL);
     EXPECT_TRUE(menu_descriptor->command == command_descriptor->command);
 

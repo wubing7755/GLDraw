@@ -1,4 +1,6 @@
 #include <app/command_dispatcher.h>
+#include <app/command_availability.h>
+#include <app/command_catalog.h>
 #include <app/editor_controller.h>
 #include <app/extension_loader.h>
 #include <app/workspace_internal.h>
@@ -71,7 +73,7 @@ static GraphicObject* make_rect(float x, float y, float w, float h)
 
 static EditorCommand tool_command(const char* command_id)
 {
-    const CommandDescriptor* descriptor = command_registry_find_by_id(command_id);
+    const CommandDescriptor* descriptor = command_catalog_find_by_id(command_id);
     return descriptor ? descriptor->command : EDITOR_COMMAND_NONE;
 }
 
@@ -456,12 +458,12 @@ static int test_command_registry_respects_locked_layers(void)
     EXPECT_TRUE(workspace.session.clipboard_objects[0] != NULL);
     workspace.session.clipboard_count = 1;
     EXPECT_TRUE(document_set_active_layer(&workspace.core.document, locked_layer));
-    EXPECT_TRUE(command_registry_is_available(&workspace, tool_command("tool.rect")) == 0);
-    EXPECT_STR_EQ(command_registry_unavailable_reason(&workspace, tool_command("tool.rect")),
+    EXPECT_TRUE(command_availability_is_available(&workspace, tool_command("tool.rect")) == 0);
+    EXPECT_STR_EQ(command_availability_unavailable_reason(&workspace, tool_command("tool.rect")),
                   "Active layer is locked.");
     EXPECT_TRUE(command_registry_execute(&workspace, &context, tool_command("tool.rect")) == 0);
-    EXPECT_TRUE(command_registry_is_available(&workspace, EDITOR_COMMAND_EDIT_PASTE) == 0);
-    EXPECT_STR_EQ(command_registry_unavailable_reason(&workspace, EDITOR_COMMAND_EDIT_PASTE),
+    EXPECT_TRUE(command_availability_is_available(&workspace, EDITOR_COMMAND_EDIT_PASTE) == 0);
+    EXPECT_STR_EQ(command_availability_unavailable_reason(&workspace, EDITOR_COMMAND_EDIT_PASTE),
                   "Active layer is locked.");
 
     shutdown_workspace(&workspace);

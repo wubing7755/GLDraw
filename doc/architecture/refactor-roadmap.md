@@ -3,7 +3,7 @@
 > Audience: maintainers, contributors doing structural work
 > Purpose: sequence the next architecture cleanup without changing editor behavior accidentally
 > Source of truth: current source tree, `REFACTOR_LOG.md`, and the architecture pages in this directory
-> Last reviewed with code: 2026-05-25
+> Last reviewed with code: 2026-05-26
 > Related: [overview.md](overview.md), [core-systems.md](core-systems.md), [data-flow.md](data-flow.md)
 
 ## Intent
@@ -15,7 +15,7 @@ The next refactor should not reduce layering for its own sake. It should turn pa
 ## Current Pressure Points
 
 - `src/app/command_registry.c` still owns command execution for file, edit, tool, modal, and help commands. Metadata and availability have moved out, but execution paths are still grouped in one switch.
-- Command metadata and availability compatibility wrappers remain in `command_registry.c` for tests and external callers. They should be deleted after all call sites use `command_catalog` and `command_availability` directly.
+- `command_registry_execute()` remains the execution entry point, while command metadata and availability callers now use `command_catalog` and `command_availability` directly.
 - View-model construction now uses public workspace accessors, but it still reads model objects and command state in one pass. A later pass can split summary, command, tool, layer, and property snapshots if the UI grows.
 - UI frame construction has moved to `src/ui/ui_frame.c`, but Nuklear-specific composition remains broad enough that future UI changes should continue decomposing by view concern.
 - Render submission now uses `RenderSceneDesc` and a cache-key value. The next render cleanup should focus on ownership and lifetime of scene snapshots rather than parameter shape.
@@ -24,6 +24,7 @@ The next refactor should not reduce layering for its own sake. It should turn pa
 
 - Command descriptors live in `command_catalog`.
 - Command executable-state checks live in `command_availability`.
+- Command metadata and availability compatibility wrappers have been removed from `command_registry`.
 - Clipboard and view commands have dedicated workspace modules.
 - Editor actions dispatch through `editor_action_handler`.
 - Application code owns an opaque `Workspace*` instead of embedding workspace internals.
@@ -129,6 +130,6 @@ These rules are the target state for the refactor:
 - Diffs stay focused on one architectural move.
 - `REFACTOR_LOG.md` records modified files, key changes, and validation commands.
 
-## Suggested First Implementation Slice
+## Suggested Next Implementation Slice
 
-Start with command catalog extraction. It has the best risk-to-benefit ratio because it reduces pressure on `command_registry.c` without changing command execution behavior.
+Continue with small command execution splits only where ownership is obvious. The best next candidates are file/service command handling or help/modal dialog command handling because they can move without touching durable document edit behavior.
