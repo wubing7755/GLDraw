@@ -1,5 +1,26 @@
 # Refactor Log
 
+## 2026-05-26 - P2: Split Menu Bar Rendering From State
+
+- Branch:
+  `refactor-editor-architecture-roadmap`
+- Modified files:
+  `src/ui/ui_menubar_internal.h`,
+  `src/ui/ui_menubar_render.c`,
+  `src/ui/ui_menubar.c`,
+  `CMakeLists.txt`,
+  `doc/reference/file-map.md`,
+  `doc/architecture/refactor-roadmap.md`
+- Key changes:
+  Moved top-menu dropdown rendering, theme menu rendering, quick action buttons, and command tooltip formatting into `ui_menubar_render.c`.
+  Kept `ui_menubar.c` focused on menu bar lifecycle, state accessors, theme request consumption, and action dispatch after rendering.
+  Added a small private `ui_menubar_internal.h` boundary shared only by menu bar implementation files.
+  Registered the new render implementation in the Nuklear UI target and updated architecture/file-map docs.
+- Validation:
+  `cmake --build build --parallel` passed.
+  `ctest --test-dir build --output-on-failure -R "ui_logic|registry|command"` passed.
+  `ctest --test-dir build --output-on-failure` passed with 11/11 tests passing.
+
 ## 2026-05-26 - P2: Split Layer Panel From Inspector UI
 
 - Branch:

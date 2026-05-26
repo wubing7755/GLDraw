@@ -107,6 +107,7 @@
 - `src/input/keymap.c`
 - `src/ui/ui_menu_def.c`
 - `src/ui/ui_menubar.c`
+- `src/ui/ui_menubar_render.c`
 
 ### Understand test coverage
 

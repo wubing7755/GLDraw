@@ -21,7 +21,7 @@ The next refactor should not reduce layering for its own sake. It should turn pa
 - Undo, redo, delete selection, and select-all behavior now lives in `workspace_edit_commands`.
 - Dynamic tool activation now lives in `workspace_tool_commands`.
 - View-model construction now captures workspace state into a build context and emits summary, command, tool, layer, property, and dialog snapshots through separate builders.
-- UI frame construction has moved to `src/ui/ui_frame.c`, and the inspector's layer controls now live in `src/ui/ui_layer_panel.c`; broader Nuklear files should continue decomposing by view concern.
+- UI frame construction has moved to `src/ui/ui_frame.c`, the inspector's layer controls now live in `src/ui/ui_layer_panel.c`, and menu bar rendering lives in `src/ui/ui_menubar_render.c`; broader Nuklear files should continue decomposing by view concern.
 - Render submission now uses `RenderSceneDesc` and a cache-key value. The next render cleanup should focus on ownership and lifetime of scene snapshots rather than parameter shape.
 
 ## Progress Snapshot
@@ -42,6 +42,7 @@ The next refactor should not reduce layering for its own sake. It should turn pa
 - `EditorViewModel` construction is split by view concern behind the stable public view-model shape.
 - `ui_system_build()` lives in `ui_frame.c`.
 - Inspector selection/property rendering and layer controls are split across `ui_inspector_panel.c` and `ui_layer_panel.c`.
+- Menu bar state/lifecycle and Nuklear rendering are split across `ui_menubar.c` and `ui_menubar_render.c`.
 - `render_system_draw()` consumes `RenderSceneDesc`.
 
 ## Boundary Rules
@@ -144,4 +145,4 @@ These rules are the target state for the refactor:
 
 ## Suggested Next Implementation Slice
 
-Continue by decomposing the remaining broad Nuklear UI implementation files by view concern, starting with menu/context-menu or inspector helpers where local state and rendering code are still intertwined.
+Continue by decomposing `ui_context_menu.c` into popup lifecycle and menu item rendering helpers, then revisit `ui_theme.c` only after lower-risk UI modules are fully separated.
