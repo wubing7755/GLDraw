@@ -1,5 +1,24 @@
 # Refactor Log
 
+## 2026-05-26 - P2: Split Workspace Layout Types From Workspace API
+
+- Branch:
+  `refactor-editor-architecture-roadmap`
+- Modified files:
+  `include/app/workspace_layout_types.h`,
+  `include/app/workspace.h`,
+  `include/ui/ui_system.h`,
+  `src/ui/ui_system_internal.h`,
+  `doc/reference/file-map.md`
+- Key changes:
+  Moved the `WorkspaceLayout` snapshot type into `workspace_layout_types.h`.
+  Kept `workspace.h` as a consumer of the layout type for layout accessors.
+  Removed the UI system public and private headers' dependency on the full Workspace API when only the layout value type is needed.
+- Validation:
+  `cmake --build build --parallel` passed.
+  `ctest --test-dir build --output-on-failure -R "ui_logic|registry|command"` passed.
+  `ctest --test-dir build --output-on-failure` passed with 11/11 tests passing.
+
 ## 2026-05-26 - P2: Split UI Dialog Types From Workspace API
 
 - Branch:

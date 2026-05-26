@@ -6,6 +6,7 @@
 #define GLDRAW_APP_WORKSPACE_H
 
 #include <app/ui_dialog_types.h>
+#include <app/workspace_layout_types.h>
 #include <base/types.h>
 #include <canvas/canvas_view.h>
 #include <commands/command.h>
@@ -36,16 +37,6 @@ typedef enum WorkspaceServiceType {
 typedef int (*WorkspaceActionExecutorFn)(Workspace* workspace,
                                          WorkspaceActionType action,
                                          void* user_data);
-
-typedef struct WorkspaceLayout {
-    RectF window_bounds;
-    RectF canvas_content_bounds;
-    RectF appbar_bounds;
-    RectF rail_bounds;
-    RectF panel_bounds;
-    RectF status_bounds;
-    unsigned int layout_revision;
-} WorkspaceLayout;
 
 ToolContext workspace_tool_context(Workspace* workspace);
 Document* workspace_get_document(Workspace* workspace);
