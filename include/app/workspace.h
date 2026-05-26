@@ -7,6 +7,7 @@
 
 #include <app/ui_dialog_types.h>
 #include <app/workspace_layout_types.h>
+#include <app/workspace_service_types.h>
 #include <base/types.h>
 #include <canvas/canvas_view.h>
 #include <commands/command.h>
@@ -14,29 +15,6 @@
 #include <model/selection.h>
 #include <tools/tool.h>
 #include <tools/tool_controller.h>
-
-typedef struct Workspace Workspace;
-
-typedef int (*WorkspaceCommandFn)(Workspace* workspace, void* user_data);
-
-typedef enum WorkspaceActionType {
-    WORKSPACE_ACTION_NONE = 0,
-    WORKSPACE_ACTION_NEW_DOCUMENT,
-    WORKSPACE_ACTION_OPEN_DOCUMENT,
-    WORKSPACE_ACTION_EXIT_APPLICATION
-} WorkspaceActionType;
-
-typedef enum WorkspaceServiceType {
-    WORKSPACE_SERVICE_SAVE_DOCUMENT = 0,
-    WORKSPACE_SERVICE_SAVE_AS_DOCUMENT,
-    WORKSPACE_SERVICE_EXPORT_PNG,
-    WORKSPACE_SERVICE_LOAD_DOCUMENT,
-    WORKSPACE_SERVICE_EXECUTE_ACTION
-} WorkspaceServiceType;
-
-typedef int (*WorkspaceActionExecutorFn)(Workspace* workspace,
-                                         WorkspaceActionType action,
-                                         void* user_data);
 
 ToolContext workspace_tool_context(Workspace* workspace);
 Document* workspace_get_document(Workspace* workspace);

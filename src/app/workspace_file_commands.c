@@ -4,6 +4,7 @@
  */
 #include <app/workspace_file_commands.h>
 
+#include <app/workspace.h>
 #include <app/workspace_actions.h>
 #include <app/workspace_dialogs.h>
 #include <base/path_utils.h>

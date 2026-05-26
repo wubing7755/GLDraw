@@ -9,7 +9,8 @@
 #ifndef GLDRAW_APP_WORKSPACE_SERVICE_H
 #define GLDRAW_APP_WORKSPACE_SERVICE_H
 
-#include <app/workspace.h>
+#include <app/workspace_service_types.h>
+#include <base/types.h>
 
 /**
  * Initialize the workspace and all core subsystems (document, command executor,

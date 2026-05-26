@@ -4,6 +4,7 @@
  */
 #include <app/workspace_edit_commands.h>
 
+#include <app/workspace.h>
 #include <commands/command.h>
 #include <document/document.h>
 

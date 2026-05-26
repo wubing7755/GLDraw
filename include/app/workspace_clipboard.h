@@ -5,7 +5,7 @@
 #ifndef GLDRAW_APP_WORKSPACE_CLIPBOARD_H
 #define GLDRAW_APP_WORKSPACE_CLIPBOARD_H
 
-#include <app/workspace.h>
+#include <app/workspace_service_types.h>
 
 /** Copy the current selection into the workspace clipboard. */
 int workspace_clipboard_copy_selection(Workspace* workspace);

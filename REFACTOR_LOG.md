@@ -1,5 +1,35 @@
 # Refactor Log
 
+## 2026-05-26 - P2: Split Workspace Service Types From Workspace API
+
+- Branch:
+  `refactor-editor-architecture-roadmap`
+- Modified files:
+  `include/app/workspace_service_types.h`,
+  `include/app/workspace.h`,
+  `include/app/workspace_actions.h`,
+  `include/app/workspace_dialogs.h`,
+  `include/app/workspace_service.h`,
+  `include/app/workspace_file_commands.h`,
+  `include/app/workspace_dialog_commands.h`,
+  `include/app/workspace_edit_commands.h`,
+  `include/app/workspace_clipboard.h`,
+  `include/app/workspace_view_commands.h`,
+  `src/app/workspace_actions.c`,
+  `src/app/workspace_dialog_commands.c`,
+  `src/app/workspace_edit_commands.c`,
+  `src/app/workspace_file_commands.c`,
+  `doc/reference/file-map.md`
+- Key changes:
+  Moved `WorkspaceActionType`, `WorkspaceServiceType`, and workspace service callback typedefs into `workspace_service_types.h`.
+  Kept `workspace.h` as a consumer of those service types for service accessors and callback registration.
+  Replaced full Workspace API includes in action, dialog, service, file, edit, clipboard, and view command headers where only `Workspace*` or service/action value types are needed.
+  Added explicit implementation includes where previous transitive dependencies hid direct keymap, tool, dialog, or workspace API usage.
+- Validation:
+  `cmake --build build --parallel` passed.
+  `ctest --test-dir build --output-on-failure -R "ui_logic|registry|command"` passed.
+  `ctest --test-dir build --output-on-failure` passed with 11/11 tests passing.
+
 ## 2026-05-26 - P2: Split Workspace Layout Types From Workspace API
 
 - Branch:

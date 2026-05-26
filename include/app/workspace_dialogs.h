@@ -13,7 +13,8 @@
 #ifndef GLDRAW_APP_WORKSPACE_DIALOGS_H
 #define GLDRAW_APP_WORKSPACE_DIALOGS_H
 
-#include <app/workspace.h>
+#include <app/ui_dialog_types.h>
+#include <app/workspace_service_types.h>
 
 /** Immutable dialog shell configuration used by generic builders. */
 typedef struct UiDialogTemplate {
@@ -32,7 +33,6 @@ typedef struct UiDialogButtonDefinition {
     int is_default;
 } UiDialogButtonDefinition;
 
-struct Workspace;
 /** Dialog-specific result handler signature used by registered definitions. */
 typedef int (*UiDialogResolveFn)(struct Workspace* workspace, UiDialogResult result);
 

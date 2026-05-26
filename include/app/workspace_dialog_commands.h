@@ -5,7 +5,7 @@
 #ifndef GLDRAW_APP_WORKSPACE_DIALOG_COMMANDS_H
 #define GLDRAW_APP_WORKSPACE_DIALOG_COMMANDS_H
 
-#include <app/workspace.h>
+#include <app/workspace_service_types.h>
 
 /** Toggle the keyboard shortcuts help dialog. */
 int workspace_dialog_command_toggle_shortcuts(Workspace* workspace);

@@ -5,7 +5,7 @@
 #ifndef GLDRAW_APP_WORKSPACE_EDIT_COMMANDS_H
 #define GLDRAW_APP_WORKSPACE_EDIT_COMMANDS_H
 
-#include <app/workspace.h>
+#include <app/workspace_service_types.h>
 
 /** Undo the latest document command and prune invalid selection entries. */
 int workspace_edit_undo(Workspace* workspace);

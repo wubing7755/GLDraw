@@ -5,7 +5,7 @@
 #ifndef GLDRAW_APP_WORKSPACE_VIEW_COMMANDS_H
 #define GLDRAW_APP_WORKSPACE_VIEW_COMMANDS_H
 
-#include <app/workspace.h>
+#include <app/workspace_service_types.h>
 
 int workspace_view_zoom_in(Workspace* workspace);
 int workspace_view_zoom_out(Workspace* workspace);

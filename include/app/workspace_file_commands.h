@@ -5,7 +5,7 @@
 #ifndef GLDRAW_APP_WORKSPACE_FILE_COMMANDS_H
 #define GLDRAW_APP_WORKSPACE_FILE_COMMANDS_H
 
-#include <app/workspace.h>
+#include <app/workspace_service_types.h>
 
 /** Request a new document action through the workspace action policy. */
 int workspace_file_new_document(Workspace* workspace);

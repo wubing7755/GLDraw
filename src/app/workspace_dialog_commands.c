@@ -4,8 +4,11 @@
  */
 #include <app/workspace_dialog_commands.h>
 
+#include <app/workspace.h>
 #include <app/workspace_actions.h>
 #include <app/workspace_dialogs.h>
+#include <input/keymap.h>
+#include <tools/tool.h>
 
 #include <stdio.h>
 #include <string.h>
