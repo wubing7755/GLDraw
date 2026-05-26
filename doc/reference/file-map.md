@@ -3,7 +3,7 @@
 > Audience: contributors, maintainers
 > Purpose: provide fast entrypoints into the source tree by task
 > Source of truth: current source tree layout
-> Last reviewed with code: 2026-05-25
+> Last reviewed with code: 2026-05-26
 > Related: [../architecture/overview.md](../architecture/overview.md)
 
 ## First Entry Points
@@ -54,6 +54,8 @@
 - `src/app/editor_controller.c`
 - `src/app/command_registry.c`
 - `src/app/workspace_clipboard.c`
+- `include/app/workspace_file_commands.h`
+- `src/app/workspace_file_commands.c`
 - `src/app/workspace_view_commands.c`
 
 ### Understand tool interactions

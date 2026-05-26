@@ -1,10 +1,12 @@
-#include <app/command_dispatcher.h>
 #include <app/command_availability.h>
 #include <app/command_catalog.h>
+#include <app/command_dispatcher.h>
+#include <app/command_registry.h>
 #include <app/editor_controller.h>
 #include <app/extension_loader.h>
 #include <app/workspace_internal.h>
 #include <app/workspace_dialogs.h>
+#include <app/workspace_service.h>
 #include <base/math2d.h>
 #include <canvas/canvas_view.h>
 #include <commands/command.h>
@@ -106,6 +108,65 @@ static void shutdown_workspace(Workspace* workspace)
     workspace_clear_clipboard(workspace);
     selection_set_shutdown(&workspace->session.selection);
     document_shutdown(&workspace->core.document);
+}
+
+typedef struct TestWorkspaceCallbacks {
+    int save_count;
+    int save_as_count;
+    int export_count;
+    int action_count;
+    WorkspaceActionType last_action;
+} TestWorkspaceCallbacks;
+
+static int test_workspace_save_callback(Workspace* workspace, void* user_data)
+{
+    TestWorkspaceCallbacks* callbacks = (TestWorkspaceCallbacks*)user_data;
+
+    (void)workspace;
+    if (!callbacks) {
+        return 0;
+    }
+    callbacks->save_count += 1;
+    return 1;
+}
+
+static int test_workspace_save_as_callback(Workspace* workspace, void* user_data)
+{
+    TestWorkspaceCallbacks* callbacks = (TestWorkspaceCallbacks*)user_data;
+
+    (void)workspace;
+    if (!callbacks) {
+        return 0;
+    }
+    callbacks->save_as_count += 1;
+    return 1;
+}
+
+static int test_workspace_export_callback(Workspace* workspace, void* user_data)
+{
+    TestWorkspaceCallbacks* callbacks = (TestWorkspaceCallbacks*)user_data;
+
+    (void)workspace;
+    if (!callbacks) {
+        return 0;
+    }
+    callbacks->export_count += 1;
+    return 1;
+}
+
+static int test_workspace_action_callback(Workspace* workspace,
+                                          WorkspaceActionType action,
+                                          void* user_data)
+{
+    TestWorkspaceCallbacks* callbacks = (TestWorkspaceCallbacks*)user_data;
+
+    (void)workspace;
+    if (!callbacks) {
+        return 0;
+    }
+    callbacks->action_count += 1;
+    callbacks->last_action = action;
+    return 1;
 }
 
 static int test_editor_viewmodel_builds_selection_properties(void)
@@ -326,6 +387,46 @@ static int test_workspace_tool_context_and_preview_accessors(void)
     EXPECT_FLOAT_EQ(preview_delta.x, 7.0f);
     EXPECT_FLOAT_EQ(preview_delta.y, -3.0f);
 
+    shutdown_workspace(&workspace);
+    return 0;
+}
+
+static int test_file_commands_route_to_workspace_services(void)
+{
+    Workspace workspace;
+    ToolContext context;
+    TestWorkspaceCallbacks callbacks = {0};
+
+    EXPECT_TRUE(init_workspace(&workspace));
+    context = workspace_tool_context(&workspace);
+    workspace_set_service_callbacks(&workspace,
+                                    test_workspace_save_callback,
+                                    test_workspace_save_as_callback,
+                                    test_workspace_export_callback,
+                                    NULL,
+                                    test_workspace_action_callback,
+                                    &callbacks);
+
+    EXPECT_TRUE(command_registry_execute(&workspace, &context, EDITOR_COMMAND_FILE_NEW));
+    EXPECT_INT_EQ(callbacks.last_action, WORKSPACE_ACTION_NEW_DOCUMENT);
+    EXPECT_TRUE(command_registry_execute(&workspace, &context, EDITOR_COMMAND_FILE_OPEN));
+    EXPECT_INT_EQ(callbacks.last_action, WORKSPACE_ACTION_OPEN_DOCUMENT);
+    EXPECT_TRUE(command_registry_execute(&workspace, &context, EDITOR_COMMAND_FILE_EXIT));
+    EXPECT_INT_EQ(callbacks.last_action, WORKSPACE_ACTION_EXIT_APPLICATION);
+    EXPECT_INT_EQ(callbacks.action_count, 3);
+
+    EXPECT_TRUE(command_registry_execute(&workspace, &context, EDITOR_COMMAND_FILE_SAVE));
+    EXPECT_INT_EQ(callbacks.save_count, 1);
+    EXPECT_TRUE(command_registry_execute(&workspace, &context, EDITOR_COMMAND_FILE_EXPORT_PNG));
+    EXPECT_INT_EQ(callbacks.export_count, 1);
+
+    workspace_service_set_document_path(&workspace, "C:/tmp/example.gldraw.json");
+    EXPECT_TRUE(command_registry_execute(&workspace, &context, EDITOR_COMMAND_FILE_SAVE_AS));
+    EXPECT_INT_EQ(workspace.session.active_dialog.kind, UI_DIALOG_SAVE_AS);
+    EXPECT_STR_EQ(workspace_dialog_input_text(&workspace), "example.gldraw.json");
+    EXPECT_SUBSTR(workspace.session.active_dialog.message, "C:/tmp");
+
+    workspace_dialog_close(&workspace);
     shutdown_workspace(&workspace);
     return 0;
 }
@@ -612,6 +713,7 @@ int main(void)
 
     if (test_editor_viewmodel_builds_selection_properties()) return 1;
     if (test_command_dispatcher_routes_actions()) return 1;
+    if (test_file_commands_route_to_workspace_services()) return 1;
     if (test_command_dispatcher_updates_save_as_dialog_input()) return 1;
     if (test_tool_controller_pointer_anchor_accessors()) return 1;
     if (test_workspace_tool_context_and_preview_accessors()) return 1;

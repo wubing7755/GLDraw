@@ -1,5 +1,26 @@
 # Refactor Log
 
+## 2026-05-26 - P2: Extract Workspace File Commands
+
+- Branch:
+  `refactor-editor-architecture-roadmap`
+- Modified files:
+  `include/app/workspace_file_commands.h`,
+  `src/app/workspace_file_commands.c`,
+  `src/app/command_registry.c`,
+  `tests/test_ui_logic.c`,
+  `CMakeLists.txt`,
+  `doc/reference/file-map.md`,
+  `doc/architecture/refactor-roadmap.md`
+- Key changes:
+  Added a dedicated workspace file-command module for New, Open, Save, Save As, Export PNG, and Exit behavior.
+  Updated `command_registry_execute()` to delegate file commands to the new module while keeping the registry as the public execution entry point.
+  Added UI logic regression coverage for file commands routing to workspace action callbacks, service callbacks, and Save As dialog construction.
+- Validation:
+  `cmake --build build --parallel` passed.
+  `ctest --test-dir build --output-on-failure -R "ui_logic|registry|command"` passed.
+  `ctest --test-dir build --output-on-failure` passed with 11/11 tests passing.
+
 ## 2026-05-26 - P2: Remove Command Registry Compatibility Shims
 
 - Branch:

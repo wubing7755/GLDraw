@@ -10,8 +10,8 @@
 #include <app/workspace_actions.h>
 #include <app/workspace_clipboard.h>
 #include <app/workspace_dialogs.h>
+#include <app/workspace_file_commands.h>
 #include <app/workspace_view_commands.h>
-#include <base/path_utils.h>
 #include <commands/command.h>
 #include <document/document.h>
 #include <tools/tool_controller.h>
@@ -19,30 +19,6 @@
 
 #include <stdio.h>
 #include <string.h>
-
-static int command_registry_open_save_as_dialog(Workspace* workspace)
-{
-    char directory[GLDRAW_PATH_MAX];
-    const char* path = NULL;
-
-    if (!workspace) {
-        return 0;
-    }
-    if (workspace_modal_is_active(workspace)) {
-        return 0;
-    }
-
-    path = workspace_get_current_document_path(workspace);
-    path = path && path[0] != '\0'
-               ? path
-               : "document.json";
-    if (!path_utils_dirname(path, directory, sizeof(directory))) {
-        snprintf(directory, sizeof(directory), ".");
-    }
-    return workspace_dialog_open_save_as(workspace,
-                                         path_utils_basename_or_default(path, "document.json"),
-                                         directory);
-}
 
 static void command_registry_prune_noneditable_selection(Workspace* workspace)
 {
@@ -243,17 +219,17 @@ int command_registry_execute(Workspace* workspace,
 
     switch (command) {
     case EDITOR_COMMAND_FILE_NEW:
-        return workspace_request_action(workspace, WORKSPACE_ACTION_NEW_DOCUMENT);
+        return workspace_file_new_document(workspace);
     case EDITOR_COMMAND_FILE_OPEN:
-        return workspace_request_action(workspace, WORKSPACE_ACTION_OPEN_DOCUMENT);
+        return workspace_file_open_document(workspace);
     case EDITOR_COMMAND_FILE_SAVE:
-        return workspace_execute_service(workspace, WORKSPACE_SERVICE_SAVE_DOCUMENT);
+        return workspace_file_save_document(workspace);
     case EDITOR_COMMAND_FILE_SAVE_AS:
-        return command_registry_open_save_as_dialog(workspace);
+        return workspace_file_save_document_as(workspace);
     case EDITOR_COMMAND_FILE_EXPORT_PNG:
-        return workspace_execute_service(workspace, WORKSPACE_SERVICE_EXPORT_PNG);
+        return workspace_file_export_png(workspace);
     case EDITOR_COMMAND_FILE_EXIT:
-        return workspace_request_action(workspace, WORKSPACE_ACTION_EXIT_APPLICATION);
+        return workspace_file_exit_application(workspace);
     case EDITOR_COMMAND_EDIT_UNDO:
     {
         Document* document = workspace_get_document(workspace);
