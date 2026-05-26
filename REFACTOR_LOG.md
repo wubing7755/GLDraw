@@ -1,5 +1,22 @@
 # Refactor Log
 
+## 2026-05-26 - P2: Replace Command Registry Switch With Route Table
+
+- Branch:
+  `refactor-editor-architecture-roadmap`
+- Modified files:
+  `src/app/command_registry.c`,
+  `doc/architecture/refactor-roadmap.md`
+- Key changes:
+  Replaced the fixed-command execution switch in `command_registry_execute()` with a static command-to-handler route table.
+  Kept dynamic tool command execution as a separate path delegated to `workspace_tool_commands`.
+  Removed `command_registry.c`'s direct include of the full Workspace API because routing only needs the lightweight workspace service type declaration.
+  Updated the architecture roadmap so the suggested next slice moves on to view-model construction cleanup.
+- Validation:
+  `cmake --build build --parallel` passed.
+  `ctest --test-dir build --output-on-failure -R "ui_logic|registry|command"` passed.
+  `ctest --test-dir build --output-on-failure` passed with 11/11 tests passing.
+
 ## 2026-05-26 - P2: Forward Declare Workspace In App Facade Headers
 
 - Branch:

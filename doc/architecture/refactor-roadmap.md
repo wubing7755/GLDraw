@@ -14,7 +14,7 @@ The next refactor should not reduce layering for its own sake. It should turn pa
 
 ## Current Pressure Points
 
-- `src/app/command_registry.c` now owns the public command execution entry point and delegates concrete behavior to command-owner modules.
+- `src/app/command_registry.c` now owns the public command execution entry point and routes concrete behavior through a static command execution table.
 - `command_registry_execute()` remains the execution entry point, while command metadata and availability callers now use `command_catalog` and `command_availability` directly.
 - File command behavior now lives in `workspace_file_commands`, leaving the registry to delegate New/Open/Save/Save As/Export/Exit commands.
 - Help and modal dialog command behavior now lives in `workspace_dialog_commands`.
@@ -30,6 +30,7 @@ The next refactor should not reduce layering for its own sake. It should turn pa
 - Command identifiers and descriptor value types live in `command_types`.
 - Command executable-state checks live in `command_availability`.
 - Command metadata and availability compatibility wrappers have been removed from `command_registry`.
+- Command execution routing in `command_registry` uses a static table for fixed commands, with dynamic tool activation delegated separately.
 - File/service commands have a dedicated workspace command module.
 - Help/modal commands have a dedicated workspace dialog command module.
 - Undo/redo and selection edit commands have a dedicated workspace edit command module.
@@ -125,11 +126,11 @@ These rules are the target state for the refactor:
 - Update architecture docs and file maps with the final ownership map.
 - Run the full build and test suite after each cleanup.
 
-### 13. Split Remaining Command Execution Groups
+### 13. Keep Command Execution Routing Thin
 
-- Move file/service commands, modal/help commands, and edit selection commands into small owner modules if the registry switch continues to grow.
+- Keep fixed command routes in the command execution table and concrete behavior in workspace owner modules.
 - Keep `command_registry_execute()` as the public execution entry point until the replacement action executor API is stable.
-- Prefer focused regression tests around each moved behavior before deleting the old switch cases.
+- Prefer focused regression tests around each route when adding or moving command behavior.
 
 ## Per-Step Completion Criteria
 
@@ -141,4 +142,4 @@ These rules are the target state for the refactor:
 
 ## Suggested Next Implementation Slice
 
-Continue by auditing `command_registry_execute()` for any remaining policy decisions. It should now stay as the stable public execution entry point while concrete behavior lives in catalog, availability, and workspace command-owner modules.
+Continue by splitting `EditorViewModel` construction into smaller snapshot builders for summary, commands, tools, layers, properties, and dialogs. Keep the public view-model shape stable while reducing the amount of workspace state read in one pass.
