@@ -1,5 +1,22 @@
 # Refactor Log
 
+## 2026-05-26 - P2: Forward Declare ToolContext In Command Entry Headers
+
+- Branch:
+  `refactor-editor-architecture-roadmap`
+- Modified files:
+  `include/tools/tool.h`,
+  `include/app/command_registry.h`,
+  `include/app/workspace_tool_commands.h`
+- Key changes:
+  Made `ToolContext` a named struct type so command execution headers can forward declare it.
+  Removed full `tools/tool.h` includes from `command_registry.h` and `workspace_tool_commands.h`.
+  Kept the `ToolContext` layout and tool runtime behavior unchanged.
+- Validation:
+  `cmake --build build --parallel` passed.
+  `ctest --test-dir build --output-on-failure -R "ui_logic|registry|command"` passed.
+  `ctest --test-dir build --output-on-failure` passed with 11/11 tests passing.
+
 ## 2026-05-26 - P2: Split Command Types From Execution
 
 - Branch:

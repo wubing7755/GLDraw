@@ -6,8 +6,8 @@
 #define GLDRAW_APP_COMMAND_REGISTRY_H
 
 #include <app/command_types.h>
-#include <tools/tool.h>
 
+typedef struct ToolContext ToolContext;
 struct Workspace;
 
 /** Execute one command against the current editor state. */

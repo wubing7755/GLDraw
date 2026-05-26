@@ -6,8 +6,8 @@
 #define GLDRAW_APP_WORKSPACE_TOOL_COMMANDS_H
 
 #include <app/command_types.h>
-#include <tools/tool.h>
 
+typedef struct ToolContext ToolContext;
 struct Workspace;
 
 /** Activate the registered tool represented by a dynamic tool command. */

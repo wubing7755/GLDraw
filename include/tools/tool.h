@@ -54,7 +54,7 @@ typedef struct {
     void* user;
 } ToolPorts;
 
-typedef struct {
+typedef struct ToolContext {
     struct Document* document;
     struct CanvasView* canvas;
     SelectionSet* selection;
