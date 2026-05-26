@@ -145,6 +145,7 @@ set(EDITOR_RUNTIME_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/app/workspace_clipboard.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/app/workspace_dialog_commands.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/app/workspace_dialogs.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/app/workspace_edit_commands.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/app/workspace_file_commands.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/app/workspace_service.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/app/workspace_view_commands.c

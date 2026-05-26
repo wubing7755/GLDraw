@@ -1,5 +1,26 @@
 # Refactor Log
 
+## 2026-05-26 - P2: Extract Workspace Edit Commands
+
+- Branch:
+  `refactor-editor-architecture-roadmap`
+- Modified files:
+  `include/app/workspace_edit_commands.h`,
+  `src/app/workspace_edit_commands.c`,
+  `src/app/command_registry.c`,
+  `tests/test_ui_logic.c`,
+  `CMakeLists.txt`,
+  `doc/reference/file-map.md`,
+  `doc/architecture/refactor-roadmap.md`
+- Key changes:
+  Added a dedicated workspace edit-command module for undo, redo, delete selection, select all, and selection pruning after undo/redo.
+  Updated `command_registry_execute()` to delegate undo/redo/delete/select-all commands to the new module.
+  Added UI logic regression coverage for delete pruning locked-layer selections while preserving undo behavior.
+- Validation:
+  `cmake --build build --parallel` passed.
+  `ctest --test-dir build --output-on-failure -R "ui_logic|registry|command"` passed.
+  `ctest --test-dir build --output-on-failure` passed with 11/11 tests passing.
+
 ## 2026-05-26 - P2: Extract Workspace Dialog Commands
 
 - Branch:

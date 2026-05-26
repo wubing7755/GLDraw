@@ -621,6 +621,43 @@ static int test_command_registry_respects_locked_layers(void)
     return 0;
 }
 
+static int test_edit_delete_prunes_locked_selection(void)
+{
+    Workspace workspace;
+    ToolContext context;
+    LayerId locked_layer = 0u;
+    ObjectId locked_id = 1u;
+    ObjectId editable_id = 2u;
+
+    EXPECT_TRUE(init_workspace(&workspace));
+    context = workspace_tool_context(&workspace);
+
+    locked_layer = document_create_layer(&workspace.core.document, "Locked");
+    EXPECT_TRUE(locked_layer != 0u);
+    EXPECT_TRUE(document_set_active_layer(&workspace.core.document, locked_layer));
+    EXPECT_TRUE(document_add_object(&workspace.core.document,
+                                    make_rect(0.0f, 0.0f, 10.0f, 10.0f)));
+    EXPECT_TRUE(document_set_layer_locked(&workspace.core.document, locked_layer, 1));
+
+    EXPECT_TRUE(document_set_active_layer(&workspace.core.document, 1u));
+    EXPECT_TRUE(document_add_object(&workspace.core.document,
+                                    make_rect(20.0f, 0.0f, 10.0f, 10.0f)));
+    EXPECT_TRUE(selection_set_add(&workspace.session.selection, locked_id));
+    EXPECT_TRUE(selection_set_add(&workspace.session.selection, editable_id));
+
+    EXPECT_TRUE(command_registry_execute(&workspace, &context, EDITOR_COMMAND_EDIT_DELETE));
+    EXPECT_TRUE(document_find_object(&workspace.core.document, locked_id) != NULL);
+    EXPECT_TRUE(document_find_object(&workspace.core.document, editable_id) == NULL);
+    EXPECT_INT_EQ(workspace.session.selection.count, 0);
+    EXPECT_TRUE(command_executor_can_undo(&workspace.core.commands));
+
+    EXPECT_TRUE(command_registry_execute(&workspace, &context, EDITOR_COMMAND_EDIT_UNDO));
+    EXPECT_TRUE(document_find_object(&workspace.core.document, editable_id) != NULL);
+
+    shutdown_workspace(&workspace);
+    return 0;
+}
+
 static int test_clipboard_copy_paste_cut_commands(void)
 {
     Workspace workspace;
@@ -771,6 +808,7 @@ int main(void)
     if (test_editor_controller_builds_tool_events_and_render_scene()) return 1;
     if (test_locked_layers_block_pick_and_shape_creation()) return 1;
     if (test_command_registry_respects_locked_layers()) return 1;
+    if (test_edit_delete_prunes_locked_selection()) return 1;
     if (test_clipboard_copy_paste_cut_commands()) return 1;
     if (test_clipboard_cut_prunes_locked_selection()) return 1;
     if (test_view_commands_update_canvas_state()) return 1;
