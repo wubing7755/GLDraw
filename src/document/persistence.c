@@ -1,13 +1,13 @@
 /**
  * @file persistence.c
- * @brief JSON serialization/deserialization for document files.
+ * @brief Public document persistence orchestration.
  *
  * Role in project:
- * - Writes stable document JSON format (`version=1`) for save.
- * - Parses JSON into validated runtime objects on load.
+ * - Owns `document_save_json()` and `document_load_json()` public entry points.
+ * - Coordinates staged load so current documents are only replaced after parse success.
  *
  * Module relationships:
- * - Uses document/object APIs for model construction and ID handling.
+ * - Delegates JSON tokenization, layer parsing, object parsing, and writing to focused modules.
  * - Called by application save/load commands.
  */
 #include <document/persistence.h>
@@ -149,11 +149,6 @@ static int parse_document_root(JsonParser* parser, Document* document)
     document->revision = 1;
     return 1;
 }
-
-/**
- * @brief Save document to JSON path using temp-file replacement.
- * @return `1` on success, `0` on allocation/I/O/serialization failure.
- */
 
 /**
  * @brief Saves document to JSON file.

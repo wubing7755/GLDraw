@@ -1,5 +1,21 @@
 # Refactor Log
 
+## 2026-05-28 - Phase 4: Consolidate Document Persistence Modules
+
+- Branch:
+  `refactor-editor-architecture-roadmap`
+- Modified files:
+  `src/document/persistence.c`,
+  `REFACTOR_LOG.md`
+- Key changes:
+  Updated the `persistence.c` file contract to match its current role: public save/load entry points, root document parsing, temp-file save orchestration, and staged load replacement.
+  Confirmed `document_load_json()` still loads into a temporary document and only replaces the current document after complete parse success.
+  Kept `include/document/persistence.h` unchanged.
+- Validation:
+  `cmake --build build --parallel` passed.
+  `ctest --test-dir build --output-on-failure` passed with 12/12 tests passing.
+  `git diff --check` passed.
+
 ## 2026-05-28 - Phase 4: Split Object Persistence Parser
 
 - Branch:
