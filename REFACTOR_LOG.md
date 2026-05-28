@@ -1,5 +1,25 @@
 # Refactor Log
 
+## 2026-05-28 - Phase 6: Split Application Platform Callbacks
+
+- Branch:
+  `refactor-editor-architecture-roadmap`
+- Modified files:
+  `src/app/application_callbacks.c`,
+  `src/app/application.c`,
+  `src/app/application_internal.h`,
+  `CMakeLists.txt`,
+  `doc/reference/file-map.md`,
+  `doc/architecture/refactor-roadmap.md`,
+  `REFACTOR_LOG.md`
+- Key changes:
+  Moved framebuffer, cursor, mouse-button, key, scroll, and window-close callbacks into `application_callbacks.c`.
+  Added an internal `application_register_platform_callbacks()` hook so `application.c` only wires callbacks during initialization.
+- Validation:
+  `cmake --build build --parallel` passed.
+  `ctest --test-dir build --output-on-failure` passed with 12/12 tests passing.
+  `git diff --check` passed.
+
 ## 2026-05-28 - Phase 5: Split Object Command Implementations
 
 - Branch:

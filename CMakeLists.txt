@@ -203,6 +203,7 @@ set(UI_NUKLEAR_GLFW_SOURCES
 
 set(EDITOR_APP_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/app/application.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/app/application_callbacks.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/app/application_dialog_actions.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/app/application_file_actions.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/app/application_runtime.c

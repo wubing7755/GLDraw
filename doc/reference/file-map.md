@@ -12,6 +12,8 @@
   Process entrypoint, forwards to `app_run()`.
 - `src/app/application.c`
   App bootstrap and frame loop.
+- `src/app/application_callbacks.c`
+  Platform window callbacks for pointer, key, scroll, framebuffer, and close events.
 - `include/app/editor_controller.h`
   Workspace-level editor runtime facade for tool input and render scene state.
 - `include/app/workspace.h`

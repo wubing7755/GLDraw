@@ -22,4 +22,6 @@ typedef struct Application {
     char pending_export_png_path[GLDRAW_PATH_MAX];
 } Application;
 
+void application_register_platform_callbacks(Application* app);
+
 #endif /* GLDRAW_APP_APPLICATION_INTERNAL_H */
