@@ -1,5 +1,25 @@
 # Refactor Log
 
+## 2026-05-28 - Phase 4: Split Persistence JSON Parser
+
+- Branch:
+  `refactor-editor-architecture-roadmap`
+- Modified files:
+  `src/document/persistence_json.c`,
+  `src/document/persistence_json.h`,
+  `src/document/persistence.c`,
+  `CMakeLists.txt`,
+  `doc/reference/file-map.md`,
+  `doc/architecture/refactor-roadmap.md`,
+  `REFACTOR_LOG.md`
+- Key changes:
+  Moved `JsonParser`, token types, tokenizer advancement, token matching, primitive parse helpers, and skip value/object/array helpers into `persistence_json.c/.h`.
+  Kept document-specific layer/object/root parsing in `persistence.c` for subsequent focused splits.
+- Validation:
+  `cmake --build build --parallel` passed.
+  `ctest --test-dir build --output-on-failure` passed with 12/12 tests passing.
+  `git diff --check` passed.
+
 ## 2026-05-28 - Phase 3: Persistence Regression Coverage
 
 - Branch:

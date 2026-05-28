@@ -49,6 +49,7 @@ The next refactor should not reduce layering for its own sake. It should turn pa
 - Theme JSON extraction, color parsing, path-derived IDs, override application, and token clamping live in `ui_theme_parse.c`.
 - Selected theme ID settings load/save lives in `ui_theme_settings.c`.
 - Nuklear stylesheet mapping for theme tokens lives in `ui_theme_apply.c`.
+- Document persistence JSON tokenization, skipping, and primitive parsing live in `persistence_json.c/.h`.
 - `render_system_draw()` consumes `RenderSceneDesc`.
 - This refactor round is complete for command routing, workspace API coupling, view-model construction, and low-risk UI composition cleanup.
 

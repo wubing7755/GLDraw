@@ -92,6 +92,7 @@ set(EDITOR_MODEL_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/document/document_layers.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/document/document_spatial_index.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/document/persistence.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/document/persistence_json.c
 )
 
 set(RENDER_CORE_SOURCES

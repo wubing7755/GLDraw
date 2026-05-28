@@ -114,6 +114,8 @@
 ### Understand persistence
 
 - `src/document/persistence.c`
+- `src/document/persistence_json.c`
+- `src/document/persistence_json.h`
 - `src/app/workspace_service.c`
 - `src/app/application_file_actions.c`
 

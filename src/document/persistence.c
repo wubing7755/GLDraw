@@ -15,37 +15,11 @@
 #include <base/file_utils.h>
 #include <base/log.h>
 
-#include <ctype.h>
-#include <limits.h>
+#include "persistence_json.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
-typedef enum {
-    JSON_TOKEN_EOF = 0,
-    JSON_TOKEN_LBRACE,
-    JSON_TOKEN_RBRACE,
-    JSON_TOKEN_LBRACKET,
-    JSON_TOKEN_RBRACKET,
-    JSON_TOKEN_COLON,
-    JSON_TOKEN_COMMA,
-    JSON_TOKEN_STRING,
-    JSON_TOKEN_NUMBER,
-    JSON_TOKEN_TRUE,
-    JSON_TOKEN_FALSE,
-    JSON_TOKEN_NULL,
-    JSON_TOKEN_INVALID
-} JsonTokenType;
-
-typedef struct {
-    const char* text;
-    size_t pos;
-    size_t length;
-    JsonTokenType type;
-    const char* token_start;
-    size_t token_length;
-    double number_value;
-} JsonParser;
 
 /**
  * @brief Intermediate staging struct for JSON deserialization.
@@ -187,337 +161,6 @@ static int write_document_json(FILE* file, const Document* document)
     fprintf(file, "  ]\n");
     fprintf(file, "}\n");
     return ferror(file) == 0;
-}
-
-/**
- * @brief Checks if parser matches a keyword at current position.
- * @param parser JSON parser.
- * @param keyword Keyword to match.
- * @return 1 if matched, 0 otherwise.
- */
-static int json_match_keyword(const JsonParser* parser, const char* keyword)
-{
-    size_t length = 0;
-    char next = '\0';
-
-    if (!parser || !keyword) {
-        return 0;
-    }
-
-    length = strlen(keyword);
-    if (parser->pos + length > parser->length) {
-        return 0;
-    }
-
-    if (strncmp(parser->text + parser->pos, keyword, length) != 0) {
-        return 0;
-    }
-
-    if (parser->pos + length >= parser->length) {
-        return 1;
-    }
-
-    next = parser->text[parser->pos + length];
-    return !(isalnum((unsigned char)next) || next == '_');
-}
-
-/**
- * @brief Skips whitespace in JSON parser.
- * @param parser JSON parser.
- * @return None.
- */
-static void json_parser_skip_ws(JsonParser* parser)
-{
-    while (parser->pos < parser->length &&
-           isspace((unsigned char)parser->text[parser->pos])) {
-        parser->pos++;
-    }
-}
-
-/**
- * @brief Advances parser to next token.
- * @param parser [in,out] JSON parser state.
- * @return None.
- *
- * Risk note:
- * - Keeps implementation intentionally strict; malformed escape/number forms
- *   become `JSON_TOKEN_INVALID` to fail-fast during load.
- */
-static void json_parser_next(JsonParser* parser)
-{
-    const char* start = NULL;
-    const char* number_end = NULL;
-    size_t i = 0;
-
-    json_parser_skip_ws(parser);
-    parser->token_start = NULL;
-    parser->token_length = 0;
-    parser->number_value = 0.0;
-
-    if (parser->pos >= parser->length) {
-        parser->type = JSON_TOKEN_EOF;
-        return;
-    }
-
-    switch (parser->text[parser->pos]) {
-    case '{':
-        parser->type = JSON_TOKEN_LBRACE;
-        parser->pos++;
-        return;
-    case '}':
-        parser->type = JSON_TOKEN_RBRACE;
-        parser->pos++;
-        return;
-    case '[':
-        parser->type = JSON_TOKEN_LBRACKET;
-        parser->pos++;
-        return;
-    case ']':
-        parser->type = JSON_TOKEN_RBRACKET;
-        parser->pos++;
-        return;
-    case ':':
-        parser->type = JSON_TOKEN_COLON;
-        parser->pos++;
-        return;
-    case ',':
-        parser->type = JSON_TOKEN_COMMA;
-        parser->pos++;
-        return;
-    case '"':
-        parser->pos++;
-        start = parser->text + parser->pos;
-        while (parser->pos < parser->length) {
-            if (parser->text[parser->pos] == '\\') {
-                if (parser->pos + 1 >= parser->length) {
-                    parser->type = JSON_TOKEN_INVALID;
-                    return;
-                }
-                parser->pos += 2;
-                continue;
-            }
-            if (parser->text[parser->pos] == '"') {
-                break;
-            }
-            parser->pos++;
-        }
-        if (parser->pos >= parser->length) {
-            parser->type = JSON_TOKEN_INVALID;
-            return;
-        }
-        parser->type = JSON_TOKEN_STRING;
-        parser->token_start = start;
-        parser->token_length = (size_t)((parser->text + parser->pos) - start);
-        parser->pos++;
-        return;
-    default:
-        break;
-    }
-
-    if (json_match_keyword(parser, "true")) {
-        parser->type = JSON_TOKEN_TRUE;
-        parser->pos += 4;
-        return;
-    }
-    if (json_match_keyword(parser, "false")) {
-        parser->type = JSON_TOKEN_FALSE;
-        parser->pos += 5;
-        return;
-    }
-    if (json_match_keyword(parser, "null")) {
-        parser->type = JSON_TOKEN_NULL;
-        parser->pos += 4;
-        return;
-    }
-
-    if (parser->text[parser->pos] == '-' || isdigit((unsigned char)parser->text[parser->pos])) {
-        start = parser->text + parser->pos;
-        parser->number_value = strtod(start, (char**)&number_end);
-        if (number_end == start) {
-            parser->type = JSON_TOKEN_INVALID;
-            return;
-        }
-        i = (size_t)(number_end - parser->text);
-        parser->type = JSON_TOKEN_NUMBER;
-        parser->token_start = start;
-        parser->token_length = (size_t)(number_end - start);
-        parser->pos = i;
-        return;
-    }
-
-    parser->type = JSON_TOKEN_INVALID;
-}
-
-/**
- * @brief Checks if current token is a specific string literal.
- * @param parser JSON parser.
- * @param literal String literal to match.
- * @return 1 if matches, 0 otherwise.
- */
-static int json_token_is_string(const JsonParser* parser, const char* literal)
-{
-    size_t literal_length = 0;
-
-    if (!parser || parser->type != JSON_TOKEN_STRING || !literal) {
-        return 0;
-    }
-
-    literal_length = strlen(literal);
-    return parser->token_length == literal_length &&
-           strncmp(parser->token_start, literal, literal_length) == 0;
-}
-
-/**
- * @brief Expects a specific token type.
- * @param parser JSON parser.
- * @param type Expected token type.
- * @return 1 if matches, 0 otherwise.
- */
-static int json_expect(JsonParser* parser, JsonTokenType type)
-{
-    return parser && parser->type == type;
-}
-
-/**
- * @brief Parses an unsigned 32-bit integer.
- * @param parser JSON parser.
- * @param out_value Output value pointer.
- * @return 1 on success, 0 on failure.
- */
-static int json_parse_u32(JsonParser* parser, unsigned int* out_value)
-{
-    double value = 0.0;
-
-    if (!parser || !out_value || parser->type != JSON_TOKEN_NUMBER) {
-        return 0;
-    }
-
-    value = parser->number_value;
-    if (value < 0.0 || value > (double)UINT_MAX ||
-        (double)((unsigned int)value) != value) {
-        return 0;
-    }
-
-    *out_value = (unsigned int)value;
-    json_parser_next(parser);
-    return 1;
-}
-
-/**
- * @brief Parses a float value.
- * @param parser JSON parser.
- * @param out_value Output value pointer.
- * @return 1 on success, 0 on failure.
- */
-static int json_parse_float(JsonParser* parser, float* out_value)
-{
-    if (!parser || !out_value || parser->type != JSON_TOKEN_NUMBER) {
-        return 0;
-    }
-
-    *out_value = (float)parser->number_value;
-    json_parser_next(parser);
-    return 1;
-}
-
-static int json_skip_value(JsonParser* parser);
-
-/**
- * @brief Skips a JSON object.
- * @param parser JSON parser.
- * @return 1 on success, 0 on failure.
- */
-static int json_skip_object(JsonParser* parser)
-{
-    if (!json_expect(parser, JSON_TOKEN_LBRACE)) {
-        return 0;
-    }
-
-    json_parser_next(parser);
-    if (parser->type == JSON_TOKEN_RBRACE) {
-        json_parser_next(parser);
-        return 1;
-    }
-
-    while (1) {
-        if (parser->type != JSON_TOKEN_STRING) {
-            return 0;
-        }
-        json_parser_next(parser);
-        if (!json_expect(parser, JSON_TOKEN_COLON)) {
-            return 0;
-        }
-        json_parser_next(parser);
-        if (!json_skip_value(parser)) {
-            return 0;
-        }
-        if (parser->type == JSON_TOKEN_COMMA) {
-            json_parser_next(parser);
-            continue;
-        }
-        if (parser->type == JSON_TOKEN_RBRACE) {
-            json_parser_next(parser);
-            return 1;
-        }
-        return 0;
-    }
-}
-
-/**
- * @brief Skips a JSON array.
- * @param parser JSON parser.
- * @return 1 on success, 0 on failure.
- */
-static int json_skip_array(JsonParser* parser)
-{
-    if (!json_expect(parser, JSON_TOKEN_LBRACKET)) {
-        return 0;
-    }
-
-    json_parser_next(parser);
-    if (parser->type == JSON_TOKEN_RBRACKET) {
-        json_parser_next(parser);
-        return 1;
-    }
-
-    while (1) {
-        if (!json_skip_value(parser)) {
-            return 0;
-        }
-        if (parser->type == JSON_TOKEN_COMMA) {
-            json_parser_next(parser);
-            continue;
-        }
-        if (parser->type == JSON_TOKEN_RBRACKET) {
-            json_parser_next(parser);
-            return 1;
-        }
-        return 0;
-    }
-}
-
-/**
- * @brief Skips any JSON value.
- * @param parser JSON parser.
- * @return 1 on success, 0 on failure.
- */
-static int json_skip_value(JsonParser* parser)
-{
-    switch (parser->type) {
-    case JSON_TOKEN_STRING:
-    case JSON_TOKEN_NUMBER:
-    case JSON_TOKEN_TRUE:
-    case JSON_TOKEN_FALSE:
-    case JSON_TOKEN_NULL:
-        json_parser_next(parser);
-        return 1;
-    case JSON_TOKEN_LBRACE:
-        return json_skip_object(parser);
-    case JSON_TOKEN_LBRACKET:
-        return json_skip_array(parser);
-    default:
-        return 0;
-    }
 }
 
 /**
@@ -723,21 +366,6 @@ static int parse_object_type(JsonParser* parser, LoadedObjectData* data)
     return 1;
 }
 
-static int json_parse_bool(JsonParser* parser, int* out_value);
-
-static int parse_string_value(JsonParser* parser, char* buffer, size_t buffer_size)
-{
-    if (!parser || !buffer || buffer_size == 0u || !json_expect(parser, JSON_TOKEN_STRING) ||
-        parser->token_length >= buffer_size) {
-        return 0;
-    }
-
-    memcpy(buffer, parser->token_start, parser->token_length);
-    buffer[parser->token_length] = '\0';
-    json_parser_next(parser);
-    return 1;
-}
-
 static int parse_layer_entry(JsonParser* parser, Document* document)
 {
     unsigned int id = 0u;
@@ -769,7 +397,7 @@ static int parse_layer_entry(JsonParser* parser, Document* document)
             json_parser_next(parser);
             if (!json_expect(parser, JSON_TOKEN_COLON)) return 0;
             json_parser_next(parser);
-            if (!parse_string_value(parser, name, sizeof(name))) return 0;
+            if (!json_parse_string_value(parser, name, sizeof(name))) return 0;
             has_name = 1;
         } else if (json_token_is_string(parser, "visible")) {
             json_parser_next(parser);
@@ -785,7 +413,7 @@ static int parse_layer_entry(JsonParser* parser, Document* document)
             json_parser_next(parser);
             if (!json_expect(parser, JSON_TOKEN_COLON)) return 0;
             json_parser_next(parser);
-            if (!parse_string_value(parser, blend_mode, sizeof(blend_mode))) return 0;
+            if (!json_parse_string_value(parser, blend_mode, sizeof(blend_mode))) return 0;
         } else {
             json_parser_next(parser);
             if (!json_expect(parser, JSON_TOKEN_COLON)) return 0;
@@ -840,24 +468,6 @@ static int parse_layers_array(JsonParser* parser, Document* document)
         }
         return 0;
     }
-}
-
-static int json_parse_bool(JsonParser* parser, int* out_value)
-{
-    if (!parser || !out_value) {
-        return 0;
-    }
-    if (parser->type == JSON_TOKEN_TRUE) {
-        *out_value = 1;
-        json_parser_next(parser);
-        return 1;
-    }
-    if (parser->type == JSON_TOKEN_FALSE) {
-        *out_value = 0;
-        json_parser_next(parser);
-        return 1;
-    }
-    return 0;
 }
 
 /**
