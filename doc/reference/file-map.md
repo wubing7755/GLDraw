@@ -3,7 +3,7 @@
 > Audience: contributors, maintainers
 > Purpose: provide fast entrypoints into the source tree by task
 > Source of truth: current source tree layout
-> Last reviewed with code: 2026-05-26
+> Last reviewed with code: 2026-05-28
 > Related: [../architecture/overview.md](../architecture/overview.md)
 
 ## First Entry Points

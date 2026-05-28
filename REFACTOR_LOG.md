@@ -1,5 +1,30 @@
 # Refactor Log
 
+## 2026-05-28 - Phase 7: Final Audit and Wrap-Up
+
+- Branch:
+  `refactor-editor-architecture-roadmap`
+- Modified files:
+  `REFACTOR_LOG.md`,
+  `doc/reference/file-map.md`,
+  `doc/architecture/refactor-roadmap.md`
+- Key changes:
+  Recorded the final boundary audit and refreshed documentation review dates after the Phase 1-7 maintainability refactor round.
+  Confirmed `workspace_internal.h` includes are limited to workspace implementation modules and tests that inspect internal state.
+  Recorded remaining compatibility shims: `include/app/extension_loader.h` keeps legacy object-extension registration wrappers, and `src/tools/tool_registry.c` keeps `register_builtin_tools()` as a legacy tool registration entrypoint.
+  Ignored vendor/generated audit hits in `glad` and `nuklear` because they are third-party source comments, not GLDraw architecture shims.
+  Confirmed target files are reduced: `src/ui/ui_theme.c` 2778 bytes, `src/document/persistence.c` 8726 bytes, `src/commands/command_object_ops.c` 159 bytes, and `src/app/application.c` 5832 bytes.
+- Audit commands:
+  `rg "#include <app/workspace_internal.h>" include src tests` showed only workspace implementation modules and internal-state tests.
+  `rg "#include <app/workspace.h>" include src tests` showed public workspace API consumers only.
+  `rg "TODO|FIXME|HACK|compatibility|shim|deprecated" include src tests` showed documented compatibility wrappers plus vendor/generated comments.
+  `Get-ChildItem src -Recurse -Filter *.c | Sort-Object Length -Descending | Select-Object -First 20 FullName,Length` completed for large-file review.
+- Validation:
+  `cmake --build build --parallel` passed.
+  `ctest --test-dir build --output-on-failure` passed with 12/12 tests passing.
+  `git diff --check` passed.
+  `git status --short --branch` showed the expected final documentation files modified before commit.
+
 ## 2026-05-28 - Phase 6: Consolidate Application Lifecycle
 
 - Branch:

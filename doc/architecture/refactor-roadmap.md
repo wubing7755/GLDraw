@@ -3,7 +3,7 @@
 > Audience: maintainers, contributors doing structural work
 > Purpose: sequence the next architecture cleanup without changing editor behavior accidentally
 > Source of truth: current source tree, `REFACTOR_LOG.md`, and the architecture pages in this directory
-> Last reviewed with code: 2026-05-26
+> Last reviewed with code: 2026-05-28
 > Related: [overview.md](overview.md), [core-systems.md](core-systems.md), [data-flow.md](data-flow.md)
 
 ## Intent
@@ -59,7 +59,13 @@ The next refactor should not reduce layering for its own sake. It should turn pa
 - Application-owned workspace save/load/export and workspace action callbacks live in `application_workspace_services.c`.
 - `application.c` is scoped to lifecycle setup, shutdown, and frame sequencing.
 - `render_system_draw()` consumes `RenderSceneDesc`.
-- This refactor round is complete for command routing, workspace API coupling, view-model construction, and low-risk UI composition cleanup.
+- This refactor round is complete for theme modules, document persistence modules, object command modules, and application lifecycle boundaries.
+
+## Compatibility Notes
+
+- `include/app/extension_loader.h` keeps object-extension registration wrappers so older extension registration call sites can continue to build while the manifest API remains the current owner.
+- `src/tools/tool_registry.c` keeps `register_builtin_tools()` as a compatibility entrypoint while the built-in tool manifest remains the preferred registration path.
+- `glad` and `nuklear` TODO/compatibility audit hits are generated or vendored third-party code and are not GLDraw architecture shims.
 
 ## Boundary Rules
 
