@@ -1,5 +1,25 @@
 # Refactor Log
 
+## 2026-05-28 - Phase 4: Split Layer Persistence Parser
+
+- Branch:
+  `refactor-editor-architecture-roadmap`
+- Modified files:
+  `src/document/persistence_layers.c`,
+  `src/document/persistence_layers.h`,
+  `src/document/persistence.c`,
+  `CMakeLists.txt`,
+  `doc/reference/file-map.md`,
+  `doc/architecture/refactor-roadmap.md`,
+  `REFACTOR_LOG.md`
+- Key changes:
+  Moved layer blend-mode parsing, single layer entry parsing, and layers array parsing into `persistence_layers.c/.h`.
+  Kept root document parsing in `persistence.c` as the caller of the layer parser.
+- Validation:
+  `cmake --build build --parallel` passed.
+  `ctest --test-dir build --output-on-failure` passed with 12/12 tests passing.
+  `git diff --check` passed.
+
 ## 2026-05-28 - Phase 4: Split Document Persistence Writer
 
 - Branch:
