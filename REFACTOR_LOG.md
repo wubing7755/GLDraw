@@ -1,5 +1,25 @@
 # Refactor Log
 
+## 2026-05-28 - Phase 2: Split Theme Parsing Helpers
+
+- Branch:
+  `refactor-editor-architecture-roadmap`
+- Modified files:
+  `src/ui/ui_theme_parse.c`,
+  `src/ui/ui_theme_internal.h`,
+  `src/ui/ui_theme.c`,
+  `CMakeLists.txt`,
+  `doc/reference/file-map.md`,
+  `doc/architecture/refactor-roadmap.md`,
+  `REFACTOR_LOG.md`
+- Key changes:
+  Moved ad hoc JSON string/number/bool extraction, key detection, hex color parsing, path-derived theme IDs, color/float/bool override application, safe theme ID validation, and token clamp logic into `ui_theme_parse.c`.
+  Published only private cross-module helper declarations through `ui_theme_internal.h`; the public theme API remains unchanged.
+- Validation:
+  `cmake --build build --parallel` passed.
+  `ctest --test-dir build --output-on-failure` passed with 12/12 tests passing.
+  `git diff --check` passed.
+
 ## 2026-05-28 - Phase 2: Split Built-In Theme Definitions
 
 - Branch:

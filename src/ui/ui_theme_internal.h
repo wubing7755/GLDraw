@@ -29,4 +29,19 @@ int ui_theme_builtin_count(void);
 const UiThemeDescriptor* ui_theme_builtin_descriptor_at(int index);
 UiThemeTokens ui_theme_builtin_tokens_at(int index);
 
+int ui_extract_json_string_value(const char* text,
+                                 const char* key,
+                                 char* out_value,
+                                 size_t out_value_size);
+int ui_extract_json_number_value(const char* text, const char* key, float* out_value);
+int ui_extract_json_bool_value(const char* text, const char* key, int* out_value);
+int ui_json_key_exists(const char* text, const char* key);
+int ui_parse_hex_color(const char* hex_text, struct nk_color* out_color);
+int ui_theme_id_is_safe_for_json(const char* theme_id);
+int ui_theme_id_from_path(const char* path, char* out_id, size_t out_id_size);
+void ui_theme_apply_color_overrides(const char* source_path, const char* text, UiThemeTokens* tokens);
+void ui_theme_apply_float_overrides(const char* source_path, const char* text, UiThemeTokens* tokens);
+void ui_theme_apply_bool_overrides(const char* source_path, const char* text, UiThemeTokens* tokens);
+void ui_theme_clamp_tokens(UiThemeTokens* tokens);
+
 #endif /* GLDRAW_UI_THEME_INTERNAL_H */
