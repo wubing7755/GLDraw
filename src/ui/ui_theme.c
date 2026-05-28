@@ -1,14 +1,14 @@
 /**
  * @file ui_theme.c
- * @brief Theme token definitions, external theme loading, and Nuklear style apply.
+ * @brief Public theme registry orchestration.
  *
  * Role in project:
- * - Maintains built-in theme presets and runtime custom theme registry.
- * - Parses simple JSON theme files and maps tokens into UI style structures.
+ * - Combines built-in and external theme registries behind the public theme API.
+ * - Leaves parsing, external loading, settings, and Nuklear application to focused modules.
  *
  * Module relationships:
  * - Consumed by `ui_system`/`ui_menubar`.
- * - Uses file-system helpers and lightweight parsing utilities.
+ * - Uses private helpers declared in `ui_theme_internal.h`.
  */
 #include <ui/ui_theme.h>
 

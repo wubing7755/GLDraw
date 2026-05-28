@@ -1,5 +1,20 @@
 # Refactor Log
 
+## 2026-05-28 - Phase 2: Consolidate Theme System Modules
+
+- Branch:
+  `refactor-editor-architecture-roadmap`
+- Modified files:
+  `src/ui/ui_theme.c`,
+  `REFACTOR_LOG.md`
+- Key changes:
+  Updated the `ui_theme.c` file contract to match its new role as public theme registry orchestration over focused built-in, parse, external, settings, and Nuklear apply modules.
+  Confirmed `include/ui/ui_theme.h` remains the public API boundary and does not expose internal parsing/loading details.
+- Validation:
+  `cmake --build build --parallel` passed.
+  `ctest --test-dir build --output-on-failure` passed with 12/12 tests passing.
+  `git diff --check` passed.
+
 ## 2026-05-28 - Phase 2: Split Nuklear Theme Application
 
 - Branch:
