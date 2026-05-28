@@ -1,5 +1,25 @@
 # Refactor Log
 
+## 2026-05-28 - Phase 4: Split Object Persistence Parser
+
+- Branch:
+  `refactor-editor-architecture-roadmap`
+- Modified files:
+  `src/document/persistence_objects.c`,
+  `src/document/persistence_objects.h`,
+  `src/document/persistence.c`,
+  `CMakeLists.txt`,
+  `doc/reference/file-map.md`,
+  `doc/architecture/refactor-roadmap.md`,
+  `REFACTOR_LOG.md`
+- Key changes:
+  Moved loaded-object staging data, stroke parsing, properties parsing, object type parsing, loaded object construction, object entry parsing, and objects array parsing into `persistence_objects.c/.h`.
+  Kept root document parsing in `persistence.c` as the caller of layer and object parser modules.
+- Validation:
+  `cmake --build build --parallel` passed.
+  `ctest --test-dir build --output-on-failure` passed with 12/12 tests passing.
+  `git diff --check` passed.
+
 ## 2026-05-28 - Phase 4: Split Layer Persistence Parser
 
 - Branch:

@@ -94,6 +94,7 @@ set(EDITOR_MODEL_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/document/persistence.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/document/persistence_json.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/document/persistence_layers.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/document/persistence_objects.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/document/persistence_write.c
 )
 

@@ -51,6 +51,7 @@ The next refactor should not reduce layering for its own sake. It should turn pa
 - Nuklear stylesheet mapping for theme tokens lives in `ui_theme_apply.c`.
 - Document persistence JSON tokenization, skipping, and primitive parsing live in `persistence_json.c/.h`.
 - Document layer persistence parsing lives in `persistence_layers.c/.h`.
+- Document object persistence parsing and loaded-object construction live in `persistence_objects.c/.h`.
 - Document JSON writing lives in `persistence_write.c`.
 - `render_system_draw()` consumes `RenderSceneDesc`.
 - This refactor round is complete for command routing, workspace API coupling, view-model construction, and low-risk UI composition cleanup.

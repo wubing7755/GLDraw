@@ -118,6 +118,8 @@
 - `src/document/persistence_json.h`
 - `src/document/persistence_layers.c`
 - `src/document/persistence_layers.h`
+- `src/document/persistence_objects.c`
+- `src/document/persistence_objects.h`
 - `src/document/persistence_write.c`
 - `src/app/workspace_service.c`
 - `src/app/application_file_actions.c`
