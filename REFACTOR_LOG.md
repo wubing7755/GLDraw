@@ -1,5 +1,23 @@
 # Refactor Log
 
+## 2026-05-28 - Phase 3: Persistence Regression Coverage
+
+- Branch:
+  `refactor-editor-architecture-roadmap`
+- Audit:
+  `src/document/persistence.c` currently combines JSON tokenization/skipping/primitive parsing, document JSON writing, layer parsing, object parsing and loaded-object construction, plus root load orchestration.
+  The intended split boundaries are JSON reader, writer, layer parser, object parser, and public save/load orchestration.
+- Modified files:
+  `tests/test_document_core.c`,
+  `doc/reference/file-map.md`,
+  `REFACTOR_LOG.md`
+- Key changes:
+  Extended persistence coverage for save/load round-trip, layer visibility/lock/name/blend mode round-trip, object geometry/style property round-trip, unknown top-level/layer/object/stroke fields being ignored, malformed JSON rejection, and load failure preserving the existing document.
+- Validation:
+  `cmake --build build --parallel` passed.
+  `ctest --test-dir build --output-on-failure` passed with 12/12 tests passing.
+  `git diff --check` passed.
+
 ## 2026-05-28 - Phase 2: Consolidate Theme System Modules
 
 - Branch:

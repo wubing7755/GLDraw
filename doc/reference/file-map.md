@@ -128,6 +128,7 @@
 ### Understand test coverage
 
 - `tests/test_commands.c`
+- `tests/test_document_core.c`
 - `tests/test_document.c`
 - `tests/test_registry.c`
 - `tests/test_ui_logic.c`
