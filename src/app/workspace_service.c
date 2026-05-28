@@ -19,6 +19,7 @@
 #include <model/selection.h>
 #include <tools/tool_controller.h>
 
+#include <stdlib.h>
 #include <string.h>
 
 static const char* service_default_document_path(void)
@@ -71,6 +72,22 @@ int workspace_init(Workspace* workspace, RectF viewport, const char* keymap_path
     return 1;
 }
 
+Workspace* workspace_create(RectF viewport, const char* keymap_path)
+{
+    Workspace* workspace = (Workspace*)calloc(1u, sizeof(*workspace));
+
+    if (!workspace) {
+        return NULL;
+    }
+
+    if (!workspace_init(workspace, viewport, keymap_path)) {
+        workspace_destroy(workspace);
+        return NULL;
+    }
+
+    return workspace;
+}
+
 void workspace_shutdown(Workspace* workspace)
 {
     if (!workspace) {
@@ -83,6 +100,16 @@ void workspace_shutdown(Workspace* workspace)
     workspace_clear_clipboard(workspace);
     selection_set_shutdown(&workspace->session.selection);
     document_shutdown(&workspace->core.document);
+}
+
+void workspace_destroy(Workspace* workspace)
+{
+    if (!workspace) {
+        return;
+    }
+
+    workspace_shutdown(workspace);
+    free(workspace);
 }
 
 int workspace_service_new_document(Workspace* workspace)
@@ -102,6 +129,10 @@ int workspace_service_new_document(Workspace* workspace)
 
 int workspace_service_save_to_path(Workspace* workspace, const char* path)
 {
+    if (!workspace || !path || path[0] == '\0') {
+        return 0;
+    }
+
     if (!document_save_json(&workspace->core.document, path)) {
         LOG_ERROR("%s", "Save document failed");
         workspace_set_statusf(workspace, "Save failed: %s", path);
@@ -117,12 +148,20 @@ int workspace_service_save_to_path(Workspace* workspace, const char* path)
 
 int workspace_service_save(Workspace* workspace)
 {
+    if (!workspace) {
+        return 0;
+    }
+
     return workspace_service_save_to_path(workspace,
                                           workspace_service_document_path(workspace));
 }
 
 int workspace_service_load_from_path(Workspace* workspace, const char* path)
 {
+    if (!workspace || !path || path[0] == '\0') {
+        return 0;
+    }
+
     if (!workspace_service_file_exists(path)) {
         LOG_WARN("Document file not found: %s", path);
         workspace_set_statusf(workspace, "Document not found: %s", path);
@@ -145,6 +184,10 @@ int workspace_service_load_from_path(Workspace* workspace, const char* path)
 
 int workspace_service_load(Workspace* workspace)
 {
+    if (!workspace) {
+        return 0;
+    }
+
     return workspace_service_load_from_path(workspace,
                                             workspace_service_document_path(workspace));
 }

@@ -8,11 +8,11 @@
  *
  * Module relationships:
  * - Called by menu bar and application shortcut handling.
- * - Uses command registry to dispatch workspace commands.
+ * - Uses command catalog metadata to emit editor actions.
  */
 #include "ui_menu_actions.h"
 
-#include <app/command_registry.h>
+#include <app/command_catalog.h>
 #include <base/log.h>
 
 /**
@@ -29,7 +29,7 @@ int ui_menu_is_action_available(const EditorViewModel* view_model, MenuId id)
     case MENU_ID_FILE_RECENT:
         return 0;
     default:
-        descriptor = command_registry_find_by_menu_id((int)id);
+        descriptor = command_catalog_find_by_menu_id((int)id);
         if (!descriptor) {
             return 0;
         }
@@ -52,7 +52,7 @@ void ui_menu_execute(const EditorActionSink* sink, MenuId id)
         return;
     }
 
-    descriptor = command_registry_find_by_menu_id((int)id);
+    descriptor = command_catalog_find_by_menu_id((int)id);
     if (!descriptor) {
         LOG_WARN("Unknown menu action: %d", id);
         return;

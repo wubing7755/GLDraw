@@ -1,4 +1,4 @@
-#include <ui/editor_action.h>
+#include <editor/editor_action.h>
 
 #include <stdio.h>
 #include <string.h>

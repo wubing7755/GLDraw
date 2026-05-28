@@ -1,7 +1,12 @@
+#include <app/command_availability.h>
+#include <app/command_catalog.h>
 #include <app/command_dispatcher.h>
+#include <app/command_registry.h>
+#include <app/editor_controller.h>
 #include <app/extension_loader.h>
 #include <app/workspace_internal.h>
 #include <app/workspace_dialogs.h>
+#include <app/workspace_service.h>
 #include <base/math2d.h>
 #include <canvas/canvas_view.h>
 #include <commands/command.h>
@@ -70,8 +75,14 @@ static GraphicObject* make_rect(float x, float y, float w, float h)
 
 static EditorCommand tool_command(const char* command_id)
 {
-    const CommandDescriptor* descriptor = command_registry_find_by_id(command_id);
+    const CommandDescriptor* descriptor = command_catalog_find_by_id(command_id);
     return descriptor ? descriptor->command : EDITOR_COMMAND_NONE;
+}
+
+static int object_scalar(Document* document, ObjectId id, const char* key, float* out_value)
+{
+    GraphicObject* object = document_find_object(document, id);
+    return object && object_get_scalar(object, key, out_value);
 }
 
 static int init_workspace(Workspace* workspace)
@@ -99,11 +110,74 @@ static void shutdown_workspace(Workspace* workspace)
     document_shutdown(&workspace->core.document);
 }
 
+typedef struct TestWorkspaceCallbacks {
+    int save_count;
+    int save_as_count;
+    int export_count;
+    int action_count;
+    WorkspaceActionType last_action;
+} TestWorkspaceCallbacks;
+
+static int test_workspace_save_callback(Workspace* workspace, void* user_data)
+{
+    TestWorkspaceCallbacks* callbacks = (TestWorkspaceCallbacks*)user_data;
+
+    (void)workspace;
+    if (!callbacks) {
+        return 0;
+    }
+    callbacks->save_count += 1;
+    return 1;
+}
+
+static int test_workspace_save_as_callback(Workspace* workspace, void* user_data)
+{
+    TestWorkspaceCallbacks* callbacks = (TestWorkspaceCallbacks*)user_data;
+
+    (void)workspace;
+    if (!callbacks) {
+        return 0;
+    }
+    callbacks->save_as_count += 1;
+    return 1;
+}
+
+static int test_workspace_export_callback(Workspace* workspace, void* user_data)
+{
+    TestWorkspaceCallbacks* callbacks = (TestWorkspaceCallbacks*)user_data;
+
+    (void)workspace;
+    if (!callbacks) {
+        return 0;
+    }
+    callbacks->export_count += 1;
+    return 1;
+}
+
+static int test_workspace_action_callback(Workspace* workspace,
+                                          WorkspaceActionType action,
+                                          void* user_data)
+{
+    TestWorkspaceCallbacks* callbacks = (TestWorkspaceCallbacks*)user_data;
+
+    (void)workspace;
+    if (!callbacks) {
+        return 0;
+    }
+    callbacks->action_count += 1;
+    callbacks->last_action = action;
+    return 1;
+}
+
 static int test_editor_viewmodel_builds_selection_properties(void)
 {
     Workspace workspace;
     EditorViewModel view_model = {0};
     LayerId overlay_layer = 0u;
+    EditorToolView* first_tools = NULL;
+    EditorLayerView* first_layers = NULL;
+    int first_tool_capacity = 0;
+    int first_layer_capacity = 0;
 
     EXPECT_TRUE(init_workspace(&workspace));
     overlay_layer = document_create_layer(&workspace.core.document, "Overlay");
@@ -128,6 +202,14 @@ static int test_editor_viewmodel_builds_selection_properties(void)
     EXPECT_TRUE(view_model.tools[2].available);
     EXPECT_TRUE(view_model.tools[3].available);
     EXPECT_TRUE(view_model.tools[4].available);
+    first_tools = view_model.tools;
+    first_layers = view_model.layers;
+    first_tool_capacity = view_model.tool_capacity;
+    first_layer_capacity = view_model.layer_capacity;
+    EXPECT_TRUE(first_tools != NULL);
+    EXPECT_TRUE(first_layers != NULL);
+    EXPECT_TRUE(first_tool_capacity >= view_model.tool_count);
+    EXPECT_TRUE(first_layer_capacity >= view_model.layer_count);
     EXPECT_TRUE(editor_viewmodel_command_available(&view_model,
                                                    EDITOR_COMMAND_EDIT_UNDO) == 0);
     EXPECT_STR_EQ(editor_viewmodel_command_unavailable_reason(&view_model,
@@ -136,6 +218,10 @@ static int test_editor_viewmodel_builds_selection_properties(void)
 
     EXPECT_TRUE(document_set_layer_locked(&workspace.core.document, overlay_layer, 1));
     EXPECT_TRUE(editor_viewmodel_build(&view_model, &workspace));
+    EXPECT_TRUE(view_model.tools == first_tools);
+    EXPECT_TRUE(view_model.layers == first_layers);
+    EXPECT_INT_EQ(view_model.tool_capacity, first_tool_capacity);
+    EXPECT_INT_EQ(view_model.layer_capacity, first_layer_capacity);
     EXPECT_TRUE(view_model.property_count >= 1);
     EXPECT_TRUE(view_model.properties[0].editable == 0);
     EXPECT_TRUE(view_model.tools[0].available);
@@ -321,6 +407,145 @@ static int test_workspace_tool_context_and_preview_accessors(void)
     return 0;
 }
 
+static int test_file_commands_route_to_workspace_services(void)
+{
+    Workspace workspace;
+    ToolContext context;
+    TestWorkspaceCallbacks callbacks = {0};
+
+    EXPECT_TRUE(init_workspace(&workspace));
+    context = workspace_tool_context(&workspace);
+    workspace_set_service_callbacks(&workspace,
+                                    test_workspace_save_callback,
+                                    test_workspace_save_as_callback,
+                                    test_workspace_export_callback,
+                                    NULL,
+                                    test_workspace_action_callback,
+                                    &callbacks);
+
+    EXPECT_TRUE(command_registry_execute(&workspace, &context, EDITOR_COMMAND_FILE_NEW));
+    EXPECT_INT_EQ(callbacks.last_action, WORKSPACE_ACTION_NEW_DOCUMENT);
+    EXPECT_TRUE(command_registry_execute(&workspace, &context, EDITOR_COMMAND_FILE_OPEN));
+    EXPECT_INT_EQ(callbacks.last_action, WORKSPACE_ACTION_OPEN_DOCUMENT);
+    EXPECT_TRUE(command_registry_execute(&workspace, &context, EDITOR_COMMAND_FILE_EXIT));
+    EXPECT_INT_EQ(callbacks.last_action, WORKSPACE_ACTION_EXIT_APPLICATION);
+    EXPECT_INT_EQ(callbacks.action_count, 3);
+
+    EXPECT_TRUE(command_registry_execute(&workspace, &context, EDITOR_COMMAND_FILE_SAVE));
+    EXPECT_INT_EQ(callbacks.save_count, 1);
+    EXPECT_TRUE(command_registry_execute(&workspace, &context, EDITOR_COMMAND_FILE_EXPORT_PNG));
+    EXPECT_INT_EQ(callbacks.export_count, 1);
+
+    workspace_service_set_document_path(&workspace, "C:/tmp/example.gldraw.json");
+    EXPECT_TRUE(command_registry_execute(&workspace, &context, EDITOR_COMMAND_FILE_SAVE_AS));
+    EXPECT_INT_EQ(workspace.session.active_dialog.kind, UI_DIALOG_SAVE_AS);
+    EXPECT_STR_EQ(workspace_dialog_input_text(&workspace), "example.gldraw.json");
+    EXPECT_SUBSTR(workspace.session.active_dialog.message, "C:/tmp");
+
+    workspace_dialog_close(&workspace);
+    shutdown_workspace(&workspace);
+    return 0;
+}
+
+static int test_dialog_commands_route_to_workspace_dialogs(void)
+{
+    Workspace workspace;
+    ToolContext context;
+    TestWorkspaceCallbacks callbacks = {0};
+
+    EXPECT_TRUE(init_workspace(&workspace));
+    context = workspace_tool_context(&workspace);
+    workspace_set_service_callbacks(&workspace,
+                                    test_workspace_save_callback,
+                                    test_workspace_save_as_callback,
+                                    test_workspace_export_callback,
+                                    NULL,
+                                    test_workspace_action_callback,
+                                    &callbacks);
+
+    EXPECT_TRUE(command_registry_execute(&workspace, &context, EDITOR_COMMAND_HELP_SHORTCUTS));
+    EXPECT_INT_EQ(workspace.session.active_dialog.kind, UI_DIALOG_SHORTCUTS);
+    EXPECT_SUBSTR(workspace.session.active_dialog.message, "Tools");
+    EXPECT_SUBSTR(workspace.session.active_dialog.message, "Toggle This Dialog");
+    EXPECT_TRUE(command_registry_execute(&workspace, &context, EDITOR_COMMAND_HELP_SHORTCUTS));
+    EXPECT_INT_EQ(workspace.session.active_dialog.kind, UI_DIALOG_NONE);
+
+    EXPECT_TRUE(command_registry_execute(&workspace, &context, EDITOR_COMMAND_HELP_ABOUT));
+    EXPECT_INT_EQ(workspace.session.active_dialog.kind, UI_DIALOG_INFO);
+    EXPECT_STR_EQ(workspace.session.active_dialog.title, "About GLDraw");
+    EXPECT_SUBSTR(workspace.session.active_dialog.message, "Canvas-oriented");
+    workspace_dialog_close(&workspace);
+
+    workspace.session.document_dirty = 1;
+    EXPECT_TRUE(command_registry_execute(&workspace, &context, EDITOR_COMMAND_FILE_OPEN));
+    EXPECT_INT_EQ(workspace.session.active_dialog.kind, UI_DIALOG_CONFIRM_UNSAVED);
+    EXPECT_TRUE(command_registry_execute(&workspace, &context, EDITOR_COMMAND_MODAL_CANCEL));
+    EXPECT_INT_EQ(workspace.session.active_dialog.kind, UI_DIALOG_NONE);
+    EXPECT_INT_EQ(callbacks.save_count, 0);
+    EXPECT_INT_EQ(callbacks.action_count, 0);
+
+    workspace.session.document_dirty = 1;
+    EXPECT_TRUE(command_registry_execute(&workspace, &context, EDITOR_COMMAND_FILE_NEW));
+    EXPECT_INT_EQ(workspace.session.active_dialog.kind, UI_DIALOG_CONFIRM_UNSAVED);
+    EXPECT_TRUE(command_registry_execute(&workspace, &context, EDITOR_COMMAND_MODAL_CONFIRM));
+    EXPECT_INT_EQ(workspace.session.active_dialog.kind, UI_DIALOG_NONE);
+    EXPECT_INT_EQ(callbacks.save_count, 1);
+    EXPECT_INT_EQ(callbacks.action_count, 1);
+    EXPECT_INT_EQ(callbacks.last_action, WORKSPACE_ACTION_NEW_DOCUMENT);
+
+    shutdown_workspace(&workspace);
+    return 0;
+}
+
+static int test_editor_controller_builds_tool_events_and_render_scene(void)
+{
+    Workspace workspace;
+    EditorRenderScene scene;
+    ToolEvent event;
+
+    EXPECT_TRUE(init_workspace(&workspace));
+    EXPECT_TRUE(document_add_object(&workspace.core.document,
+                                    make_rect(0.0f, 0.0f, 10.0f, 10.0f)));
+    EXPECT_TRUE(selection_set_add(&workspace.session.selection, 1u));
+
+    editor_controller_sync_pointer_anchor(&workspace, vec2_make(400.0f, 300.0f));
+    event = editor_controller_make_tool_event(&workspace,
+                                              vec2_make(410.0f, 290.0f),
+                                              -1,
+                                              0,
+                                              0.0f);
+    EXPECT_FLOAT_EQ(event.delta_screen.x, 10.0f);
+    EXPECT_FLOAT_EQ(event.delta_screen.y, -10.0f);
+    EXPECT_FLOAT_EQ(event.world_pos.x, 10.0f);
+    EXPECT_FLOAT_EQ(event.world_pos.y, 10.0f);
+    EXPECT_FLOAT_EQ(event.delta_world.x, 10.0f);
+    EXPECT_FLOAT_EQ(event.delta_world.y, 10.0f);
+
+    EXPECT_TRUE(editor_controller_render_scene(&workspace, &scene));
+    EXPECT_TRUE(scene.document == &workspace.core.document);
+    EXPECT_TRUE(scene.selection == &workspace.session.selection);
+    EXPECT_TRUE(scene.canvas == &workspace.core.canvas);
+    EXPECT_INT_EQ(scene.selection->count, 1);
+    EXPECT_TRUE(scene.overlay_object == NULL);
+
+    editor_controller_set_canvas_background(&workspace,
+                                            (Color){0.25f, 0.50f, 0.75f, 1.0f});
+    EXPECT_FLOAT_EQ(workspace.core.canvas.background.r, 0.25f);
+    EXPECT_FLOAT_EQ(workspace.core.canvas.background.g, 0.50f);
+    EXPECT_FLOAT_EQ(workspace.core.canvas.background.b, 0.75f);
+
+    editor_controller_set_canvas_viewport(&workspace,
+                                          (RectF){5.0f, 6.0f, 320.0f, 240.0f});
+    EXPECT_FLOAT_EQ(canvas_view_viewport(&workspace.core.canvas).x, 5.0f);
+    EXPECT_FLOAT_EQ(canvas_view_viewport(&workspace.core.canvas).y, 6.0f);
+    EXPECT_FLOAT_EQ(canvas_view_viewport(&workspace.core.canvas).w, 320.0f);
+    EXPECT_FLOAT_EQ(canvas_view_viewport(&workspace.core.canvas).h, 240.0f);
+    EXPECT_TRUE(editor_controller_canvas(&workspace) == &workspace.core.canvas);
+
+    shutdown_workspace(&workspace);
+    return 0;
+}
+
 static int test_locked_layers_block_pick_and_shape_creation(void)
 {
     Workspace workspace;
@@ -365,6 +590,21 @@ static int test_locked_layers_block_pick_and_shape_creation(void)
     return 0;
 }
 
+static int test_dynamic_tool_command_activates_tool(void)
+{
+    Workspace workspace;
+    ToolContext context;
+
+    EXPECT_TRUE(init_workspace(&workspace));
+    context = workspace_tool_context(&workspace);
+
+    EXPECT_TRUE(command_registry_execute(&workspace, &context, tool_command("tool.rect")));
+    EXPECT_STR_EQ(tool_controller_active_id(&workspace.core.tools), "rect");
+
+    shutdown_workspace(&workspace);
+    return 0;
+}
+
 static int test_command_registry_respects_locked_layers(void)
 {
     Workspace workspace;
@@ -400,13 +640,187 @@ static int test_command_registry_respects_locked_layers(void)
     EXPECT_TRUE(workspace.session.clipboard_objects[0] != NULL);
     workspace.session.clipboard_count = 1;
     EXPECT_TRUE(document_set_active_layer(&workspace.core.document, locked_layer));
-    EXPECT_TRUE(command_registry_is_available(&workspace, tool_command("tool.rect")) == 0);
-    EXPECT_STR_EQ(command_registry_unavailable_reason(&workspace, tool_command("tool.rect")),
+    EXPECT_TRUE(command_availability_is_available(&workspace, tool_command("tool.rect")) == 0);
+    EXPECT_STR_EQ(command_availability_unavailable_reason(&workspace, tool_command("tool.rect")),
                   "Active layer is locked.");
     EXPECT_TRUE(command_registry_execute(&workspace, &context, tool_command("tool.rect")) == 0);
-    EXPECT_TRUE(command_registry_is_available(&workspace, EDITOR_COMMAND_EDIT_PASTE) == 0);
-    EXPECT_STR_EQ(command_registry_unavailable_reason(&workspace, EDITOR_COMMAND_EDIT_PASTE),
+    EXPECT_TRUE(command_availability_is_available(&workspace, EDITOR_COMMAND_EDIT_PASTE) == 0);
+    EXPECT_STR_EQ(command_availability_unavailable_reason(&workspace, EDITOR_COMMAND_EDIT_PASTE),
                   "Active layer is locked.");
+
+    shutdown_workspace(&workspace);
+    return 0;
+}
+
+static int test_edit_delete_prunes_locked_selection(void)
+{
+    Workspace workspace;
+    ToolContext context;
+    LayerId locked_layer = 0u;
+    ObjectId locked_id = 1u;
+    ObjectId editable_id = 2u;
+
+    EXPECT_TRUE(init_workspace(&workspace));
+    context = workspace_tool_context(&workspace);
+
+    locked_layer = document_create_layer(&workspace.core.document, "Locked");
+    EXPECT_TRUE(locked_layer != 0u);
+    EXPECT_TRUE(document_set_active_layer(&workspace.core.document, locked_layer));
+    EXPECT_TRUE(document_add_object(&workspace.core.document,
+                                    make_rect(0.0f, 0.0f, 10.0f, 10.0f)));
+    EXPECT_TRUE(document_set_layer_locked(&workspace.core.document, locked_layer, 1));
+
+    EXPECT_TRUE(document_set_active_layer(&workspace.core.document, 1u));
+    EXPECT_TRUE(document_add_object(&workspace.core.document,
+                                    make_rect(20.0f, 0.0f, 10.0f, 10.0f)));
+    EXPECT_TRUE(selection_set_add(&workspace.session.selection, locked_id));
+    EXPECT_TRUE(selection_set_add(&workspace.session.selection, editable_id));
+
+    EXPECT_TRUE(command_registry_execute(&workspace, &context, EDITOR_COMMAND_EDIT_DELETE));
+    EXPECT_TRUE(document_find_object(&workspace.core.document, locked_id) != NULL);
+    EXPECT_TRUE(document_find_object(&workspace.core.document, editable_id) == NULL);
+    EXPECT_INT_EQ(workspace.session.selection.count, 0);
+    EXPECT_TRUE(command_executor_can_undo(&workspace.core.commands));
+
+    EXPECT_TRUE(command_registry_execute(&workspace, &context, EDITOR_COMMAND_EDIT_UNDO));
+    EXPECT_TRUE(document_find_object(&workspace.core.document, editable_id) != NULL);
+
+    shutdown_workspace(&workspace);
+    return 0;
+}
+
+static int test_clipboard_copy_paste_cut_commands(void)
+{
+    Workspace workspace;
+    ToolContext context;
+    ObjectId source_id = 1u;
+    ObjectId pasted_id = 0u;
+    float source_x = 0.0f;
+    float pasted_x = 0.0f;
+
+    EXPECT_TRUE(init_workspace(&workspace));
+    context = workspace_tool_context(&workspace);
+
+    EXPECT_TRUE(document_add_object(&workspace.core.document,
+                                    make_rect(10.0f, 20.0f, 30.0f, 40.0f)));
+    EXPECT_TRUE(selection_set_add(&workspace.session.selection, source_id));
+
+    EXPECT_TRUE(command_registry_execute(&workspace, &context, EDITOR_COMMAND_EDIT_COPY));
+    EXPECT_INT_EQ(workspace.session.clipboard_count, 1);
+    EXPECT_INT_EQ(workspace.session.clipboard_paste_serial, 0);
+    EXPECT_TRUE(workspace.session.clipboard_objects[0] != NULL);
+
+    EXPECT_TRUE(command_registry_execute(&workspace, &context, EDITOR_COMMAND_EDIT_PASTE));
+    EXPECT_INT_EQ(workspace.core.document.count, 2);
+    EXPECT_INT_EQ(workspace.session.selection.count, 1);
+    pasted_id = workspace.session.selection.ids[0];
+    EXPECT_TRUE(pasted_id != source_id);
+    EXPECT_INT_EQ(workspace.session.clipboard_paste_serial, 1);
+    EXPECT_TRUE(object_scalar(&workspace.core.document, source_id, "x", &source_x));
+    EXPECT_TRUE(object_scalar(&workspace.core.document, pasted_id, "x", &pasted_x));
+    EXPECT_TRUE(pasted_x > source_x);
+
+    EXPECT_TRUE(command_registry_execute(&workspace, &context, EDITOR_COMMAND_EDIT_CUT));
+    EXPECT_TRUE(document_find_object(&workspace.core.document, pasted_id) == NULL);
+    EXPECT_INT_EQ(workspace.core.document.count, 1);
+    EXPECT_INT_EQ(workspace.session.clipboard_count, 1);
+    EXPECT_INT_EQ(workspace.session.selection.count, 0);
+    EXPECT_TRUE(command_executor_can_undo(&workspace.core.commands));
+
+    EXPECT_TRUE(command_registry_execute(&workspace, &context, EDITOR_COMMAND_EDIT_UNDO));
+    EXPECT_TRUE(document_find_object(&workspace.core.document, pasted_id) != NULL);
+    EXPECT_INT_EQ(workspace.core.document.count, 2);
+
+    shutdown_workspace(&workspace);
+    return 0;
+}
+
+static int test_clipboard_cut_prunes_locked_selection(void)
+{
+    Workspace workspace;
+    ToolContext context;
+    LayerId locked_layer = 0u;
+    ObjectId locked_id = 1u;
+    ObjectId editable_id = 2u;
+
+    EXPECT_TRUE(init_workspace(&workspace));
+    context = workspace_tool_context(&workspace);
+
+    locked_layer = document_create_layer(&workspace.core.document, "Locked");
+    EXPECT_TRUE(locked_layer != 0u);
+    EXPECT_TRUE(document_set_active_layer(&workspace.core.document, locked_layer));
+    EXPECT_TRUE(document_add_object(&workspace.core.document,
+                                    make_rect(0.0f, 0.0f, 10.0f, 10.0f)));
+    EXPECT_TRUE(document_set_layer_locked(&workspace.core.document, locked_layer, 1));
+
+    EXPECT_TRUE(document_set_active_layer(&workspace.core.document, 1u));
+    EXPECT_TRUE(document_add_object(&workspace.core.document,
+                                    make_rect(20.0f, 0.0f, 10.0f, 10.0f)));
+    EXPECT_TRUE(selection_set_add(&workspace.session.selection, locked_id));
+    EXPECT_TRUE(selection_set_add(&workspace.session.selection, editable_id));
+
+    EXPECT_TRUE(command_registry_execute(&workspace, &context, EDITOR_COMMAND_EDIT_CUT));
+    EXPECT_TRUE(document_find_object(&workspace.core.document, locked_id) != NULL);
+    EXPECT_TRUE(document_find_object(&workspace.core.document, editable_id) == NULL);
+    EXPECT_INT_EQ(workspace.core.document.count, 1);
+    EXPECT_INT_EQ(workspace.session.clipboard_count, 1);
+
+    EXPECT_TRUE(command_registry_execute(&workspace, &context, EDITOR_COMMAND_EDIT_UNDO));
+    EXPECT_TRUE(document_find_object(&workspace.core.document, editable_id) != NULL);
+    EXPECT_INT_EQ(workspace.core.document.count, 2);
+
+    shutdown_workspace(&workspace);
+    return 0;
+}
+
+static int test_view_commands_update_canvas_state(void)
+{
+    Workspace workspace;
+    ToolContext context;
+
+    EXPECT_TRUE(init_workspace(&workspace));
+    context = workspace_tool_context(&workspace);
+
+    EXPECT_FLOAT_EQ(canvas_view_zoom(&workspace.core.canvas), 1.0f);
+    EXPECT_TRUE(command_registry_execute(&workspace, &context, EDITOR_COMMAND_VIEW_ZOOM_IN));
+    EXPECT_FLOAT_EQ(canvas_view_zoom(&workspace.core.canvas), 1.25f);
+    EXPECT_TRUE(command_registry_execute(&workspace, &context, EDITOR_COMMAND_VIEW_ZOOM_OUT));
+    EXPECT_FLOAT_EQ(canvas_view_zoom(&workspace.core.canvas), 1.0f);
+
+    EXPECT_TRUE(workspace.core.canvas.show_grid);
+    EXPECT_TRUE(command_registry_execute(&workspace, &context, EDITOR_COMMAND_VIEW_TOGGLE_GRID));
+    EXPECT_TRUE(!workspace.core.canvas.show_grid);
+    EXPECT_TRUE(command_registry_execute(&workspace, &context, EDITOR_COMMAND_VIEW_TOGGLE_GRID));
+    EXPECT_TRUE(workspace.core.canvas.show_grid);
+    EXPECT_TRUE(command_registry_execute(&workspace, &context, EDITOR_COMMAND_VIEW_TOGGLE_INSPECTOR));
+
+    canvas_view_set_center_zoom(&workspace.core.canvas, vec2_make(42.0f, -17.0f), 3.0f);
+    EXPECT_TRUE(command_registry_execute(&workspace, &context, EDITOR_COMMAND_VIEW_ZOOM_FIT));
+    EXPECT_FLOAT_EQ(canvas_view_center(&workspace.core.canvas).x, 0.0f);
+    EXPECT_FLOAT_EQ(canvas_view_center(&workspace.core.canvas).y, 0.0f);
+    EXPECT_FLOAT_EQ(canvas_view_zoom(&workspace.core.canvas), 1.0f);
+
+    shutdown_workspace(&workspace);
+    return 0;
+}
+
+static int test_view_zoom_fit_frames_small_document(void)
+{
+    Workspace workspace;
+    ToolContext context;
+    Vec2 center;
+
+    EXPECT_TRUE(init_workspace(&workspace));
+    context = workspace_tool_context(&workspace);
+
+    EXPECT_TRUE(document_add_object(&workspace.core.document,
+                                    make_rect(10.0f, 20.0f, 1.0f, 1.0f)));
+    EXPECT_TRUE(command_registry_execute(&workspace, &context, EDITOR_COMMAND_VIEW_ZOOM_FIT));
+
+    center = canvas_view_center(&workspace.core.canvas);
+    EXPECT_FLOAT_EQ(center.x, 10.5f);
+    EXPECT_FLOAT_EQ(center.y, 20.5f);
+    EXPECT_FLOAT_EQ(canvas_view_zoom(&workspace.core.canvas), 12.0f);
 
     shutdown_workspace(&workspace);
     return 0;
@@ -418,11 +832,20 @@ int main(void)
 
     if (test_editor_viewmodel_builds_selection_properties()) return 1;
     if (test_command_dispatcher_routes_actions()) return 1;
+    if (test_file_commands_route_to_workspace_services()) return 1;
+    if (test_dialog_commands_route_to_workspace_dialogs()) return 1;
     if (test_command_dispatcher_updates_save_as_dialog_input()) return 1;
     if (test_tool_controller_pointer_anchor_accessors()) return 1;
     if (test_workspace_tool_context_and_preview_accessors()) return 1;
+    if (test_editor_controller_builds_tool_events_and_render_scene()) return 1;
     if (test_locked_layers_block_pick_and_shape_creation()) return 1;
+    if (test_dynamic_tool_command_activates_tool()) return 1;
     if (test_command_registry_respects_locked_layers()) return 1;
+    if (test_edit_delete_prunes_locked_selection()) return 1;
+    if (test_clipboard_copy_paste_cut_commands()) return 1;
+    if (test_clipboard_cut_prunes_locked_selection()) return 1;
+    if (test_view_commands_update_canvas_state()) return 1;
+    if (test_view_zoom_fit_frames_small_document()) return 1;
 
     printf("[PASS] editor viewmodel and dispatcher\n");
     return 0;

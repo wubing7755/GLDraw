@@ -1,0 +1,48 @@
+/**
+ * @file command_types.h
+ * @brief Stable editor command identifiers and descriptor types.
+ */
+#ifndef GLDRAW_APP_COMMAND_TYPES_H
+#define GLDRAW_APP_COMMAND_TYPES_H
+
+#include <input/keymap.h>
+
+typedef int EditorCommand;
+
+enum {
+    EDITOR_COMMAND_NONE = 0,
+    EDITOR_COMMAND_FILE_NEW,
+    EDITOR_COMMAND_FILE_OPEN,
+    EDITOR_COMMAND_FILE_SAVE,
+    EDITOR_COMMAND_FILE_SAVE_AS,
+    EDITOR_COMMAND_FILE_EXPORT_PNG,
+    EDITOR_COMMAND_FILE_EXIT,
+    EDITOR_COMMAND_EDIT_UNDO,
+    EDITOR_COMMAND_EDIT_REDO,
+    EDITOR_COMMAND_EDIT_CUT,
+    EDITOR_COMMAND_EDIT_COPY,
+    EDITOR_COMMAND_EDIT_PASTE,
+    EDITOR_COMMAND_EDIT_DELETE,
+    EDITOR_COMMAND_EDIT_SELECT_ALL,
+    EDITOR_COMMAND_VIEW_ZOOM_IN,
+    EDITOR_COMMAND_VIEW_ZOOM_OUT,
+    EDITOR_COMMAND_VIEW_ZOOM_FIT,
+    EDITOR_COMMAND_VIEW_TOGGLE_GRID,
+    EDITOR_COMMAND_VIEW_TOGGLE_INSPECTOR,
+    EDITOR_COMMAND_HELP_SHORTCUTS,
+    EDITOR_COMMAND_HELP_ABOUT,
+    EDITOR_COMMAND_MODAL_CONFIRM,
+    EDITOR_COMMAND_MODAL_CANCEL,
+    EDITOR_COMMAND_DYNAMIC_TOOL_BASE = 1000
+};
+
+typedef struct CommandDescriptor {
+    EditorCommand command;
+    const char* id;
+    const char* label;
+    KeyScope scope;
+    int menu_id;
+    const char* tool_id;
+} CommandDescriptor;
+
+#endif /* GLDRAW_APP_COMMAND_TYPES_H */

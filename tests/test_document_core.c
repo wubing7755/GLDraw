@@ -346,16 +346,38 @@ static int test_persistence_round_trip(void)
     Document saved;
     Document loaded;
     char path[L_tmpnam + 16];
+    const DocumentLayer* loaded_overlay = NULL;
+    const GraphicObject* loaded_rect = NULL;
+    const GraphicObject* loaded_line = NULL;
+    float x = 0.0f;
+    float y = 0.0f;
     float width = 0.0f;
+    float height = 0.0f;
+    float x2 = 0.0f;
     LayerId overlay_layer = 0u;
+    GraphicStyle rect_style;
 
     document_init(&saved);
     document_init(&loaded);
 
     overlay_layer = document_create_layer(&saved, "Overlay");
+    EXPECT_TRUE(document_rename_layer(&saved, overlay_layer, "Overlay Locked"));
     EXPECT_TRUE(document_set_layer_visibility(&saved, overlay_layer, 0));
+    EXPECT_TRUE(document_set_layer_locked(&saved, overlay_layer, 1));
+    EXPECT_TRUE(document_set_layer_blend_mode(&saved,
+                                              overlay_layer,
+                                              DOCUMENT_LAYER_BLEND_MULTIPLY));
     EXPECT_TRUE(document_set_active_layer(&saved, overlay_layer));
-    EXPECT_TRUE(document_add_object(&saved, create_rect(3.0f, 4.0f, 20.0f, 30.0f)));
+
+    rect_style = object_default_style();
+    rect_style.stroke_color.r = 0.25f;
+    rect_style.stroke_color.g = 0.50f;
+    rect_style.stroke_color.b = 0.75f;
+    rect_style.stroke_color.a = 0.90f;
+    rect_style.stroke_width = 3.5f;
+    EXPECT_TRUE(document_add_object(&saved,
+                                    object_create_rect((RectF){3.0f, 4.0f, 20.0f, 30.0f},
+                                                       rect_style)));
     EXPECT_TRUE(document_add_object(&saved, create_line(1.0f, 2.0f, 9.0f, 10.0f)));
 
     EXPECT_TRUE(make_temp_path(path, sizeof(path), ".json"));
@@ -365,14 +387,121 @@ static int test_persistence_round_trip(void)
     EXPECT_INT_EQ(loaded.count, 2);
     EXPECT_UINT_EQ(loaded.next_id, saved.next_id);
     EXPECT_INT_EQ(document_layer_count(&loaded), 2);
-    EXPECT_TRUE(document_layer_find_const(&loaded, overlay_layer) != NULL);
-    EXPECT_TRUE(document_find_object(&loaded, 1u)->layer_id == overlay_layer);
-    EXPECT_TRUE(object_get_scalar(document_find_object(&loaded, 1u), "width", &width));
+    loaded_overlay = document_layer_find_const(&loaded, overlay_layer);
+    EXPECT_TRUE(loaded_overlay != NULL);
+    EXPECT_STR_EQ(loaded_overlay->name, "Overlay Locked");
+    EXPECT_INT_EQ(loaded_overlay->visible, 0);
+    EXPECT_INT_EQ(loaded_overlay->locked, 1);
+    EXPECT_INT_EQ(loaded_overlay->blend_mode, DOCUMENT_LAYER_BLEND_MULTIPLY);
+    EXPECT_UINT_EQ(document_active_layer_id(&loaded), overlay_layer);
+
+    loaded_rect = document_find_object(&loaded, 1u);
+    loaded_line = document_find_object(&loaded, 2u);
+    EXPECT_TRUE(loaded_rect != NULL);
+    EXPECT_TRUE(loaded_line != NULL);
+    EXPECT_TRUE(loaded_rect->layer_id == overlay_layer);
+    EXPECT_TRUE(object_get_scalar(loaded_rect, "x", &x));
+    EXPECT_TRUE(object_get_scalar(loaded_rect, "y", &y));
+    EXPECT_TRUE(object_get_scalar(loaded_rect, "width", &width));
+    EXPECT_TRUE(object_get_scalar(loaded_rect, "height", &height));
+    EXPECT_FLOAT_EQ(x, 3.0f);
+    EXPECT_FLOAT_EQ(y, 4.0f);
     EXPECT_FLOAT_EQ(width, 20.0f);
+    EXPECT_FLOAT_EQ(height, 30.0f);
+    EXPECT_FLOAT_EQ(loaded_rect->style.stroke_color.r, 0.25f);
+    EXPECT_FLOAT_EQ(loaded_rect->style.stroke_color.g, 0.50f);
+    EXPECT_FLOAT_EQ(loaded_rect->style.stroke_color.b, 0.75f);
+    EXPECT_FLOAT_EQ(loaded_rect->style.stroke_color.a, 0.90f);
+    EXPECT_FLOAT_EQ(loaded_rect->style.stroke_width, 3.5f);
+    EXPECT_TRUE(object_get_scalar(loaded_line, "x2", &x2));
+    EXPECT_FLOAT_EQ(x2, 9.0f);
 
     remove(path);
     document_shutdown(&loaded);
     document_shutdown(&saved);
+    return g_failures == 0;
+}
+
+static int test_persistence_escapes_layer_names(void)
+{
+    Document saved;
+    Document loaded;
+    char path[L_tmpnam + 16];
+    LayerId layer_id = 0u;
+    const DocumentLayer* layer = NULL;
+    const char* escaped_name = "Layer \"A\" \\ B\nC";
+
+    document_init(&saved);
+    document_init(&loaded);
+
+    layer_id = document_create_layer(&saved, "temp");
+    EXPECT_TRUE(layer_id != 0u);
+    EXPECT_TRUE(document_rename_layer(&saved, layer_id, escaped_name));
+
+    EXPECT_TRUE(make_temp_path(path, sizeof(path), ".json"));
+    EXPECT_TRUE(document_save_json(&saved, path));
+    EXPECT_TRUE(document_load_json(&loaded, path));
+
+    layer = document_layer_find_const(&loaded, layer_id);
+    EXPECT_TRUE(layer != NULL);
+    EXPECT_STR_EQ(layer->name, escaped_name);
+
+    remove(path);
+    document_shutdown(&loaded);
+    document_shutdown(&saved);
+    return g_failures == 0;
+}
+
+static int test_persistence_ignores_unknown_fields(void)
+{
+    Document document;
+    char path[L_tmpnam + 16];
+    const DocumentLayer* layer = NULL;
+    GraphicObject* object = NULL;
+    float width = 0.0f;
+
+    document_init(&document);
+    EXPECT_TRUE(make_temp_path(path, sizeof(path), ".json"));
+    EXPECT_TRUE(write_text_file(path,
+                                "{\n"
+                                "  \"format\": \"gldraw-document\",\n"
+                                "  \"version\": 2,\n"
+                                "  \"unknown_root\": { \"ignored\": true },\n"
+                                "  \"next_id\": 8,\n"
+                                "  \"active_layer_id\": 2,\n"
+                                "  \"layers\": [\n"
+                                "    { \"id\": 1, \"name\": \"Layer 1\", \"visible\": true, \"locked\": false, \"blend_mode\": \"normal\", \"unknown\": [1, 2] },\n"
+                                "    { \"id\": 2, \"name\": \"Work\", \"visible\": false, \"locked\": true, \"blend_mode\": \"screen\", \"unknown\": null }\n"
+                                "  ],\n"
+                                "  \"objects\": [\n"
+                                "    {\n"
+                                "      \"id\": 7,\n"
+                                "      \"layer_id\": 2,\n"
+                                "      \"type\": \"rect\",\n"
+                                "      \"unknown_object\": { \"nested\": [false] },\n"
+                                "      \"stroke\": { \"r\": 1, \"g\": 0.5, \"b\": 0.25, \"a\": 1, \"width\": 2, \"ignored\": 42 },\n"
+                                "      \"properties\": { \"x\": 11, \"y\": 12, \"width\": 13, \"height\": 14 }\n"
+                                "    }\n"
+                                "  ]\n"
+                                "}\n"));
+
+    EXPECT_TRUE(document_load_json(&document, path));
+    EXPECT_INT_EQ(document_layer_count(&document), 2);
+    layer = document_layer_find_const(&document, 2u);
+    EXPECT_TRUE(layer != NULL);
+    EXPECT_STR_EQ(layer->name, "Work");
+    EXPECT_INT_EQ(layer->visible, 0);
+    EXPECT_INT_EQ(layer->locked, 1);
+    EXPECT_INT_EQ(layer->blend_mode, DOCUMENT_LAYER_BLEND_SCREEN);
+    EXPECT_UINT_EQ(document_active_layer_id(&document), 2u);
+    object = document_find_object(&document, 7u);
+    EXPECT_TRUE(object != NULL);
+    EXPECT_TRUE(object_get_scalar(object, "width", &width));
+    EXPECT_FLOAT_EQ(width, 13.0f);
+    EXPECT_UINT_EQ(document.next_id, 8u);
+
+    remove(path);
+    document_shutdown(&document);
     return g_failures == 0;
 }
 
@@ -386,6 +515,11 @@ static int test_persistence_rejects_invalid_json(void)
 
     EXPECT_TRUE(make_temp_path(path, sizeof(path), ".json"));
     EXPECT_TRUE(write_text_file(path, "{\"format\":\"gldraw-document\",\"version\":99,\"objects\":[]}"));
+    EXPECT_FALSE(document_load_json(&document, path));
+    EXPECT_INT_EQ(document.count, 1);
+    EXPECT_UINT_EQ(document.objects[0]->id, 1u);
+
+    EXPECT_TRUE(write_text_file(path, "{\"format\":\"gldraw-document\","));
     EXPECT_FALSE(document_load_json(&document, path));
     EXPECT_INT_EQ(document.count, 1);
     EXPECT_UINT_EQ(document.objects[0]->id, 1u);
@@ -528,6 +662,8 @@ int main(void)
         {"command property undo/redo", test_command_executor_property_undo_redo},
         {"command move undo/redo", test_command_executor_move_undo_redo},
         {"persistence round trip", test_persistence_round_trip},
+        {"persistence escapes layer names", test_persistence_escapes_layer_names},
+        {"persistence ignores unknown fields", test_persistence_ignores_unknown_fields},
         {"persistence rejects invalid json", test_persistence_rejects_invalid_json},
         {"path utils common cases", test_path_utils_common_cases},
         {"layer visibility and spatial query", test_layer_visibility_and_spatial_query},

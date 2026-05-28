@@ -13,8 +13,8 @@
 #ifndef GLDRAW_APP_WORKSPACE_ACTIONS_H
 #define GLDRAW_APP_WORKSPACE_ACTIONS_H
 
-#include <app/workspace.h>
-#include <app/workspace_dialogs.h>
+#include <app/ui_dialog_types.h>
+#include <app/workspace_service_types.h>
 
 /** Return non-zero when a workspace modal is currently active. */
 int workspace_modal_is_active(const Workspace* workspace);

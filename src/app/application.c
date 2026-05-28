@@ -1,299 +1,32 @@
 /**
  * @file application.c
- * @brief Runtime bootstrap, event wiring, and main loop orchestration.
+ * @brief Application lifecycle and frame loop orchestration.
  *
  * Role in project:
  * - Owns application lifetime from initialization to shutdown.
- * - Bridges GLFW events into tool/document/canvas operations.
+ * - Sequences subsystem setup, per-frame work, and teardown.
  *
  * Module relationships:
- * - Uses workspace as central state container.
- * - Coordinates platform window, render system, UI system, tools, and persistence.
+ * - Delegates platform callbacks and workspace service callbacks to focused modules.
+ * - Coordinates platform window, render system, UI system, and workspace runtime state.
  */
 #include <app/application.h>
 
 #include <app/application_file_actions.h>
 #include <app/application_runtime.h>
-#include <app/command_registry.h>
 #include <app/command_dispatcher.h>
-#include <app/workspace_actions.h>
+#include <app/editor_controller.h>
 #include <app/workspace.h>
 #include <app/workspace_service.h>
 #include <base/log.h>
 #include <base/math2d.h>
-#include <input/input_router.h>
 #include <render/render_device_factory.h>
-
-#include <GLFW/glfw3.h>
 
 #include <stdlib.h>
 
 #include "application_internal.h"
 
 #define APP_KEYMAP_SETTINGS_PATH "gldraw.keymap.json"
-
-static int app_workspace_save(Workspace *workspace, void *user_data);
-static int app_workspace_save_as(Workspace *workspace, void *user_data);
-static int app_workspace_export_png(Workspace *workspace, void *user_data);
-static int app_workspace_load(Workspace *workspace, void *user_data);
-
-static int app_workspace_execute_action(Workspace *workspace,
-                                        WorkspaceActionType action,
-                                        void *user_data);
-
-static int app_exit_application(Application *app) {
-  if (!app) {
-    return 0;
-  }
-
-  platform_window_set_should_close(&app->window, 1);
-  workspace_set_status_message(&app->workspace, "Closing application");
-  return 1;
-}
-
-/**
- * @brief Workspace save callback.
- * @param workspace Workspace (unused, accessed via user_data).
- * @param user_data Application instance.
- * @return `1` on success, `0` on failure.
- */
-static int app_workspace_save(Workspace *workspace, void *user_data) {
-  (void)workspace;
-  return application_save_document((Application *)user_data);
-}
-
-static int app_workspace_save_as(Workspace *workspace, void *user_data) {
-  (void)workspace;
-  return application_save_as_document((Application *)user_data);
-}
-
-static int app_workspace_export_png(Workspace *workspace, void *user_data) {
-  (void)workspace;
-  return application_request_export_png((Application *)user_data);
-}
-
-/**
- * @brief Workspace load callback.
- * @param workspace Workspace (unused, accessed via user_data).
- * @param user_data Application instance.
- * @return `1` on success, `0` on failure.
- */
-static int app_workspace_load(Workspace *workspace, void *user_data) {
-  (void)workspace;
-  return application_load_document((Application *)user_data);
-}
-
-static int app_workspace_execute_action(Workspace *workspace,
-                                        WorkspaceActionType action,
-                                        void *user_data) {
-  Application *app = (Application *)user_data;
-  (void)workspace;
-
-  switch (action) {
-  case WORKSPACE_ACTION_NEW_DOCUMENT:
-    return application_new_document(app);
-  case WORKSPACE_ACTION_OPEN_DOCUMENT:
-    return application_open_document_with_picker(app);
-  case WORKSPACE_ACTION_EXIT_APPLICATION:
-    return app_exit_application(app);
-  case WORKSPACE_ACTION_NONE:
-  default:
-    return 0;
-  }
-}
-
-/**
- * @brief GLFW framebuffer resize callback.
- * @param handle GLFW window handle.
- * @param width New framebuffer width.
- * @param height New framebuffer height.
- * @return No return value.
- */
-static void framebuffer_size_callback(PlatformWindow *window, int width,
-                                      int height, void *user_data) {
-  Application *app = (Application *)user_data;
-  int window_width = 0;
-  int window_height = 0;
-
-  if (!app || !window) {
-    return;
-  }
-
-  platform_window_get_size(window, &window_width, &window_height);
-  application_runtime_update_canvas_viewport(app);
-  render_system_resize(app->renderer, window_width, window_height, width, height);
-}
-
-/**
- * @brief GLFW cursor movement callback.
- * @param handle GLFW window handle.
- * @param xpos Cursor x position in screen coordinates.
- * @param ypos Cursor y position in screen coordinates.
- * @return No return value.
- */
-static void cursor_pos_callback(PlatformWindow *window,
-                                double xpos,
-                                double ypos,
-                                void *user_data) {
-  Application *app = (Application *)user_data;
-  ToolContext context;
-  ToolEvent event;
-  (void)window;
-
-  if (!app) {
-    return;
-  }
-
-  app->cursor_screen = vec2_make((float)xpos, (float)ypos);
-  application_runtime_sync_canvas_boundary(app);
-
-  if (!tool_controller_is_pointer_captured(&app->workspace.core.tools) &&
-      application_runtime_pointer_blocks_canvas(app, app->cursor_screen)) {
-    return;
-  }
-
-  context = application_runtime_tool_context(app);
-  event = application_runtime_make_tool_event(app, -1, 0, 0.0f);
-
-  tool_controller_pointer_move(&app->workspace.core.tools, &context, &event);
-}
-
-/**
- * @brief GLFW mouse button callback.
- * @param handle GLFW window handle.
- * @param button Mouse button code.
- * @param action Press/release action.
- * @param mods Modifier key flags.
- * @return No return value.
- */
-static void mouse_button_callback(PlatformWindow *window,
-                                  int button,
-                                  int action,
-                                  int mods,
-                                  void *user_data) {
-  Application *app = (Application *)user_data;
-  ToolContext context;
-  ToolEvent event;
-  (void)window;
-
-  if (!app) {
-    return;
-  }
-
-  if (action == GLFW_PRESS) {
-    if (app->ui &&
-        ui_system_handle_mouse_button(app->ui, app->cursor_screen, button,
-                                      action)) {
-      return;
-    }
-    if (!tool_controller_is_pointer_captured(&app->workspace.core.tools) &&
-        application_runtime_pointer_blocks_canvas(app, app->cursor_screen)) {
-      return;
-    }
-    context = application_runtime_tool_context(app);
-    event = application_runtime_make_tool_event(app, button, mods, 0.0f);
-    tool_controller_pointer_down(&app->workspace.core.tools, &context, &event);
-  } else if (action == GLFW_RELEASE) {
-    /* Ignore release outside canvas unless we previously captured the pointer.
-       This keeps drag/end-state transitions consistent across window regions.
-     */
-    if (!tool_controller_is_pointer_captured(&app->workspace.core.tools)) {
-      if (application_runtime_pointer_blocks_canvas(app, app->cursor_screen)) {
-        return;
-      }
-      return;
-    }
-    context = application_runtime_tool_context(app);
-    event = application_runtime_make_tool_event(app, button, mods, 0.0f);
-    tool_controller_pointer_up(&app->workspace.core.tools, &context, &event);
-  }
-}
-
-/**
- * @brief GLFW key callback for global shortcuts and active-tool keys.
- * @param handle [in] GLFW window handle.
- * @param key [in] Virtual key code.
- * @param scancode [in] Platform-specific scan code (unused).
- * @param action [in] Press/release/repeat.
- * @param mods [in] Modifier key flags.
- *
- * Why shortcut-first:
- * - Global document/view commands must win over tool-specific key handlers
- *   for predictable editor behavior.
- */
-static void key_callback(PlatformWindow *window,
-                         int key,
-                         int scancode,
-                         int action,
-                         int mods,
-                         void *user_data) {
-  Application *app = (Application *)user_data;
-  ToolContext context;
-  InputRouterContext router_context;
-  KeyEvent event;
-  (void)window;
-  (void)scancode;
-
-  if (!app) {
-    return;
-  }
-
-  if (app->ui && ui_system_handle_key(app->ui, key, action)) {
-    return;
-  }
-
-  context = application_runtime_tool_context(app);
-  router_context.workspace = &app->workspace;
-  router_context.tool_context = &context;
-  router_context.ui_has_keyboard_focus =
-      app->ui ? ui_system_has_active_interaction(app->ui) : 0;
-  event.key = key;
-  event.mods = mods;
-  event.action = action;
-  event.repeated = (action == GLFW_REPEAT);
-  input_router_handle_key(&router_context, &event);
-}
-
-/**
- * @brief GLFW scroll callback.
- * @param handle GLFW window handle.
- * @param xoffset Horizontal scroll delta (unused).
- * @param yoffset Vertical scroll delta.
- * @return No return value.
- */
-static void scroll_callback(PlatformWindow *window,
-                            double xoffset,
-                            double yoffset,
-                            void *user_data) {
-  Application *app = (Application *)user_data;
-  ToolContext context;
-  (void)window;
-  (void)xoffset;
-
-  if (!app) {
-    return;
-  }
-
-  if (!tool_controller_is_pointer_captured(&app->workspace.core.tools) &&
-      application_runtime_pointer_blocks_canvas(app, app->cursor_screen)) {
-    return;
-  }
-
-  context = application_runtime_tool_context(app);
-  tool_controller_scroll(&app->workspace.core.tools, &context, app->cursor_screen,
-                         (float)yoffset);
-}
-
-static void window_close_callback(PlatformWindow *window, void *user_data) {
-  Application *app = (Application *)user_data;
-
-  if (!app || !window) {
-    return;
-  }
-
-  platform_window_set_should_close(window, 0);
-  workspace_request_action(&app->workspace, WORKSPACE_ACTION_EXIT_APPLICATION);
-}
 
 /**
  * @brief Initialize all runtime subsystems in dependency order.
@@ -311,21 +44,17 @@ static int app_init(Application *app) {
     return -1;
   }
 
-  if (!workspace_init(&app->workspace, viewport, APP_KEYMAP_SETTINGS_PATH)) {
+  app->workspace = workspace_create(viewport, APP_KEYMAP_SETTINGS_PATH);
+  if (!app->workspace) {
     LOG_ERROR("%s", "Failed to initialize workspace");
     return -1;
   }
-  workspace_service_set_document_path(&app->workspace,
-                                      workspace_service_document_path(&app->workspace));
-  app->workspace.services.save_document = app_workspace_save;
-  app->workspace.services.save_as_document = app_workspace_save_as;
-  app->workspace.services.export_png = app_workspace_export_png;
-  app->workspace.services.load_document = app_workspace_load;
-  app->workspace.services.execute_action = app_workspace_execute_action;
-  app->workspace.services.command_user_data = app;
-  command_dispatcher_init(&app->dispatcher, &app->workspace);
-  workspace_mark_saved(&app->workspace);
-  workspace_set_status_message(&app->workspace, "Initializing editor");
+  workspace_service_set_document_path(app->workspace,
+                                      workspace_service_document_path(app->workspace));
+  application_register_workspace_services(app);
+  command_dispatcher_init(&app->dispatcher, app->workspace);
+  workspace_mark_saved(app->workspace);
+  workspace_set_status_message(app->workspace, "Initializing editor");
   app->cursor_screen =
       vec2_make(app->window.width * 0.5f, app->window.height * 0.5f);
   app->cursor_inside_canvas = 1;
@@ -351,12 +80,7 @@ static int app_init(Application *app) {
     ui_system_set_action_sink(app->ui, &sink);
   }
 
-  platform_window_on_framebuffer_size(&app->window, framebuffer_size_callback, app);
-  platform_window_on_cursor_pos(&app->window, cursor_pos_callback, app);
-  platform_window_on_mouse_button(&app->window, mouse_button_callback, app);
-  platform_window_on_key(&app->window, key_callback, app);
-  platform_window_on_scroll(&app->window, scroll_callback, app);
-  platform_window_on_close(&app->window, window_close_callback, app);
+  application_register_platform_callbacks(app);
 
   render_system_resize(app->renderer,
                        app->window.width,
@@ -388,7 +112,8 @@ static void app_shutdown(Application *app) {
   ui_system_destroy(app->ui);
   render_system_destroy(app->renderer);
   editor_viewmodel_shutdown(&app->view_model);
-  workspace_shutdown(&app->workspace);
+  workspace_destroy(app->workspace);
+  app->workspace = NULL;
   platform_window_shutdown(&app->window);
 }
 
@@ -416,7 +141,8 @@ int app_run(void) {
   while (!platform_window_should_close(&app->window)) {
     int framebuffer_w = 0;
     int framebuffer_h = 0;
-    ToolContext tool_context;
+    EditorRenderScene scene;
+    RenderSceneDesc render_scene;
 
     platform_window_poll_events();
     platform_window_get_framebuffer_size(&app->window, &framebuffer_w, &framebuffer_h);
@@ -427,18 +153,18 @@ int app_run(void) {
       continue;
     }
     ui_system_begin_frame(app->ui);
-    editor_viewmodel_build(&app->view_model, &app->workspace);
+    editor_viewmodel_build(&app->view_model, app->workspace);
     ui_system_build(app->ui, &app->view_model);
     application_runtime_update_canvas_viewport(app);
-    tool_context = application_runtime_tool_context(app);
-    render_system_draw(app->renderer,
-                       &app->workspace.core.document,
-                       &app->workspace.session.selection,
-                       &app->workspace.core.canvas,
-                       workspace_selection_preview_active(&app->workspace),
-                       workspace_selection_preview_delta(&app->workspace),
-                       tool_controller_overlay_object(&app->workspace.core.tools,
-                                                      &tool_context));
+    if (editor_controller_render_scene(app->workspace, &scene)) {
+      render_scene.document = scene.document;
+      render_scene.selection = scene.selection;
+      render_scene.canvas = scene.canvas;
+      render_scene.selection_preview_active = scene.selection_preview_active;
+      render_scene.selection_preview_delta = scene.selection_preview_delta;
+      render_scene.overlay_object = scene.overlay_object;
+      render_system_draw(app->renderer, &render_scene);
+    }
     application_flush_pending_export_png(app);
     ui_system_render(app->ui);
     platform_window_swap_buffers(&app->window);

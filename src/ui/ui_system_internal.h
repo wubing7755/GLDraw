@@ -34,7 +34,7 @@
 #include "nuklear/nuklear_glfw_gl3.h"
 #endif
 
-#include <app/workspace.h>
+#include <app/workspace_layout_types.h>
 #include <base/path_utils.h>
 #include <base/types.h>
 #include <platform/window.h>
@@ -124,6 +124,9 @@ void ui_status_bar(UiSystem *ui,
                    const EditorViewModel *view_model,
                    int window_width,
                    int window_height);
+void ui_layers_panel(UiSystem *ui,
+                     struct nk_context *ctx,
+                     const EditorViewModel *view_model);
 void ui_selection_panel(UiSystem *ui,
                         const EditorViewModel *view_model,
                         RectF bounds);

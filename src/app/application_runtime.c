@@ -1,7 +1,7 @@
 #include <app/application_runtime.h>
 
+#include <app/editor_controller.h>
 #include <app/workspace.h>
-#include <canvas/canvas_view.h>
 #include <ui/ui_system.h>
 
 #include "application_internal.h"
@@ -10,7 +10,7 @@
 
 ToolContext application_runtime_tool_context(Application* app)
 {
-    return workspace_tool_context(app ? &app->workspace : NULL);
+    return editor_controller_tool_context(app ? app->workspace : NULL);
 }
 
 int application_runtime_pointer_blocks_canvas(const Application* app,
@@ -33,17 +33,14 @@ void application_runtime_sync_tool_pointer_anchor(Application* app)
         return;
     }
 
-    tool_controller_set_pointer_anchor(
-        &app->workspace.core.tools,
-        app->cursor_screen,
-        canvas_view_screen_to_world(&app->workspace.core.canvas, app->cursor_screen));
+    editor_controller_sync_pointer_anchor(app->workspace, app->cursor_screen);
 }
 
 void application_runtime_sync_canvas_boundary(Application* app)
 {
     int inside_canvas = 0;
 
-    if (!app || tool_controller_is_pointer_captured(&app->workspace.core.tools)) {
+    if (!app || editor_controller_pointer_captured(app->workspace)) {
         return;
     }
 
@@ -66,9 +63,9 @@ void application_runtime_update_canvas_viewport(Application* app)
     if (app->ui) {
         viewport = ui_system_content_bounds(app->ui);
         fallback_window = ui_system_window_bounds(app->ui);
-        workspace_set_layout(&app->workspace, ui_system_layout(app->ui));
+        workspace_set_layout(app->workspace, ui_system_layout(app->ui));
     } else {
-        viewport = app->workspace.session.layout.canvas_content_bounds;
+        viewport = editor_controller_canvas_content_bounds(app->workspace);
         fallback_window.w = (float)app->window.width;
         fallback_window.h = (float)app->window.height;
         if (fallback_window.w < 1.0f) {
@@ -84,10 +81,11 @@ void application_runtime_update_canvas_viewport(Application* app)
     }
 
     if (app->ui) {
-        app->workspace.core.canvas.background = ui_system_canvas_background(app->ui);
+        editor_controller_set_canvas_background(app->workspace,
+                                                ui_system_canvas_background(app->ui));
     }
 
-    canvas_view_set_viewport(&app->workspace.core.canvas, viewport);
+    editor_controller_set_canvas_viewport(app->workspace, viewport);
     application_runtime_sync_canvas_boundary(app);
 }
 
@@ -97,18 +95,10 @@ ToolEvent application_runtime_make_tool_event(Application* app,
                                               float wheel_y)
 {
     ToolEvent event;
-    Vec2 last_screen;
-    Vec2 last_world;
-
-    last_screen = tool_controller_last_screen(&app->workspace.core.tools);
-    last_world = tool_controller_last_world(&app->workspace.core.tools);
-    event.screen_pos = app->cursor_screen;
-    event.world_pos =
-        canvas_view_screen_to_world(&app->workspace.core.canvas, app->cursor_screen);
-    event.delta_screen = vec2_sub(event.screen_pos, last_screen);
-    event.delta_world = vec2_sub(event.world_pos, last_world);
-    event.button = button;
-    event.mods = mods;
-    event.wheel_y = wheel_y;
+    event = editor_controller_make_tool_event(app->workspace,
+                                              app->cursor_screen,
+                                              button,
+                                              mods,
+                                              wheel_y);
     return event;
 }

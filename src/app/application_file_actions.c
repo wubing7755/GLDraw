@@ -1,6 +1,6 @@
 #include <app/application_file_actions.h>
 
-#include <app/workspace_internal.h>
+#include <app/editor_controller.h>
 #include <app/application_dialog_actions.h>
 #include <app/workspace_dialogs.h>
 #include <app/workspace_service.h>
@@ -19,7 +19,7 @@ static void application_suggest_png_export_filename(const Application* app,
                                                     size_t buffer_size)
 {
     const char* basename = path_utils_basename_or_default(
-        workspace_service_document_path(&app->workspace),
+        workspace_service_document_path(app->workspace),
         "document.json");
     size_t length = 0u;
 
@@ -79,7 +79,7 @@ int application_new_document(Application* app)
         return 0;
     }
 
-    return workspace_service_new_document(&app->workspace);
+    return workspace_service_new_document(app->workspace);
 }
 
 int application_save_document_to_path(Application* app, const char* path)
@@ -88,7 +88,7 @@ int application_save_document_to_path(Application* app, const char* path)
         return 0;
     }
 
-    return workspace_service_save_to_path(&app->workspace, path);
+    return workspace_service_save_to_path(app->workspace, path);
 }
 
 int application_save_document(Application* app)
@@ -97,7 +97,7 @@ int application_save_document(Application* app)
         return 0;
     }
 
-    return workspace_service_save(&app->workspace);
+    return workspace_service_save(app->workspace);
 }
 
 int application_save_as_document(Application* app)
@@ -110,22 +110,22 @@ int application_save_as_document(Application* app)
         return 0;
     }
 
-    input = workspace_dialog_input_text(&app->workspace);
+    input = workspace_dialog_input_text(app->workspace);
     if (!path_utils_copy_trimmed(input, filename, sizeof(filename)) ||
         !path_utils_is_safe_filename(filename)) {
-        workspace_set_status_message(&app->workspace, "Save As failed: invalid filename");
+        workspace_set_status_message(app->workspace, "Save As failed: invalid filename");
         application_dialog_actions_update_save_as_message(
             app,
             "Invalid filename. Use a simple file name without path separators or reserved characters.");
         return 0;
     }
 
-    if (!path_utils_join_same_directory(workspace_service_document_path(&app->workspace),
+    if (!path_utils_join_same_directory(workspace_service_document_path(app->workspace),
                                         filename,
                                         ".json",
                                         target_path,
                                         sizeof(target_path))) {
-        workspace_set_status_message(&app->workspace, "Save As failed: path too long");
+        workspace_set_status_message(app->workspace, "Save As failed: path too long");
         application_dialog_actions_update_save_as_message(
             app,
             "Invalid filename. The resulting path is too long.");
@@ -141,7 +141,7 @@ int application_load_document_from_path(Application* app, const char* path)
         return 0;
     }
 
-    return workspace_service_load_from_path(&app->workspace, path);
+    return workspace_service_load_from_path(app->workspace, path);
 }
 
 int application_load_document(Application* app)
@@ -150,7 +150,7 @@ int application_load_document(Application* app)
         return 0;
     }
 
-    return workspace_service_load(&app->workspace);
+    return workspace_service_load(app->workspace);
 }
 
 int application_open_document_with_picker(Application* app)
@@ -203,12 +203,12 @@ int application_request_export_png(Application* app)
     if (!application_copy_png_export_path(selected_path,
                                           app->pending_export_png_path,
                                           sizeof(app->pending_export_png_path))) {
-        workspace_set_status_message(&app->workspace, "Export PNG failed: path too long.");
+        workspace_set_status_message(app->workspace, "Export PNG failed: path too long.");
         return 0;
     }
 
     app->pending_export_png = 1;
-    workspace_set_statusf(&app->workspace,
+    workspace_set_statusf(app->workspace,
                           "Export PNG queued: %s",
                           app->pending_export_png_path);
     return 1;
@@ -227,14 +227,14 @@ void application_flush_pending_export_png(Application* app)
     app->pending_export_png_path[0] = '\0';
 
     if (render_system_export_png(app->renderer,
-                                 &app->workspace.core.canvas,
+                                 editor_controller_canvas(app->workspace),
                                  export_path)) {
-        workspace_set_statusf(&app->workspace, "Exported PNG: %s", export_path);
+        workspace_set_statusf(app->workspace, "Exported PNG: %s", export_path);
         LOG_INFO("Exported PNG: %s", export_path);
         return;
     }
 
-    workspace_set_statusf(&app->workspace, "Export PNG failed: %s", export_path);
+    workspace_set_statusf(app->workspace, "Export PNG failed: %s", export_path);
     LOG_ERROR("Export PNG failed: %s", export_path);
 }
 
@@ -246,7 +246,7 @@ void application_open_startup_document(Application* app)
         return;
     }
 
-    path = workspace_service_document_path(&app->workspace);
+    path = workspace_service_document_path(app->workspace);
     if (workspace_service_file_exists(path)) {
         if (!application_load_document(app)) {
             application_dialog_actions_report_startup_load_failure(app, path);
@@ -254,5 +254,5 @@ void application_open_startup_document(Application* app)
         return;
     }
 
-    workspace_set_status_message(&app->workspace, "New empty document");
+    workspace_set_status_message(app->workspace, "New empty document");
 }

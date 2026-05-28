@@ -9,6 +9,7 @@ This directory is organized by audience, task, and source-of-truth ownership.
 | Build and run the app | [user/getting-started.md](user/getting-started.md) | [user/controls.md](user/controls.md) |
 | Learn default controls | [user/controls.md](user/controls.md) | [user/getting-started.md](user/getting-started.md) |
 | Understand the current architecture | [architecture/overview.md](architecture/overview.md) | [architecture/core-systems.md](architecture/core-systems.md), [architecture/data-flow.md](architecture/data-flow.md) |
+| Plan architecture refactoring | [architecture/refactor-roadmap.md](architecture/refactor-roadmap.md) | [architecture/overview.md](architecture/overview.md), [architecture/core-systems.md](architecture/core-systems.md) |
 | Add a new object type or tool | [architecture/extension-model.md](architecture/extension-model.md) | [reference/file-map.md](reference/file-map.md), [contributing/overview.md](contributing/overview.md) |
 | Find the right source file quickly | [reference/file-map.md](reference/file-map.md) | [architecture/core-systems.md](architecture/core-systems.md) |
 | Start contributing code | [contributing/overview.md](contributing/overview.md) | [contributing/c-contributor-guide.zh.md](contributing/c-contributor-guide.zh.md) or [contributing/c-contributor-guide.en.md](contributing/c-contributor-guide.en.md) |
@@ -32,6 +33,7 @@ This directory is organized by audience, task, and source-of-truth ownership.
 | Build and run | [user/getting-started.md](user/getting-started.md) |
 | Default controls | [user/controls.md](user/controls.md) |
 | Runtime layering | [architecture/overview.md](architecture/overview.md) |
+| Architecture refactor sequence | [architecture/refactor-roadmap.md](architecture/refactor-roadmap.md) |
 | Subsystem ownership | [architecture/core-systems.md](architecture/core-systems.md) |
 | Event and render flow | [architecture/data-flow.md](architecture/data-flow.md) |
 | Object and tool extension model | [architecture/extension-model.md](architecture/extension-model.md) |

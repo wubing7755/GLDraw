@@ -12,6 +12,7 @@
  */
 #include <app/workspace_internal.h>
 #include <app/workspace_actions.h>
+#include <app/workspace_dialogs.h>
 
 /** Return non-zero when the requested action can discard the current document state. */
 static int workspace_action_requires_unsaved_confirmation(WorkspaceActionType action)

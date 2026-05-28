@@ -9,7 +9,8 @@
 #ifndef GLDRAW_APP_WORKSPACE_SERVICE_H
 #define GLDRAW_APP_WORKSPACE_SERVICE_H
 
-#include <app/workspace.h>
+#include <app/workspace_service_types.h>
+#include <base/types.h>
 
 /**
  * Initialize the workspace and all core subsystems (document, command executor,
@@ -20,10 +21,19 @@
 int workspace_init(Workspace* workspace, RectF viewport, const char* keymap_path);
 
 /**
+ * Allocate and initialize a workspace instance.
+ * Returns NULL on allocation or initialization failure.
+ */
+Workspace* workspace_create(RectF viewport, const char* keymap_path);
+
+/**
  * Shut down the workspace and release all core subsystem resources in reverse
  * ownership order. Safe no-op when workspace is NULL.
  */
 void workspace_shutdown(Workspace* workspace);
+
+/** Shut down and free a workspace created by workspace_create(). */
+void workspace_destroy(Workspace* workspace);
 
 /** Reset the workspace to a new empty document state. */
 int workspace_service_new_document(Workspace* workspace);

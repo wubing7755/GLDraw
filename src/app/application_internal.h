@@ -2,7 +2,8 @@
 #define GLDRAW_APP_APPLICATION_INTERNAL_H
 
 #include <app/command_dispatcher.h>
-#include <app/workspace_internal.h>
+#include <app/workspace.h>
+#include <base/path_utils.h>
 #include <platform/window.h>
 #include <render/render_system.h>
 #include <ui/editor_viewmodel.h>
@@ -10,7 +11,7 @@
 
 typedef struct Application {
     PlatformWindow window;
-    Workspace workspace;
+    Workspace* workspace;
     CommandDispatcher dispatcher;
     RenderSystem* renderer;
     UiSystem* ui;
@@ -20,5 +21,8 @@ typedef struct Application {
     int pending_export_png;
     char pending_export_png_path[GLDRAW_PATH_MAX];
 } Application;
+
+void application_register_platform_callbacks(Application* app);
+void application_register_workspace_services(Application* app);
 
 #endif /* GLDRAW_APP_APPLICATION_INTERNAL_H */

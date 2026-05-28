@@ -4,7 +4,7 @@
 > Purpose: describe the current runtime structure and intended ownership boundaries
 > Source of truth: `include/app/workspace.h`, `src/app/`, `include/commands/command.h`, `include/tools/tool.h`
 > Last reviewed with code: 2026-05-07
-> Related: [core-systems.md](core-systems.md), [data-flow.md](data-flow.md), [extension-model.md](extension-model.md)
+> Related: [core-systems.md](core-systems.md), [data-flow.md](data-flow.md), [extension-model.md](extension-model.md), [refactor-roadmap.md](refactor-roadmap.md)
 
 ## Runtime Shape
 
@@ -98,3 +98,4 @@ Important consequences:
 - [core-systems.md](core-systems.md) for subsystem ownership
 - [data-flow.md](data-flow.md) for event-to-render sequencing
 - [extension-model.md](extension-model.md) for adding object types and tools
+- [refactor-roadmap.md](refactor-roadmap.md) for the planned architecture cleanup sequence

@@ -5,7 +5,7 @@
 #ifndef GLDRAW_APP_APPLICATION_RUNTIME_H
 #define GLDRAW_APP_APPLICATION_RUNTIME_H
 
-#include <tools/tool.h>
+#include <app/editor_controller.h>
 
 typedef struct Application Application;
 

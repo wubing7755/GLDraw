@@ -1,42 +1,13 @@
 #include <ui/editor_viewmodel.h>
 
-#include <app/workspace_internal.h>
+#include <app/command_availability.h>
+#include <app/command_catalog.h>
+#include <app/workspace.h>
 #include <canvas/canvas_view.h>
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
-typedef struct EditorCommandMapEntry {
-    EditorCommand command;
-    const char* command_id;
-    KeyScope scope;
-} EditorCommandMapEntry;
-
-static const EditorCommandMapEntry g_command_map[] = {
-    {EDITOR_COMMAND_FILE_NEW, "file.new", KEY_SCOPE_GLOBAL},
-    {EDITOR_COMMAND_FILE_OPEN, "file.open", KEY_SCOPE_GLOBAL},
-    {EDITOR_COMMAND_FILE_SAVE, "file.save", KEY_SCOPE_GLOBAL},
-    {EDITOR_COMMAND_FILE_SAVE_AS, "file.save_as", KEY_SCOPE_GLOBAL},
-    {EDITOR_COMMAND_FILE_EXPORT_PNG, "file.export_png", KEY_SCOPE_GLOBAL},
-    {EDITOR_COMMAND_FILE_EXIT, "file.exit", KEY_SCOPE_GLOBAL},
-    {EDITOR_COMMAND_EDIT_UNDO, "edit.undo", KEY_SCOPE_GLOBAL},
-    {EDITOR_COMMAND_EDIT_REDO, "edit.redo", KEY_SCOPE_GLOBAL},
-    {EDITOR_COMMAND_EDIT_CUT, "edit.cut", KEY_SCOPE_GLOBAL},
-    {EDITOR_COMMAND_EDIT_COPY, "edit.copy", KEY_SCOPE_GLOBAL},
-    {EDITOR_COMMAND_EDIT_PASTE, "edit.paste", KEY_SCOPE_GLOBAL},
-    {EDITOR_COMMAND_EDIT_DELETE, "edit.delete", KEY_SCOPE_GLOBAL},
-    {EDITOR_COMMAND_EDIT_SELECT_ALL, "edit.select_all", KEY_SCOPE_GLOBAL},
-    {EDITOR_COMMAND_VIEW_ZOOM_IN, "view.zoom_in", KEY_SCOPE_GLOBAL},
-    {EDITOR_COMMAND_VIEW_ZOOM_OUT, "view.zoom_out", KEY_SCOPE_GLOBAL},
-    {EDITOR_COMMAND_VIEW_ZOOM_FIT, "view.zoom_fit", KEY_SCOPE_GLOBAL},
-    {EDITOR_COMMAND_VIEW_TOGGLE_GRID, "view.toggle_grid", KEY_SCOPE_GLOBAL},
-    {EDITOR_COMMAND_VIEW_TOGGLE_INSPECTOR, "view.toggle_inspector", KEY_SCOPE_GLOBAL},
-    {EDITOR_COMMAND_HELP_SHORTCUTS, "help.shortcuts", KEY_SCOPE_GLOBAL},
-    {EDITOR_COMMAND_HELP_ABOUT, "help.about", KEY_SCOPE_GLOBAL},
-    {EDITOR_COMMAND_MODAL_CONFIRM, "modal.confirm", KEY_SCOPE_MODAL},
-    {EDITOR_COMMAND_MODAL_CANCEL, "modal.cancel", KEY_SCOPE_MODAL}
-};
 
 static void editor_copy_string(char* dst, size_t dst_size, const char* src)
 {
@@ -68,17 +39,69 @@ static void editor_build_tooltip(char* dst,
     editor_copy_string(dst, dst_size, base_tooltip);
 }
 
-static const EditorCommandMapEntry* editor_command_map_lookup(EditorCommand command)
-{
-    size_t i = 0u;
+typedef struct EditorViewModelBuildContext {
+    const Workspace* workspace;
+    const CanvasView* canvas;
+    const CommandExecutor* commands;
+    const Document* document;
+    const SelectionSet* selection;
+    const ToolController* tools;
+    const EditorKeymap* keymap;
+    const UiDialogState* active_dialog;
+    const char* document_path;
+    const char* status_message;
+} EditorViewModelBuildContext;
 
-    for (i = 0u; i < sizeof(g_command_map) / sizeof(g_command_map[0]); ++i) {
-        if (g_command_map[i].command == command) {
-            return &g_command_map[i];
-        }
+typedef struct EditorSelectionSnapshot {
+    const GraphicObject* object;
+    const char* type_name;
+    int has_selection;
+    int editable;
+} EditorSelectionSnapshot;
+
+static int editor_viewmodel_capture_context(EditorViewModelBuildContext* context,
+                                            const Workspace* workspace)
+{
+    if (!context || !workspace) {
+        return 0;
     }
 
-    return NULL;
+    memset(context, 0, sizeof(*context));
+    context->workspace = workspace;
+    context->canvas = workspace_get_canvas_const(workspace);
+    context->commands = workspace_get_command_executor_const(workspace);
+    context->document = workspace_get_document_const(workspace);
+    context->selection = workspace_get_selection_const(workspace);
+    context->tools = workspace_get_tool_controller_const(workspace);
+    context->keymap = workspace_get_keymap_const(workspace);
+    context->active_dialog = workspace_get_active_dialog_const(workspace);
+    context->document_path = workspace_get_current_document_path(workspace);
+    context->status_message = workspace_get_status_message(workspace);
+    return 1;
+}
+
+static EditorSelectionSnapshot editor_viewmodel_capture_selection(
+    const EditorViewModelBuildContext* context)
+{
+    EditorSelectionSnapshot snapshot;
+
+    memset(&snapshot, 0, sizeof(snapshot));
+    if (!context || !context->document || !context->selection ||
+        context->selection->count <= 0) {
+        return snapshot;
+    }
+
+    snapshot.object =
+        document_find_object(context->document, context->selection->ids[0]);
+    snapshot.has_selection = snapshot.object != NULL;
+    if (!snapshot.object) {
+        return snapshot;
+    }
+
+    snapshot.editable =
+        !document_layer_is_locked(context->document, snapshot.object->layer_id);
+    snapshot.type_name = object_type_name(snapshot.object->type);
+    return snapshot;
 }
 
 void editor_viewmodel_init(EditorViewModel* view_model)
@@ -107,35 +130,60 @@ void editor_viewmodel_shutdown(EditorViewModel* view_model)
     view_model->layer_capacity = 0;
 }
 
+static void editor_viewmodel_clear_for_build(EditorViewModel* view_model)
+{
+    EditorToolView* tools = NULL;
+    EditorLayerView* layers = NULL;
+    int tool_capacity = 0;
+    int layer_capacity = 0;
+
+    if (!view_model) {
+        return;
+    }
+
+    tools = view_model->tools;
+    layers = view_model->layers;
+    tool_capacity = view_model->tool_capacity;
+    layer_capacity = view_model->layer_capacity;
+
+    memset(view_model, 0, sizeof(*view_model));
+    view_model->tools = tools;
+    view_model->tool_capacity = tool_capacity;
+    view_model->layers = layers;
+    view_model->layer_capacity = layer_capacity;
+}
+
 static void editor_viewmodel_build_commands(EditorViewModel* view_model,
-                                            const Workspace* workspace)
+                                            const EditorViewModelBuildContext* context)
 {
     int i = 0;
 
-    if (!view_model || !workspace) {
+    if (!view_model || !context || !context->workspace) {
         return;
     }
 
     for (i = 1; i < EDITOR_VIEWMODEL_MAX_COMMANDS; ++i) {
-        const EditorCommandMapEntry* map_entry =
-            editor_command_map_lookup((EditorCommand)i);
+        const CommandDescriptor* descriptor =
+            command_catalog_find_by_command((EditorCommand)i);
 
         view_model->commands[i].available =
-            command_registry_is_available(workspace, (EditorCommand)i);
+            command_availability_is_available(context->workspace,
+                                             (EditorCommand)i);
         view_model->commands[i].shortcut[0] = '\0';
         view_model->commands[i].unavailable_reason[0] = '\0';
 
-        if (map_entry) {
-            keymap_format_command_shortcut(&workspace->session.keymap,
-                                           map_entry->command_id,
-                                           map_entry->scope,
+        if (descriptor && context->keymap) {
+            keymap_format_command_shortcut(context->keymap,
+                                           descriptor->id,
+                                           descriptor->scope,
                                            view_model->commands[i].shortcut,
                                            sizeof(view_model->commands[i].shortcut));
         }
         editor_copy_string(view_model->commands[i].unavailable_reason,
                            sizeof(view_model->commands[i].unavailable_reason),
-                           command_registry_unavailable_reason(workspace,
-                                                               (EditorCommand)i));
+                           command_availability_unavailable_reason(
+                               context->workspace,
+                               (EditorCommand)i));
     }
 }
 
@@ -168,18 +216,18 @@ static int editor_viewmodel_reserve_tools(EditorViewModel* view_model, int neede
 }
 
 static void editor_viewmodel_build_tools(EditorViewModel* view_model,
-                                         const Workspace* workspace)
+                                         const EditorViewModelBuildContext* context)
 {
     int tool_count = 0;
     int i = 0;
     const char* active_id = NULL;
 
-    if (!view_model || !workspace) {
+    if (!view_model || !context || !context->workspace || !context->tools) {
         return;
     }
 
-    active_id = tool_controller_active_id(&workspace->core.tools);
-    tool_count = tool_controller_tool_count(&workspace->core.tools);
+    active_id = tool_controller_active_id(context->tools);
+    tool_count = tool_controller_tool_count(context->tools);
     if (!editor_viewmodel_reserve_tools(view_model, tool_count)) {
         view_model->tool_count = 0;
         return;
@@ -188,7 +236,7 @@ static void editor_viewmodel_build_tools(EditorViewModel* view_model,
     view_model->tool_count = tool_count;
     for (i = 0; i < tool_count; ++i) {
         const ToolDescriptor* descriptor =
-            tool_controller_tool_descriptor_at(&workspace->core.tools, i);
+            tool_controller_tool_descriptor_at(context->tools, i);
         EditorToolView* tool_view = &view_model->tools[i];
         const CommandDescriptor* command_descriptor = NULL;
 
@@ -206,21 +254,25 @@ static void editor_viewmodel_build_tools(EditorViewModel* view_model,
         tool_view->unavailable_reason[0] = '\0';
 
         command_descriptor = descriptor->command_id
-                                 ? command_registry_find_by_id(descriptor->command_id)
+                                 ? command_catalog_find_by_id(descriptor->command_id)
                                  : NULL;
         if (command_descriptor) {
             tool_view->command = command_descriptor->command;
-            tool_view->available = command_registry_is_available(workspace,
-                                                                 command_descriptor->command);
-            keymap_format_command_shortcut(&workspace->session.keymap,
-                                           descriptor->command_id,
-                                           KEY_SCOPE_GLOBAL,
-                                           tool_view->shortcut,
-                                           sizeof(tool_view->shortcut));
+            tool_view->available =
+                command_availability_is_available(context->workspace,
+                                                 command_descriptor->command);
+            if (context->keymap) {
+                keymap_format_command_shortcut(context->keymap,
+                                               descriptor->command_id,
+                                               KEY_SCOPE_GLOBAL,
+                                               tool_view->shortcut,
+                                               sizeof(tool_view->shortcut));
+            }
             editor_copy_string(tool_view->unavailable_reason,
                                sizeof(tool_view->unavailable_reason),
-                               command_registry_unavailable_reason(workspace,
-                                                                   command_descriptor->command));
+                               command_availability_unavailable_reason(
+                                   context->workspace,
+                                   command_descriptor->command));
         }
 
         editor_build_tooltip(tool_view->tooltip,
@@ -230,31 +282,26 @@ static void editor_viewmodel_build_tools(EditorViewModel* view_model,
     }
 }
 
-static void editor_viewmodel_build_properties(EditorViewModel* view_model,
-                                              const Workspace* workspace)
+static void editor_viewmodel_build_properties(
+    EditorViewModel* view_model,
+    const EditorViewModelBuildContext* context,
+    const EditorSelectionSnapshot* selection_snapshot)
 {
     const GraphicObject* object = NULL;
     const GraphicPropertyDef* schema = NULL;
-    int object_editable = 0;
     int property_count = 0;
     int i = 0;
 
-    if (!view_model || !workspace) {
+    if (!view_model || !context || !context->document || !selection_snapshot) {
         return;
     }
 
-    object = selection_set_primary_object(&workspace->session.selection,
-                                          &workspace->core.document);
-    view_model->has_selection = (object != NULL);
+    object = selection_snapshot->object;
+    view_model->has_selection = selection_snapshot->has_selection;
     if (!object) {
         return;
     }
 
-    object_editable =
-        !document_layer_is_locked(&workspace->core.document, object->layer_id);
-    editor_copy_string(view_model->summary.selection_type_name,
-                       sizeof(view_model->summary.selection_type_name),
-                       object_type_name(object->type));
     schema = object_property_schema(object, &property_count);
     if (!schema || property_count <= 0) {
         return;
@@ -272,7 +319,7 @@ static void editor_viewmodel_build_properties(EditorViewModel* view_model,
                            sizeof(property_view->name),
                            schema[i].name);
         property_view->type = schema[i].type;
-        property_view->editable = object_editable;
+        property_view->editable = selection_snapshot->editable;
         property_view->min_value = schema[i].min_value;
         property_view->max_value = schema[i].max_value;
         property_view->step = schema[i].step;
@@ -310,17 +357,17 @@ static int editor_viewmodel_reserve_layers(EditorViewModel* view_model, int need
 }
 
 static void editor_viewmodel_build_layers(EditorViewModel* view_model,
-                                          const Workspace* workspace)
+                                          const EditorViewModelBuildContext* context)
 {
     int i = 0;
     int j = 0;
     int doc_layer_count = 0;
 
-    if (!view_model || !workspace) {
+    if (!view_model || !context || !context->document) {
         return;
     }
 
-    doc_layer_count = document_layer_count(&workspace->core.document);
+    doc_layer_count = document_layer_count(context->document);
     if (!editor_viewmodel_reserve_layers(view_model, doc_layer_count)) {
         view_model->layer_count = 0;
         return;
@@ -328,7 +375,7 @@ static void editor_viewmodel_build_layers(EditorViewModel* view_model,
 
     view_model->layer_count = doc_layer_count;
     for (i = 0; i < view_model->layer_count; ++i) {
-        const DocumentLayer* layer = document_layer_at(&workspace->core.document, i);
+        const DocumentLayer* layer = document_layer_at(context->document, i);
         EditorLayerView* layer_view = &view_model->layers[i];
 
         if (!layer) {
@@ -339,11 +386,13 @@ static void editor_viewmodel_build_layers(EditorViewModel* view_model,
         editor_copy_string(layer_view->name, sizeof(layer_view->name), layer->name);
         layer_view->visible = layer->visible;
         layer_view->locked = layer->locked;
-        layer_view->active = (workspace->core.document.active_layer_id == layer->id);
+        layer_view->active =
+            (document_active_layer_id(context->document) == layer->id);
         layer_view->object_count = 0;
 
-        for (j = 0; j < workspace->core.document.count; ++j) {
-            const GraphicObject* object = workspace->core.document.objects[j];
+        for (j = 0; j < context->document->count; ++j) {
+            const GraphicObject* object =
+                document_get_object_at(context->document, j);
             if (object && object->layer_id == layer->id) {
                 layer_view->object_count++;
             }
@@ -351,39 +400,80 @@ static void editor_viewmodel_build_layers(EditorViewModel* view_model,
     }
 }
 
-int editor_viewmodel_build(EditorViewModel* view_model, const Workspace* workspace)
+static void editor_viewmodel_build_summary(
+    EditorViewModel* view_model,
+    const EditorViewModelBuildContext* context,
+    const EditorSelectionSnapshot* selection_snapshot)
 {
-    if (!view_model || !workspace) {
-        return 0;
+    if (!view_model || !context || !context->workspace) {
+        return;
     }
 
-    editor_viewmodel_shutdown(view_model);
-    editor_viewmodel_init(view_model);
-    view_model->summary.object_count = workspace->core.document.count;
-    view_model->summary.selection_count = workspace->session.selection.count;
-    view_model->summary.undo_count = (int)workspace->core.commands.undo_count;
-    view_model->summary.redo_count = (int)workspace->core.commands.redo_count;
-    view_model->summary.zoom_percent = canvas_view_zoom(&workspace->core.canvas) * 100.0f;
-    view_model->summary.document_dirty = workspace->session.document_dirty;
+    view_model->summary.object_count =
+        context->document ? context->document->count : 0;
+    view_model->summary.selection_count =
+        context->selection ? context->selection->count : 0;
+    view_model->summary.undo_count =
+        context->commands ? (int)context->commands->undo_count : 0;
+    view_model->summary.redo_count =
+        context->commands ? (int)context->commands->redo_count : 0;
+    view_model->summary.zoom_percent =
+        context->canvas ? canvas_view_zoom(context->canvas) * 100.0f : 100.0f;
+    view_model->summary.document_dirty =
+        workspace_document_dirty(context->workspace);
     editor_copy_string(view_model->summary.current_document_path,
                        sizeof(view_model->summary.current_document_path),
-                       workspace->session.current_document_path[0] != '\0'
-                           ? workspace->session.current_document_path
+                       context->document_path && context->document_path[0] != '\0'
+                           ? context->document_path
                            : "(default)");
     editor_copy_string(view_model->summary.status_message,
                        sizeof(view_model->summary.status_message),
-                       workspace->session.status_message[0] != '\0'
-                           ? workspace->session.status_message
+                       context->status_message && context->status_message[0] != '\0'
+                           ? context->status_message
                            : "Ready");
     editor_copy_string(view_model->summary.active_tool_label,
                        sizeof(view_model->summary.active_tool_label),
-                       tool_controller_active_label(&workspace->core.tools));
-    view_model->active_dialog = workspace->session.active_dialog;
+                       context->tools ? tool_controller_active_label(context->tools) : "");
+    editor_copy_string(view_model->summary.selection_type_name,
+                       sizeof(view_model->summary.selection_type_name),
+                       selection_snapshot && selection_snapshot->type_name
+                           ? selection_snapshot->type_name
+                           : "");
+}
 
-    editor_viewmodel_build_commands(view_model, workspace);
-    editor_viewmodel_build_tools(view_model, workspace);
-    editor_viewmodel_build_properties(view_model, workspace);
-    editor_viewmodel_build_layers(view_model, workspace);
+static void editor_viewmodel_build_dialog(
+    EditorViewModel* view_model,
+    const EditorViewModelBuildContext* context)
+{
+    if (!view_model || !context) {
+        return;
+    }
+
+    view_model->active_dialog =
+        context->active_dialog ? *context->active_dialog : (UiDialogState){0};
+}
+
+int editor_viewmodel_build(EditorViewModel* view_model, const Workspace* workspace)
+{
+    EditorViewModelBuildContext context;
+    EditorSelectionSnapshot selection_snapshot;
+
+    if (!view_model || !workspace) {
+        return 0;
+    }
+    if (!editor_viewmodel_capture_context(&context, workspace)) {
+        return 0;
+    }
+    selection_snapshot = editor_viewmodel_capture_selection(&context);
+
+    editor_viewmodel_clear_for_build(view_model);
+
+    editor_viewmodel_build_summary(view_model, &context, &selection_snapshot);
+    editor_viewmodel_build_commands(view_model, &context);
+    editor_viewmodel_build_tools(view_model, &context);
+    editor_viewmodel_build_properties(view_model, &context, &selection_snapshot);
+    editor_viewmodel_build_layers(view_model, &context);
+    editor_viewmodel_build_dialog(view_model, &context);
     return 1;
 }
 

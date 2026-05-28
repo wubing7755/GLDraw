@@ -1,0 +1,47 @@
+#ifndef GLDRAW_APP_COMMAND_DEFINITIONS_H
+#define GLDRAW_APP_COMMAND_DEFINITIONS_H
+
+#include <app/workspace_service_types.h>
+
+typedef enum CommandAvailabilityRule {
+    COMMAND_AVAILABILITY_NEVER = 0,
+    COMMAND_AVAILABILITY_ALWAYS,
+    COMMAND_AVAILABILITY_WORKSPACE,
+    COMMAND_AVAILABILITY_SERVICE,
+    COMMAND_AVAILABILITY_UNDO,
+    COMMAND_AVAILABILITY_REDO,
+    COMMAND_AVAILABILITY_SELECTION,
+    COMMAND_AVAILABILITY_EDITABLE_SELECTION,
+    COMMAND_AVAILABILITY_PASTE
+} CommandAvailabilityRule;
+
+/*
+ * Stable editor commands live here so catalog metadata, availability rules,
+ * and execution routes cannot drift into separate hand-maintained lists.
+ * Dynamic tool commands are still generated from ToolRegistry at runtime.
+ */
+#define GLDRAW_STABLE_COMMANDS(X) \
+    X(EDITOR_COMMAND_FILE_NEW, "file.new", "New", KEY_SCOPE_GLOBAL, MENU_ID_FILE_NEW, NULL, COMMAND_AVAILABILITY_WORKSPACE, WORKSPACE_SERVICE_EXECUTE_ACTION, workspace_file_new_document) \
+    X(EDITOR_COMMAND_FILE_OPEN, "file.open", "Open", KEY_SCOPE_GLOBAL, MENU_ID_FILE_OPEN, NULL, COMMAND_AVAILABILITY_WORKSPACE, WORKSPACE_SERVICE_EXECUTE_ACTION, workspace_file_open_document) \
+    X(EDITOR_COMMAND_FILE_SAVE, "file.save", "Save", KEY_SCOPE_GLOBAL, MENU_ID_FILE_SAVE, NULL, COMMAND_AVAILABILITY_SERVICE, WORKSPACE_SERVICE_SAVE_DOCUMENT, workspace_file_save_document) \
+    X(EDITOR_COMMAND_FILE_SAVE_AS, "file.save_as", "Save As", KEY_SCOPE_GLOBAL, MENU_ID_FILE_SAVE_AS, NULL, COMMAND_AVAILABILITY_SERVICE, WORKSPACE_SERVICE_SAVE_AS_DOCUMENT, workspace_file_save_document_as) \
+    X(EDITOR_COMMAND_FILE_EXPORT_PNG, "file.export_png", "Export as PNG", KEY_SCOPE_GLOBAL, MENU_ID_FILE_EXPORT_PNG, NULL, COMMAND_AVAILABILITY_SERVICE, WORKSPACE_SERVICE_EXPORT_PNG, workspace_file_export_png) \
+    X(EDITOR_COMMAND_FILE_EXIT, "file.exit", "Exit", KEY_SCOPE_GLOBAL, MENU_ID_FILE_EXIT, NULL, COMMAND_AVAILABILITY_WORKSPACE, WORKSPACE_SERVICE_EXECUTE_ACTION, workspace_file_exit_application) \
+    X(EDITOR_COMMAND_EDIT_UNDO, "edit.undo", "Undo", KEY_SCOPE_GLOBAL, MENU_ID_EDIT_UNDO, NULL, COMMAND_AVAILABILITY_UNDO, 0, workspace_edit_undo) \
+    X(EDITOR_COMMAND_EDIT_REDO, "edit.redo", "Redo", KEY_SCOPE_GLOBAL, MENU_ID_EDIT_REDO, NULL, COMMAND_AVAILABILITY_REDO, 0, workspace_edit_redo) \
+    X(EDITOR_COMMAND_EDIT_CUT, "edit.cut", "Cut", KEY_SCOPE_GLOBAL, MENU_ID_EDIT_CUT, NULL, COMMAND_AVAILABILITY_EDITABLE_SELECTION, 0, workspace_clipboard_cut_selection) \
+    X(EDITOR_COMMAND_EDIT_COPY, "edit.copy", "Copy", KEY_SCOPE_GLOBAL, MENU_ID_EDIT_COPY, NULL, COMMAND_AVAILABILITY_SELECTION, 0, workspace_clipboard_copy_selection) \
+    X(EDITOR_COMMAND_EDIT_PASTE, "edit.paste", "Paste", KEY_SCOPE_GLOBAL, MENU_ID_EDIT_PASTE, NULL, COMMAND_AVAILABILITY_PASTE, 0, workspace_clipboard_paste) \
+    X(EDITOR_COMMAND_EDIT_DELETE, "edit.delete", "Delete", KEY_SCOPE_GLOBAL, MENU_ID_EDIT_DELETE, NULL, COMMAND_AVAILABILITY_EDITABLE_SELECTION, 0, workspace_edit_delete_selection) \
+    X(EDITOR_COMMAND_EDIT_SELECT_ALL, "edit.select_all", "Select All", KEY_SCOPE_GLOBAL, MENU_ID_EDIT_SELECT_ALL, NULL, COMMAND_AVAILABILITY_ALWAYS, 0, workspace_edit_select_all) \
+    X(EDITOR_COMMAND_VIEW_ZOOM_IN, "view.zoom_in", "Zoom In", KEY_SCOPE_GLOBAL, MENU_ID_VIEW_ZOOM_IN, NULL, COMMAND_AVAILABILITY_ALWAYS, 0, workspace_view_zoom_in) \
+    X(EDITOR_COMMAND_VIEW_ZOOM_OUT, "view.zoom_out", "Zoom Out", KEY_SCOPE_GLOBAL, MENU_ID_VIEW_ZOOM_OUT, NULL, COMMAND_AVAILABILITY_ALWAYS, 0, workspace_view_zoom_out) \
+    X(EDITOR_COMMAND_VIEW_ZOOM_FIT, "view.zoom_fit", "Zoom to Fit", KEY_SCOPE_GLOBAL, MENU_ID_VIEW_ZOOM_FIT, NULL, COMMAND_AVAILABILITY_ALWAYS, 0, workspace_view_zoom_to_fit) \
+    X(EDITOR_COMMAND_VIEW_TOGGLE_GRID, "view.toggle_grid", "Toggle Grid", KEY_SCOPE_GLOBAL, MENU_ID_VIEW_TOGGLE_GRID, NULL, COMMAND_AVAILABILITY_ALWAYS, 0, workspace_view_toggle_grid) \
+    X(EDITOR_COMMAND_VIEW_TOGGLE_INSPECTOR, "view.toggle_inspector", "Toggle Inspector", KEY_SCOPE_GLOBAL, MENU_ID_VIEW_TOGGLE_INSPECTOR, NULL, COMMAND_AVAILABILITY_ALWAYS, 0, workspace_view_toggle_inspector) \
+    X(EDITOR_COMMAND_HELP_SHORTCUTS, "help.shortcuts", "Keyboard Shortcuts", KEY_SCOPE_GLOBAL, MENU_ID_HELP_SHORTCUTS, NULL, COMMAND_AVAILABILITY_ALWAYS, 0, workspace_dialog_command_toggle_shortcuts) \
+    X(EDITOR_COMMAND_HELP_ABOUT, "help.about", "About", KEY_SCOPE_GLOBAL, MENU_ID_HELP_ABOUT, NULL, COMMAND_AVAILABILITY_ALWAYS, 0, workspace_dialog_command_open_about) \
+    X(EDITOR_COMMAND_MODAL_CONFIRM, "modal.confirm", "Confirm", KEY_SCOPE_MODAL, -1, NULL, COMMAND_AVAILABILITY_ALWAYS, 0, workspace_dialog_command_confirm) \
+    X(EDITOR_COMMAND_MODAL_CANCEL, "modal.cancel", "Cancel", KEY_SCOPE_MODAL, -1, NULL, COMMAND_AVAILABILITY_ALWAYS, 0, workspace_dialog_command_cancel)
+
+#endif /* GLDRAW_APP_COMMAND_DEFINITIONS_H */

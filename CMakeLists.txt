@@ -92,6 +92,10 @@ set(EDITOR_MODEL_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/document/document_layers.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/document/document_spatial_index.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/document/persistence.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/document/persistence_json.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/document/persistence_layers.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/document/persistence_objects.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/document/persistence_write.c
 )
 
 set(RENDER_CORE_SOURCES
@@ -114,9 +118,15 @@ set(RENDER_GLFW_GL_SOURCES
 
 set(EDITOR_COMMANDS_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/commands/command.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/commands/command_create_object.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/commands/command_delete_selection.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/commands/command_executor.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/commands/command_layer_ops.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/commands/command_move_objects.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/commands/command_object_checks.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/commands/command_object_ops.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/commands/command_paste_objects.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/commands/command_set_property.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/commands/command_transaction.c
 )
 
@@ -132,14 +142,24 @@ set(EDITOR_TOOLS_SOURCES
 
 set(EDITOR_RUNTIME_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/editor_action.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/app/command_availability.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/app/command_catalog.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/app/command_registry.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/app/command_dispatcher.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/app/editor_action_handler.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/app/editor_controller.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/app/editor_viewmodel.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/app/registration_manifest.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/app/workspace.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/app/workspace_actions.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/app/workspace_clipboard.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/app/workspace_dialog_commands.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/app/workspace_dialogs.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/app/workspace_edit_commands.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/app/workspace_file_commands.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/app/workspace_service.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/app/workspace_tool_commands.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/app/workspace_view_commands.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/input/key_chord.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/input/keymap.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/input/input_router.c
@@ -160,7 +180,10 @@ set(PLATFORM_GLFW_SOURCES
 set(UI_NUKLEAR_GLFW_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ui_chrome.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ui_context_menu.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ui_context_menu_render.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ui_frame.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ui_inspector_panel.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ui_layer_panel.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ui_layout.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ui_runtime.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ui_dialog_runtime.c
@@ -169,14 +192,22 @@ set(UI_NUKLEAR_GLFW_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ui_menu_def.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ui_menu_actions.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ui_menubar.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ui_menubar_render.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ui_theme.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ui_theme_apply.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ui_theme_builtin.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ui_theme_external.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ui_theme_parse.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ui_theme_settings.c
 )
 
 set(EDITOR_APP_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/app/application.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/app/application_callbacks.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/app/application_dialog_actions.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/app/application_file_actions.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/app/application_runtime.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/app/application_workspace_services.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/platform/file_dialog.c
 )
 
@@ -538,6 +569,33 @@ set_target_properties(gldraw_ui_logic_tests PROPERTIES
 
 add_test(NAME gldraw_ui_logic_tests COMMAND $<TARGET_FILE:gldraw_ui_logic_tests>)
 
+add_executable(gldraw_ui_theme_tests
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_ui_theme.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_nuklear_impl.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ui_theme.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ui_theme_apply.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ui_theme_builtin.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ui_theme_external.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ui_theme_parse.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ui_theme_settings.c
+)
+
+target_include_directories(gldraw_ui_theme_tests
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+
+target_link_libraries(gldraw_ui_theme_tests PRIVATE editor_model)
+
+gldraw_apply_compile_options(gldraw_ui_theme_tests)
+gldraw_apply_sanitizers(gldraw_ui_theme_tests)
+
+set_target_properties(gldraw_ui_theme_tests PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+)
+
+add_test(NAME gldraw_ui_theme_tests COMMAND $<TARGET_FILE:gldraw_ui_theme_tests>)
+
 add_executable(gldraw_renderer_tests
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_renderer.c
 )
@@ -589,6 +647,7 @@ add_custom_target(gldraw_tests
         gldraw_fake_star_tests
         gldraw_no_builtin_knowledge_tests
         gldraw_ui_logic_tests
+        gldraw_ui_theme_tests
         gldraw_renderer_tests
         gldraw_workspace_service_tests
 )

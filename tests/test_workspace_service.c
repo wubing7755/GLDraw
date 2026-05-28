@@ -215,6 +215,37 @@ static int test_load_document_resets_runtime_state(Workspace* workspace)
     return 0;
 }
 
+static int test_workspace_create_destroy_allocates_opaque_workspace(void)
+{
+    Workspace* workspace = workspace_create((RectF){0.0f, 0.0f, 640.0f, 480.0f},
+                                            "gldraw.test.keymap.json");
+
+    EXPECT_TRUE(workspace != NULL);
+    EXPECT_INT_EQ(workspace->core.document.count, 0);
+    EXPECT_FLOAT_EQ(canvas_view_zoom(&workspace->core.canvas), 1.0f);
+    workspace_destroy(workspace);
+    return 0;
+}
+
+static int test_workspace_service_invalid_arguments_are_safe(Workspace* workspace)
+{
+    EXPECT_FALSE(workspace_service_new_document(NULL));
+    EXPECT_FALSE(workspace_service_save_to_path(NULL, k_temp_document_path));
+    EXPECT_FALSE(workspace_service_save_to_path(workspace, NULL));
+    EXPECT_FALSE(workspace_service_save_to_path(workspace, ""));
+    EXPECT_FALSE(workspace_service_save(NULL));
+    EXPECT_FALSE(workspace_service_load_from_path(NULL, k_temp_document_path));
+    EXPECT_FALSE(workspace_service_load_from_path(workspace, NULL));
+    EXPECT_FALSE(workspace_service_load_from_path(workspace, ""));
+    EXPECT_FALSE(workspace_service_load(NULL));
+    EXPECT_FALSE(workspace_service_file_exists(NULL));
+    EXPECT_FALSE(workspace_service_file_exists(""));
+    EXPECT_STR_EQ(workspace_service_document_path(NULL), "document.json");
+    workspace_service_set_document_path(NULL, "ignored.json");
+    workspace_service_set_document_path(workspace, NULL);
+    return 0;
+}
+
 int main(void)
 {
     Workspace workspace;
@@ -235,6 +266,14 @@ int main(void)
         goto cleanup;
     }
     if (test_load_document_resets_runtime_state(&workspace)) {
+        result = 1;
+        goto cleanup;
+    }
+    if (test_workspace_create_destroy_allocates_opaque_workspace()) {
+        result = 1;
+        goto cleanup;
+    }
+    if (test_workspace_service_invalid_arguments_are_safe(&workspace)) {
         result = 1;
         goto cleanup;
     }

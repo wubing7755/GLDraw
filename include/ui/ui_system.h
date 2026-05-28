@@ -5,6 +5,7 @@
 #ifndef GLDRAW_UI_UI_SYSTEM_H
 #define GLDRAW_UI_UI_SYSTEM_H
 
+#include <app/workspace_layout_types.h>
 #include <base/types.h>
 #include <platform/window.h>
 #include <ui/editor_action.h>

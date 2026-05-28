@@ -57,6 +57,7 @@ typedef struct MockRenderDevice {
     RenderFrameDesc frame_desc;
     MockDrawCall draw_calls[8];
     int draw_call_count;
+    int destroy_count;
 } MockRenderDevice;
 
 static int mock_resize(RenderDevice* device,
@@ -125,7 +126,8 @@ static void mock_end_frame(RenderDevice* device)
 
 static void mock_destroy(RenderDevice* device)
 {
-    (void)device;
+    MockRenderDevice* mock = (MockRenderDevice*)device;
+    mock->destroy_count++;
 }
 
 static const RenderDeviceVTable MOCK_VTABLE = {
@@ -259,6 +261,7 @@ static int test_render_system_invalidates_on_selection_revision(void)
     Document document;
     CanvasView canvas;
     SelectionSet selection = {0};
+    RenderSceneDesc scene;
     MockRenderDevice mock = {0};
     PlatformWindow window = {0};
     RenderSystem* renderer = NULL;
@@ -282,7 +285,13 @@ static int test_render_system_invalidates_on_selection_revision(void)
     renderer = render_system_create(&mock.base, &window);
     EXPECT_TRUE(renderer != NULL);
 
-    render_system_draw(renderer, &document, &selection, &canvas, 0, (Vec2){0.0f, 0.0f}, NULL);
+    scene.document = &document;
+    scene.selection = &selection;
+    scene.canvas = &canvas;
+    scene.selection_preview_active = 0;
+    scene.selection_preview_delta = (Vec2){0.0f, 0.0f};
+    scene.overlay_object = NULL;
+    render_system_draw(renderer, &scene);
     first_highlight = mock_find_widest_draw_call(&mock);
     EXPECT_TRUE(first_highlight != NULL);
     first_highlight_x = first_highlight->first_point.x;
@@ -290,15 +299,36 @@ static int test_render_system_invalidates_on_selection_revision(void)
     mock_reset_frame_capture(&mock);
     selection_set_clear(&selection);
     EXPECT_TRUE(selection_set_add(&selection, 2u));
-    render_system_draw(renderer, &document, &selection, &canvas, 0, (Vec2){0.0f, 0.0f}, NULL);
+    render_system_draw(renderer, &scene);
     second_highlight = mock_find_widest_draw_call(&mock);
     EXPECT_TRUE(second_highlight != NULL);
     second_highlight_x = second_highlight->first_point.x;
     EXPECT_TRUE(first_highlight_x != second_highlight_x);
 
     render_system_destroy(renderer);
+    EXPECT_INT_EQ(mock.destroy_count, 1);
     selection_set_shutdown(&selection);
     document_shutdown(&document);
+    return 0;
+}
+
+static int test_render_system_desc_can_borrow_device(void)
+{
+    MockRenderDevice mock = {0};
+    RenderSystemDesc desc;
+    RenderSystem* renderer = NULL;
+
+    mock.base.vtable = &MOCK_VTABLE;
+    desc.logical_width = 320;
+    desc.logical_height = 240;
+    desc.framebuffer_width = 640;
+    desc.framebuffer_height = 480;
+    desc.owns_device = 0;
+
+    renderer = render_system_create_with_desc(&mock.base, &desc);
+    EXPECT_TRUE(renderer != NULL);
+    render_system_destroy(renderer);
+    EXPECT_INT_EQ(mock.destroy_count, 0);
     return 0;
 }
 
@@ -352,6 +382,7 @@ int main(void)
     if (test_canvas_renderer_submit_sequence()) return 1;
     if (test_selected_object_emits_highlight_first()) return 1;
     if (test_render_system_invalidates_on_selection_revision()) return 1;
+    if (test_render_system_desc_can_borrow_device()) return 1;
     if (test_canvas_drawlist_reuses_scratch_arena_between_builds()) return 1;
 
     printf("[PASS] canvas draw list and renderer submission\n");

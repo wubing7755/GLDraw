@@ -1,4 +1,7 @@
+#include <app/command_availability.h>
+#include <app/command_catalog.h>
 #include <app/command_registry.h>
+#include <app/command_types.h>
 #include <app/workspace_internal.h>
 #include <commands/command.h>
 #include <input/keymap.h>
@@ -84,12 +87,12 @@ static int test_dynamic_tool_command_and_menu_registration(void)
     fake_tool_index = find_fake_tool_index();
     EXPECT_TRUE(fake_tool_index >= 0);
 
-    command_descriptor = command_registry_find_by_id("tool.fake");
+    command_descriptor = command_catalog_find_by_id("tool.fake");
     EXPECT_TRUE(command_descriptor != NULL);
     EXPECT_TRUE(command_descriptor->command >= EDITOR_COMMAND_DYNAMIC_TOOL_BASE);
     EXPECT_STR_EQ(command_descriptor->tool_id, "fake-tool");
 
-    menu_descriptor = command_registry_find_by_menu_id(MENU_ID_TOOL_DYNAMIC_BASE + fake_tool_index);
+    menu_descriptor = command_catalog_find_by_menu_id(MENU_ID_TOOL_DYNAMIC_BASE + fake_tool_index);
     EXPECT_TRUE(menu_descriptor != NULL);
     EXPECT_TRUE(menu_descriptor->command == command_descriptor->command);
 
@@ -105,6 +108,42 @@ static int test_dynamic_tool_command_and_menu_registration(void)
     }
     EXPECT_TRUE(found_menu_item);
 
+    return 0;
+}
+
+static int test_stable_command_catalog_availability_and_routes(void)
+{
+    int i = 0;
+
+    EXPECT_TRUE(command_catalog_stable_count() == EDITOR_COMMAND_MODAL_CANCEL);
+
+    for (i = 0; i < command_catalog_stable_count(); ++i) {
+        const CommandDescriptor* descriptor = command_catalog_stable_at(i);
+        const CommandDescriptor* by_id = NULL;
+        const CommandDescriptor* by_command = NULL;
+
+        EXPECT_TRUE(descriptor != NULL);
+        EXPECT_TRUE(descriptor->command == i + 1);
+        EXPECT_TRUE(descriptor->id != NULL);
+        EXPECT_TRUE(descriptor->label != NULL);
+        by_id = command_catalog_find_by_id(descriptor->id);
+        by_command = command_catalog_find_by_command(descriptor->command);
+        EXPECT_TRUE(by_id == descriptor);
+        EXPECT_TRUE(by_command == descriptor);
+        EXPECT_TRUE(command_registry_has_static_handler(descriptor->command));
+        EXPECT_TRUE(command_availability_unavailable_reason(NULL,
+                                                            descriptor->command) != NULL);
+
+        if (descriptor->menu_id > 0) {
+            EXPECT_TRUE(command_catalog_find_by_menu_id(descriptor->menu_id) ==
+                        descriptor);
+        }
+    }
+
+    EXPECT_TRUE(command_catalog_stable_at(-1) == NULL);
+    EXPECT_TRUE(command_catalog_stable_at(command_catalog_stable_count()) == NULL);
+    EXPECT_TRUE(!command_registry_has_static_handler(EDITOR_COMMAND_NONE));
+    EXPECT_TRUE(!command_registry_has_static_handler(EDITOR_COMMAND_DYNAMIC_TOOL_BASE));
     return 0;
 }
 
@@ -158,6 +197,7 @@ static int test_dynamic_tool_shortcut_and_availability(void)
 
 int main(void)
 {
+    if (test_stable_command_catalog_availability_and_routes()) return 1;
     if (test_dynamic_tool_command_and_menu_registration()) return 1;
     if (test_dynamic_tool_shortcut_and_availability()) return 1;
 
