@@ -120,6 +120,7 @@ set(EDITOR_COMMANDS_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/commands/command.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/commands/command_executor.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/commands/command_layer_ops.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/commands/command_object_checks.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/commands/command_object_ops.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/commands/command_transaction.c
 )

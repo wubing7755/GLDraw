@@ -1,5 +1,24 @@
 # Refactor Log
 
+## 2026-05-28 - Phase 5: Split Object Command Execute Checks
+
+- Branch:
+  `refactor-editor-architecture-roadmap`
+- Modified files:
+  `src/commands/command_object_checks.c`,
+  `src/commands/command_object_ops.c`,
+  `CMakeLists.txt`,
+  `doc/reference/file-map.md`,
+  `doc/architecture/refactor-roadmap.md`,
+  `REFACTOR_LOG.md`
+- Key changes:
+  Moved create/delete/move/paste/set-property command pre-execution validation and public command execute-check helpers into `command_object_checks.c`.
+  Kept object command implementations and public factory API in `command_object_ops.c`.
+- Validation:
+  `cmake --build build --parallel` passed.
+  `ctest --test-dir build --output-on-failure` passed with 12/12 tests passing.
+  `git diff --check` passed.
+
 ## 2026-05-28 - Phase 4: Consolidate Document Persistence Modules
 
 - Branch:
