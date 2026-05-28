@@ -95,6 +95,8 @@
 - `src/ui/ui_theme.c`
 - `src/ui/ui_theme_builtin.c`
   Built-in theme descriptors and token presets.
+- `src/ui/ui_theme_external.c`
+  External theme registry, file/directory reload, reload errors, and directory signatures.
 - `src/ui/ui_theme_parse.c`
   Theme JSON value extraction, color parsing, path-derived IDs, override application, and token clamping.
 - `src/ui/ui_theme_internal.h`

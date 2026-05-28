@@ -1,5 +1,25 @@
 # Refactor Log
 
+## 2026-05-28 - Phase 2: Split External Theme Loading
+
+- Branch:
+  `refactor-editor-architecture-roadmap`
+- Modified files:
+  `src/ui/ui_theme_external.c`,
+  `src/ui/ui_theme_internal.h`,
+  `src/ui/ui_theme.c`,
+  `CMakeLists.txt`,
+  `doc/reference/file-map.md`,
+  `doc/architecture/refactor-roadmap.md`,
+  `REFACTOR_LOG.md`
+- Key changes:
+  Moved external theme registry storage, custom theme lookup/accessors, external file parsing, directory reload/rollback, reload error storage, and directory signature hashing into `ui_theme_external.c`.
+  Kept public lookup APIs in `ui_theme.c` as orchestration over built-in and external theme helpers.
+- Validation:
+  `cmake --build build --parallel` passed.
+  `ctest --test-dir build --output-on-failure` passed with 12/12 tests passing.
+  `git diff --check` passed.
+
 ## 2026-05-28 - Phase 2: Split Theme Parsing Helpers
 
 - Branch:

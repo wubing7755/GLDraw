@@ -29,6 +29,11 @@ int ui_theme_builtin_count(void);
 const UiThemeDescriptor* ui_theme_builtin_descriptor_at(int index);
 UiThemeTokens ui_theme_builtin_tokens_at(int index);
 
+int ui_theme_custom_count(void);
+const UiThemeDescriptor* ui_theme_custom_descriptor_at(int custom_index);
+int ui_theme_custom_index_of_id(const char* theme_id);
+UiThemeTokens ui_theme_custom_tokens_at(int custom_index);
+
 int ui_extract_json_string_value(const char* text,
                                  const char* key,
                                  char* out_value,
