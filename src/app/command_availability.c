@@ -9,6 +9,36 @@
 #include <commands/command.h>
 #include <document/document.h>
 
+#include "command_definitions.h"
+
+typedef struct CommandAvailabilityDef {
+    EditorCommand command;
+    CommandAvailabilityRule rule;
+    WorkspaceServiceType service;
+} CommandAvailabilityDef;
+
+static const CommandAvailabilityDef COMMAND_AVAILABILITY_DEFS[] = {
+#define GLDRAW_COMMAND_AVAILABILITY(command, id, label, scope, menu_id, tool_id, availability, service, execute) \
+    {command, availability, service},
+    GLDRAW_STABLE_COMMANDS(GLDRAW_COMMAND_AVAILABILITY)
+#undef GLDRAW_COMMAND_AVAILABILITY
+};
+
+static const CommandAvailabilityDef* command_availability_find_def(
+    EditorCommand command)
+{
+    int i = 0;
+
+    for (i = 0; i < (int)(sizeof(COMMAND_AVAILABILITY_DEFS) /
+                          sizeof(COMMAND_AVAILABILITY_DEFS[0])); ++i) {
+        if (COMMAND_AVAILABILITY_DEFS[i].command == command) {
+            return &COMMAND_AVAILABILITY_DEFS[i];
+        }
+    }
+
+    return NULL;
+}
+
 static int command_availability_editable_selection_count(const Workspace* workspace)
 {
     const Document* document = workspace_get_document_const(workspace);
@@ -75,50 +105,37 @@ static const char* command_availability_selection_unavailable_reason(const Works
 int command_availability_is_available(const Workspace* workspace,
                                       EditorCommand command)
 {
+    const CommandAvailabilityDef* def = command_availability_find_def(command);
     const CommandExecutor* commands = workspace_get_command_executor_const(workspace);
     const SelectionSet* selection = workspace_get_selection_const(workspace);
 
     if (command >= EDITOR_COMMAND_DYNAMIC_TOOL_BASE) {
         return command_availability_tool_is_available(workspace, command);
     }
+    if (!def) {
+        return 0;
+    }
 
-    switch (command) {
-    case EDITOR_COMMAND_FILE_SAVE:
-        return workspace_service_available(workspace, WORKSPACE_SERVICE_SAVE_DOCUMENT);
-    case EDITOR_COMMAND_FILE_SAVE_AS:
-        return workspace_service_available(workspace, WORKSPACE_SERVICE_SAVE_AS_DOCUMENT);
-    case EDITOR_COMMAND_FILE_EXPORT_PNG:
-        return workspace_service_available(workspace, WORKSPACE_SERVICE_EXPORT_PNG);
-    case EDITOR_COMMAND_HELP_SHORTCUTS:
+    switch (def->rule) {
+    case COMMAND_AVAILABILITY_ALWAYS:
         return 1;
-    case EDITOR_COMMAND_EDIT_CUT:
-    case EDITOR_COMMAND_EDIT_DELETE:
+    case COMMAND_AVAILABILITY_WORKSPACE:
+        return workspace != NULL;
+    case COMMAND_AVAILABILITY_SERVICE:
+        return workspace_service_available(workspace, def->service);
+    case COMMAND_AVAILABILITY_UNDO:
+        return commands && command_executor_can_undo(commands);
+    case COMMAND_AVAILABILITY_REDO:
+        return commands && command_executor_can_redo(commands);
+    case COMMAND_AVAILABILITY_EDITABLE_SELECTION:
         return workspace && command_availability_editable_selection_count(workspace) > 0;
-    case EDITOR_COMMAND_EDIT_COPY:
+    case COMMAND_AVAILABILITY_SELECTION:
         return selection && selection->count > 0;
-    case EDITOR_COMMAND_EDIT_PASTE:
+    case COMMAND_AVAILABILITY_PASTE:
         return workspace &&
                workspace_clipboard_count(workspace) > 0 &&
                command_availability_active_layer_editable(workspace);
-    case EDITOR_COMMAND_FILE_NEW:
-    case EDITOR_COMMAND_FILE_OPEN:
-    case EDITOR_COMMAND_FILE_EXIT:
-        return workspace != NULL;
-    case EDITOR_COMMAND_EDIT_UNDO:
-        return commands && command_executor_can_undo(commands);
-    case EDITOR_COMMAND_EDIT_REDO:
-        return commands && command_executor_can_redo(commands);
-    case EDITOR_COMMAND_EDIT_SELECT_ALL:
-    case EDITOR_COMMAND_VIEW_ZOOM_IN:
-    case EDITOR_COMMAND_VIEW_ZOOM_OUT:
-    case EDITOR_COMMAND_VIEW_ZOOM_FIT:
-    case EDITOR_COMMAND_VIEW_TOGGLE_GRID:
-    case EDITOR_COMMAND_VIEW_TOGGLE_INSPECTOR:
-    case EDITOR_COMMAND_HELP_ABOUT:
-    case EDITOR_COMMAND_MODAL_CONFIRM:
-    case EDITOR_COMMAND_MODAL_CANCEL:
-        return 1;
-    case EDITOR_COMMAND_NONE:
+    case COMMAND_AVAILABILITY_NEVER:
     default:
         return 0;
     }

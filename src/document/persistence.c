@@ -163,7 +163,7 @@ int document_save_json(const Document* document, const char* path)
     int target_exists = 0;
     char* temp_path = NULL;
 
-    if (!document || !path) {
+    if (!document || !path || path[0] == '\0') {
         return 0;
     }
 
@@ -226,7 +226,7 @@ int document_load_json(Document* document, const char* path)
     JsonParser parser;
     Document loaded_document;
 
-    if (!document || !path) {
+    if (!document || !path || path[0] == '\0') {
         return 0;
     }
 

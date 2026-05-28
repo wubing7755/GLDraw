@@ -17,22 +17,15 @@
 #include <tools/tool_controller.h>
 
 ToolContext workspace_tool_context(Workspace* workspace);
-Document* workspace_get_document(Workspace* workspace);
 const Document* workspace_get_document_const(const Workspace* workspace);
-CommandExecutor* workspace_get_command_executor(Workspace* workspace);
 const CommandExecutor* workspace_get_command_executor_const(const Workspace* workspace);
-CanvasView* workspace_get_canvas(Workspace* workspace);
 const CanvasView* workspace_get_canvas_const(const Workspace* workspace);
-ToolController* workspace_get_tool_controller(Workspace* workspace);
 const ToolController* workspace_get_tool_controller_const(const Workspace* workspace);
-EditorKeymap* workspace_get_keymap(Workspace* workspace);
 const EditorKeymap* workspace_get_keymap_const(const Workspace* workspace);
-SelectionSet* workspace_get_selection(Workspace* workspace);
 const SelectionSet* workspace_get_selection_const(const Workspace* workspace);
 const char* workspace_get_status_message(const Workspace* workspace);
 WorkspaceLayout workspace_get_layout(const Workspace* workspace);
 UiRequestType workspace_get_active_request_type(const Workspace* workspace);
-UiDialogState* workspace_get_active_dialog(Workspace* workspace);
 const UiDialogState* workspace_get_active_dialog_const(const Workspace* workspace);
 int workspace_document_dirty(const Workspace* workspace);
 unsigned int workspace_saved_revision(const Workspace* workspace);

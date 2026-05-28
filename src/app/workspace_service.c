@@ -129,6 +129,10 @@ int workspace_service_new_document(Workspace* workspace)
 
 int workspace_service_save_to_path(Workspace* workspace, const char* path)
 {
+    if (!workspace || !path || path[0] == '\0') {
+        return 0;
+    }
+
     if (!document_save_json(&workspace->core.document, path)) {
         LOG_ERROR("%s", "Save document failed");
         workspace_set_statusf(workspace, "Save failed: %s", path);
@@ -144,12 +148,20 @@ int workspace_service_save_to_path(Workspace* workspace, const char* path)
 
 int workspace_service_save(Workspace* workspace)
 {
+    if (!workspace) {
+        return 0;
+    }
+
     return workspace_service_save_to_path(workspace,
                                           workspace_service_document_path(workspace));
 }
 
 int workspace_service_load_from_path(Workspace* workspace, const char* path)
 {
+    if (!workspace || !path || path[0] == '\0') {
+        return 0;
+    }
+
     if (!workspace_service_file_exists(path)) {
         LOG_WARN("Document file not found: %s", path);
         workspace_set_statusf(workspace, "Document not found: %s", path);
@@ -172,6 +184,10 @@ int workspace_service_load_from_path(Workspace* workspace, const char* path)
 
 int workspace_service_load(Workspace* workspace)
 {
+    if (!workspace) {
+        return 0;
+    }
+
     return workspace_service_load_from_path(workspace,
                                             workspace_service_document_path(workspace));
 }

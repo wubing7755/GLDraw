@@ -13,6 +13,14 @@
 
 typedef struct RenderSystem RenderSystem;
 
+typedef struct RenderSystemDesc {
+    int logical_width;
+    int logical_height;
+    int framebuffer_width;
+    int framebuffer_height;
+    int owns_device;
+} RenderSystemDesc;
+
 typedef struct RenderSceneDesc {
     const Document* document;
     const SelectionSet* selection;
@@ -24,7 +32,18 @@ typedef struct RenderSceneDesc {
 
 /**
  * @brief Create the rendering system and initialize GPU resources.
+ * @param device Render device used for all draw/resize/export operations.
+ * @param desc Initial render target size and ownership policy. When
+ *             owns_device is non-zero, render_system_destroy() destroys device.
+ * @return Renderer instance on success, or `NULL` on failure.
+ */
+RenderSystem* render_system_create_with_desc(RenderDevice* device,
+                                             const RenderSystemDesc* desc);
+
+/**
+ * @brief Create the rendering system from a platform window.
  * @param window Already-initialized platform window and OpenGL context.
+ * @note Compatibility wrapper. The created RenderSystem owns `device`.
  * @return Renderer instance on success, or `NULL` on failure.
  */
 RenderSystem* render_system_create(RenderDevice* device, const PlatformWindow* window);
@@ -32,6 +51,7 @@ RenderSystem* render_system_create(RenderDevice* device, const PlatformWindow* w
 /**
  * @brief Destroy the rendering system and release GPU/heap resources.
  * @param renderer Renderer instance.
+ * @note Destroys the RenderDevice only when ownership was requested at create time.
  * @return No return value.
  */
 void render_system_destroy(RenderSystem* renderer);

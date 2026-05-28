@@ -174,6 +174,10 @@ static int test_editor_viewmodel_builds_selection_properties(void)
     Workspace workspace;
     EditorViewModel view_model = {0};
     LayerId overlay_layer = 0u;
+    EditorToolView* first_tools = NULL;
+    EditorLayerView* first_layers = NULL;
+    int first_tool_capacity = 0;
+    int first_layer_capacity = 0;
 
     EXPECT_TRUE(init_workspace(&workspace));
     overlay_layer = document_create_layer(&workspace.core.document, "Overlay");
@@ -198,6 +202,14 @@ static int test_editor_viewmodel_builds_selection_properties(void)
     EXPECT_TRUE(view_model.tools[2].available);
     EXPECT_TRUE(view_model.tools[3].available);
     EXPECT_TRUE(view_model.tools[4].available);
+    first_tools = view_model.tools;
+    first_layers = view_model.layers;
+    first_tool_capacity = view_model.tool_capacity;
+    first_layer_capacity = view_model.layer_capacity;
+    EXPECT_TRUE(first_tools != NULL);
+    EXPECT_TRUE(first_layers != NULL);
+    EXPECT_TRUE(first_tool_capacity >= view_model.tool_count);
+    EXPECT_TRUE(first_layer_capacity >= view_model.layer_count);
     EXPECT_TRUE(editor_viewmodel_command_available(&view_model,
                                                    EDITOR_COMMAND_EDIT_UNDO) == 0);
     EXPECT_STR_EQ(editor_viewmodel_command_unavailable_reason(&view_model,
@@ -206,6 +218,10 @@ static int test_editor_viewmodel_builds_selection_properties(void)
 
     EXPECT_TRUE(document_set_layer_locked(&workspace.core.document, overlay_layer, 1));
     EXPECT_TRUE(editor_viewmodel_build(&view_model, &workspace));
+    EXPECT_TRUE(view_model.tools == first_tools);
+    EXPECT_TRUE(view_model.layers == first_layers);
+    EXPECT_INT_EQ(view_model.tool_capacity, first_tool_capacity);
+    EXPECT_INT_EQ(view_model.layer_capacity, first_layer_capacity);
     EXPECT_TRUE(view_model.property_count >= 1);
     EXPECT_TRUE(view_model.properties[0].editable == 0);
     EXPECT_TRUE(view_model.tools[0].available);

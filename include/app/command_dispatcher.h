@@ -2,7 +2,7 @@
 #define GLDRAW_APP_COMMAND_DISPATCHER_H
 
 #include <app/workspace_service_types.h>
-#include <ui/editor_action.h>
+#include <editor/editor_action.h>
 
 typedef struct CommandDispatcher {
     Workspace* workspace;

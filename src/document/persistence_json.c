@@ -212,13 +212,60 @@ int json_parse_bool(JsonParser* parser, int* out_value)
 
 int json_parse_string_value(JsonParser* parser, char* buffer, size_t buffer_size)
 {
-    if (!parser || !buffer || buffer_size == 0u || !json_expect(parser, JSON_TOKEN_STRING) ||
-        parser->token_length >= buffer_size) {
+    size_t i = 0u;
+    size_t out = 0u;
+
+    if (!parser || !buffer || buffer_size == 0u ||
+        !json_expect(parser, JSON_TOKEN_STRING)) {
         return 0;
     }
 
-    memcpy(buffer, parser->token_start, parser->token_length);
-    buffer[parser->token_length] = '\0';
+    for (i = 0u; i < parser->token_length; ++i) {
+        char ch = parser->token_start[i];
+
+        if (out + 1u >= buffer_size) {
+            return 0;
+        }
+
+        if (ch == '\\') {
+            if (i + 1u >= parser->token_length) {
+                return 0;
+            }
+            i++;
+            switch (parser->token_start[i]) {
+            case '"':
+                ch = '"';
+                break;
+            case '\\':
+                ch = '\\';
+                break;
+            case '/':
+                ch = '/';
+                break;
+            case 'b':
+                ch = '\b';
+                break;
+            case 'f':
+                ch = '\f';
+                break;
+            case 'n':
+                ch = '\n';
+                break;
+            case 'r':
+                ch = '\r';
+                break;
+            case 't':
+                ch = '\t';
+                break;
+            default:
+                return 0;
+            }
+        }
+
+        buffer[out++] = ch;
+    }
+
+    buffer[out] = '\0';
     json_parser_next(parser);
     return 1;
 }

@@ -130,6 +130,29 @@ void editor_viewmodel_shutdown(EditorViewModel* view_model)
     view_model->layer_capacity = 0;
 }
 
+static void editor_viewmodel_clear_for_build(EditorViewModel* view_model)
+{
+    EditorToolView* tools = NULL;
+    EditorLayerView* layers = NULL;
+    int tool_capacity = 0;
+    int layer_capacity = 0;
+
+    if (!view_model) {
+        return;
+    }
+
+    tools = view_model->tools;
+    layers = view_model->layers;
+    tool_capacity = view_model->tool_capacity;
+    layer_capacity = view_model->layer_capacity;
+
+    memset(view_model, 0, sizeof(*view_model));
+    view_model->tools = tools;
+    view_model->tool_capacity = tool_capacity;
+    view_model->layers = layers;
+    view_model->layer_capacity = layer_capacity;
+}
+
 static void editor_viewmodel_build_commands(EditorViewModel* view_model,
                                             const EditorViewModelBuildContext* context)
 {
@@ -443,8 +466,7 @@ int editor_viewmodel_build(EditorViewModel* view_model, const Workspace* workspa
     }
     selection_snapshot = editor_viewmodel_capture_selection(&context);
 
-    editor_viewmodel_shutdown(view_model);
-    editor_viewmodel_init(view_model);
+    editor_viewmodel_clear_for_build(view_model);
 
     editor_viewmodel_build_summary(view_model, &context, &selection_snapshot);
     editor_viewmodel_build_commands(view_model, &context);

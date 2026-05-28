@@ -25,6 +25,7 @@ struct RenderSystem {
     int logical_height;
     int framebuffer_width;
     int framebuffer_height;
+    int owns_device;
     RenderSceneCacheKey cache_key;
     int draw_list_valid;
 };
@@ -92,11 +93,12 @@ static int render_system_scene_cache_key_equal(const RenderSceneCacheKey* a,
            a->viewport.h == b->viewport.h;
 }
 
-RenderSystem* render_system_create(RenderDevice* device, const PlatformWindow* window)
+RenderSystem* render_system_create_with_desc(RenderDevice* device,
+                                             const RenderSystemDesc* desc)
 {
     RenderSystem* renderer = NULL;
 
-    if (!device || !window) {
+    if (!device || !desc) {
         return NULL;
     }
 
@@ -106,12 +108,29 @@ RenderSystem* render_system_create(RenderDevice* device, const PlatformWindow* w
     }
 
     renderer->device = device;
-    renderer->logical_width = window->width;
-    renderer->logical_height = window->height;
-    renderer->framebuffer_width = window->framebuffer_width;
-    renderer->framebuffer_height = window->framebuffer_height;
+    renderer->logical_width = desc->logical_width;
+    renderer->logical_height = desc->logical_height;
+    renderer->framebuffer_width = desc->framebuffer_width;
+    renderer->framebuffer_height = desc->framebuffer_height;
+    renderer->owns_device = desc->owns_device ? 1 : 0;
     canvas_drawlist_init(&renderer->draw_list);
     return renderer;
+}
+
+RenderSystem* render_system_create(RenderDevice* device, const PlatformWindow* window)
+{
+    RenderSystemDesc desc;
+
+    if (!window) {
+        return NULL;
+    }
+
+    desc.logical_width = window->width;
+    desc.logical_height = window->height;
+    desc.framebuffer_width = window->framebuffer_width;
+    desc.framebuffer_height = window->framebuffer_height;
+    desc.owns_device = 1;
+    return render_system_create_with_desc(device, &desc);
 }
 
 void render_system_destroy(RenderSystem* renderer)
@@ -121,7 +140,9 @@ void render_system_destroy(RenderSystem* renderer)
     }
 
     canvas_drawlist_shutdown(&renderer->draw_list);
-    render_device_destroy(renderer->device);
+    if (renderer->owns_device) {
+        render_device_destroy(renderer->device);
+    }
     free(renderer);
 }
 

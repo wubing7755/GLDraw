@@ -13,6 +13,8 @@
 #include <app/workspace_tool_commands.h>
 #include <app/workspace_view_commands.h>
 
+#include "command_definitions.h"
+
 typedef int (*CommandExecutionFn)(Workspace* workspace);
 
 typedef struct CommandExecutionRoute {
@@ -21,28 +23,10 @@ typedef struct CommandExecutionRoute {
 } CommandExecutionRoute;
 
 static const CommandExecutionRoute COMMAND_EXECUTION_ROUTES[] = {
-    {EDITOR_COMMAND_FILE_NEW, workspace_file_new_document},
-    {EDITOR_COMMAND_FILE_OPEN, workspace_file_open_document},
-    {EDITOR_COMMAND_FILE_SAVE, workspace_file_save_document},
-    {EDITOR_COMMAND_FILE_SAVE_AS, workspace_file_save_document_as},
-    {EDITOR_COMMAND_FILE_EXPORT_PNG, workspace_file_export_png},
-    {EDITOR_COMMAND_FILE_EXIT, workspace_file_exit_application},
-    {EDITOR_COMMAND_EDIT_UNDO, workspace_edit_undo},
-    {EDITOR_COMMAND_EDIT_REDO, workspace_edit_redo},
-    {EDITOR_COMMAND_EDIT_CUT, workspace_clipboard_cut_selection},
-    {EDITOR_COMMAND_EDIT_COPY, workspace_clipboard_copy_selection},
-    {EDITOR_COMMAND_EDIT_PASTE, workspace_clipboard_paste},
-    {EDITOR_COMMAND_EDIT_DELETE, workspace_edit_delete_selection},
-    {EDITOR_COMMAND_EDIT_SELECT_ALL, workspace_edit_select_all},
-    {EDITOR_COMMAND_VIEW_ZOOM_IN, workspace_view_zoom_in},
-    {EDITOR_COMMAND_VIEW_ZOOM_OUT, workspace_view_zoom_out},
-    {EDITOR_COMMAND_VIEW_ZOOM_FIT, workspace_view_zoom_to_fit},
-    {EDITOR_COMMAND_VIEW_TOGGLE_GRID, workspace_view_toggle_grid},
-    {EDITOR_COMMAND_VIEW_TOGGLE_INSPECTOR, workspace_view_toggle_inspector},
-    {EDITOR_COMMAND_HELP_SHORTCUTS, workspace_dialog_command_toggle_shortcuts},
-    {EDITOR_COMMAND_HELP_ABOUT, workspace_dialog_command_open_about},
-    {EDITOR_COMMAND_MODAL_CONFIRM, workspace_dialog_command_confirm},
-    {EDITOR_COMMAND_MODAL_CANCEL, workspace_dialog_command_cancel}
+#define GLDRAW_COMMAND_ROUTE(command, id, label, scope, menu_id, tool_id, availability, service, execute) \
+    {command, execute},
+    GLDRAW_STABLE_COMMANDS(GLDRAW_COMMAND_ROUTE)
+#undef GLDRAW_COMMAND_ROUTE
 };
 
 static CommandExecutionFn command_registry_lookup_execution(EditorCommand command)
@@ -57,6 +41,11 @@ static CommandExecutionFn command_registry_lookup_execution(EditorCommand comman
     }
 
     return NULL;
+}
+
+int command_registry_has_static_handler(EditorCommand command)
+{
+    return command_registry_lookup_execution(command) != NULL;
 }
 
 int command_registry_execute(Workspace* workspace,

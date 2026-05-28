@@ -422,6 +422,36 @@ static int test_persistence_round_trip(void)
     return g_failures == 0;
 }
 
+static int test_persistence_escapes_layer_names(void)
+{
+    Document saved;
+    Document loaded;
+    char path[L_tmpnam + 16];
+    LayerId layer_id = 0u;
+    const DocumentLayer* layer = NULL;
+    const char* escaped_name = "Layer \"A\" \\ B\nC";
+
+    document_init(&saved);
+    document_init(&loaded);
+
+    layer_id = document_create_layer(&saved, "temp");
+    EXPECT_TRUE(layer_id != 0u);
+    EXPECT_TRUE(document_rename_layer(&saved, layer_id, escaped_name));
+
+    EXPECT_TRUE(make_temp_path(path, sizeof(path), ".json"));
+    EXPECT_TRUE(document_save_json(&saved, path));
+    EXPECT_TRUE(document_load_json(&loaded, path));
+
+    layer = document_layer_find_const(&loaded, layer_id);
+    EXPECT_TRUE(layer != NULL);
+    EXPECT_STR_EQ(layer->name, escaped_name);
+
+    remove(path);
+    document_shutdown(&loaded);
+    document_shutdown(&saved);
+    return g_failures == 0;
+}
+
 static int test_persistence_ignores_unknown_fields(void)
 {
     Document document;
@@ -632,6 +662,7 @@ int main(void)
         {"command property undo/redo", test_command_executor_property_undo_redo},
         {"command move undo/redo", test_command_executor_move_undo_redo},
         {"persistence round trip", test_persistence_round_trip},
+        {"persistence escapes layer names", test_persistence_escapes_layer_names},
         {"persistence ignores unknown fields", test_persistence_ignores_unknown_fields},
         {"persistence rejects invalid json", test_persistence_rejects_invalid_json},
         {"path utils common cases", test_path_utils_common_cases},

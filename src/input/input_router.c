@@ -7,8 +7,8 @@
 #include <app/command_availability.h>
 #include <app/command_catalog.h>
 #include <app/command_registry.h>
-#include <app/workspace.h>
 #include <app/workspace_actions.h>
+#include <app/workspace_internal.h>
 #include <tools/tool.h>
 #include <tools/tool_controller.h>
 

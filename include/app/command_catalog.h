@@ -11,6 +11,12 @@
 /** Convert a registered tool index into its dynamic editor command value. */
 EditorCommand command_catalog_tool_command(int tool_index);
 
+/** Number of stable, non-tool commands in the built-in catalog. */
+int command_catalog_stable_count(void);
+
+/** Iterate stable, non-tool command metadata. Returns NULL for invalid index. */
+const CommandDescriptor* command_catalog_stable_at(int index);
+
 /**
  * Look up the registered tool descriptor for a dynamic tool command.
  * `out_tool_index` may be NULL.

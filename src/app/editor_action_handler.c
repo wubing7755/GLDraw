@@ -7,7 +7,7 @@
 #include <app/command_registry.h>
 #include <app/workspace_actions.h>
 #include <app/workspace_dialogs.h>
-#include <app/workspace.h>
+#include <app/workspace_internal.h>
 #include <commands/command.h>
 #include <tools/tool_controller.h>
 

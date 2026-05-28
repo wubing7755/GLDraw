@@ -5,7 +5,7 @@
 #include <app/workspace_tool_commands.h>
 
 #include <app/command_catalog.h>
-#include <app/workspace.h>
+#include <app/workspace_internal.h>
 #include <tools/tool_controller.h>
 
 int workspace_tool_activate_command(Workspace* workspace,

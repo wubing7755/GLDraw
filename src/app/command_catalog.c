@@ -4,6 +4,8 @@
  */
 #include <app/command_catalog.h>
 
+#include "command_definitions.h"
+
 #include <ui/ui_menu_def.h>
 
 #include <string.h>
@@ -11,33 +13,29 @@
 #define TOOL_DESCRIPTOR_CACHE_SIZE 4
 
 static const CommandDescriptor g_commands[] = {
-    {EDITOR_COMMAND_FILE_NEW, "file.new", "New", KEY_SCOPE_GLOBAL, MENU_ID_FILE_NEW, NULL},
-    {EDITOR_COMMAND_FILE_OPEN, "file.open", "Open", KEY_SCOPE_GLOBAL, MENU_ID_FILE_OPEN, NULL},
-    {EDITOR_COMMAND_FILE_SAVE, "file.save", "Save", KEY_SCOPE_GLOBAL, MENU_ID_FILE_SAVE, NULL},
-    {EDITOR_COMMAND_FILE_SAVE_AS, "file.save_as", "Save As", KEY_SCOPE_GLOBAL, MENU_ID_FILE_SAVE_AS, NULL},
-    {EDITOR_COMMAND_FILE_EXPORT_PNG, "file.export_png", "Export as PNG", KEY_SCOPE_GLOBAL, MENU_ID_FILE_EXPORT_PNG, NULL},
-    {EDITOR_COMMAND_FILE_EXIT, "file.exit", "Exit", KEY_SCOPE_GLOBAL, MENU_ID_FILE_EXIT, NULL},
-    {EDITOR_COMMAND_EDIT_UNDO, "edit.undo", "Undo", KEY_SCOPE_GLOBAL, MENU_ID_EDIT_UNDO, NULL},
-    {EDITOR_COMMAND_EDIT_REDO, "edit.redo", "Redo", KEY_SCOPE_GLOBAL, MENU_ID_EDIT_REDO, NULL},
-    {EDITOR_COMMAND_EDIT_CUT, "edit.cut", "Cut", KEY_SCOPE_GLOBAL, MENU_ID_EDIT_CUT, NULL},
-    {EDITOR_COMMAND_EDIT_COPY, "edit.copy", "Copy", KEY_SCOPE_GLOBAL, MENU_ID_EDIT_COPY, NULL},
-    {EDITOR_COMMAND_EDIT_PASTE, "edit.paste", "Paste", KEY_SCOPE_GLOBAL, MENU_ID_EDIT_PASTE, NULL},
-    {EDITOR_COMMAND_EDIT_DELETE, "edit.delete", "Delete", KEY_SCOPE_GLOBAL, MENU_ID_EDIT_DELETE, NULL},
-    {EDITOR_COMMAND_EDIT_SELECT_ALL, "edit.select_all", "Select All", KEY_SCOPE_GLOBAL, MENU_ID_EDIT_SELECT_ALL, NULL},
-    {EDITOR_COMMAND_VIEW_ZOOM_IN, "view.zoom_in", "Zoom In", KEY_SCOPE_GLOBAL, MENU_ID_VIEW_ZOOM_IN, NULL},
-    {EDITOR_COMMAND_VIEW_ZOOM_OUT, "view.zoom_out", "Zoom Out", KEY_SCOPE_GLOBAL, MENU_ID_VIEW_ZOOM_OUT, NULL},
-    {EDITOR_COMMAND_VIEW_ZOOM_FIT, "view.zoom_fit", "Zoom to Fit", KEY_SCOPE_GLOBAL, MENU_ID_VIEW_ZOOM_FIT, NULL},
-    {EDITOR_COMMAND_VIEW_TOGGLE_GRID, "view.toggle_grid", "Toggle Grid", KEY_SCOPE_GLOBAL, MENU_ID_VIEW_TOGGLE_GRID, NULL},
-    {EDITOR_COMMAND_VIEW_TOGGLE_INSPECTOR, "view.toggle_inspector", "Toggle Inspector", KEY_SCOPE_GLOBAL, MENU_ID_VIEW_TOGGLE_INSPECTOR, NULL},
-    {EDITOR_COMMAND_HELP_SHORTCUTS, "help.shortcuts", "Keyboard Shortcuts", KEY_SCOPE_GLOBAL, MENU_ID_HELP_SHORTCUTS, NULL},
-    {EDITOR_COMMAND_HELP_ABOUT, "help.about", "About", KEY_SCOPE_GLOBAL, MENU_ID_HELP_ABOUT, NULL},
-    {EDITOR_COMMAND_MODAL_CONFIRM, "modal.confirm", "Confirm", KEY_SCOPE_MODAL, MENU_ID_HELP, NULL},
-    {EDITOR_COMMAND_MODAL_CANCEL, "modal.cancel", "Cancel", KEY_SCOPE_MODAL, MENU_ID_HELP, NULL}
+#define GLDRAW_COMMAND_DESCRIPTOR(command, id, label, scope, menu_id, tool_id, availability, service, execute) \
+    {command, id, label, scope, menu_id, tool_id},
+    GLDRAW_STABLE_COMMANDS(GLDRAW_COMMAND_DESCRIPTOR)
+#undef GLDRAW_COMMAND_DESCRIPTOR
 };
 
 EditorCommand command_catalog_tool_command(int tool_index)
 {
     return EDITOR_COMMAND_DYNAMIC_TOOL_BASE + tool_index;
+}
+
+int command_catalog_stable_count(void)
+{
+    return (int)(sizeof(g_commands) / sizeof(g_commands[0]));
+}
+
+const CommandDescriptor* command_catalog_stable_at(int index)
+{
+    if (index < 0 || index >= command_catalog_stable_count()) {
+        return NULL;
+    }
+
+    return &g_commands[index];
 }
 
 static const CommandDescriptor* command_catalog_make_tool_descriptor(const ToolDescriptor* tool,
@@ -106,7 +104,7 @@ const CommandDescriptor* command_catalog_find_by_id(const char* command_id)
         return NULL;
     }
 
-    for (i = 0u; i < sizeof(g_commands) / sizeof(g_commands[0]); ++i) {
+    for (i = 0u; i < (size_t)command_catalog_stable_count(); ++i) {
         if (strcmp(g_commands[i].id, command_id) == 0) {
             return &g_commands[i];
         }
@@ -119,7 +117,7 @@ const CommandDescriptor* command_catalog_find_by_command(EditorCommand command)
 {
     size_t i = 0u;
 
-    for (i = 0u; i < sizeof(g_commands) / sizeof(g_commands[0]); ++i) {
+    for (i = 0u; i < (size_t)command_catalog_stable_count(); ++i) {
         if (g_commands[i].command == command) {
             return &g_commands[i];
         }
@@ -134,7 +132,11 @@ const CommandDescriptor* command_catalog_find_by_menu_id(int id)
 {
     size_t i = 0u;
 
-    for (i = 0u; i < sizeof(g_commands) / sizeof(g_commands[0]); ++i) {
+    if (id < 0) {
+        return NULL;
+    }
+
+    for (i = 0u; i < (size_t)command_catalog_stable_count(); ++i) {
         if (g_commands[i].menu_id == id) {
             return &g_commands[i];
         }

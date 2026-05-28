@@ -1,6 +1,11 @@
 /**
  * @file workspace_internal.h
  * @brief Internal workspace state layout for runtime modules and tests.
+ *
+ * This header intentionally exposes mutable subsystem access for app/runtime
+ * implementation files. External UI and integration code should use
+ * workspace.h, EditorViewModel, and EditorActionSink instead of depending on
+ * this layout.
  */
 #ifndef GLDRAW_APP_WORKSPACE_INTERNAL_H
 #define GLDRAW_APP_WORKSPACE_INTERNAL_H
@@ -48,5 +53,13 @@ struct Workspace {
     EditorSession session;
     EditorServices services;
 };
+
+Document* workspace_get_document(Workspace* workspace);
+CommandExecutor* workspace_get_command_executor(Workspace* workspace);
+CanvasView* workspace_get_canvas(Workspace* workspace);
+ToolController* workspace_get_tool_controller(Workspace* workspace);
+EditorKeymap* workspace_get_keymap(Workspace* workspace);
+SelectionSet* workspace_get_selection(Workspace* workspace);
+UiDialogState* workspace_get_active_dialog(Workspace* workspace);
 
 #endif /* GLDRAW_APP_WORKSPACE_INTERNAL_H */

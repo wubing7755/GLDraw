@@ -6,7 +6,7 @@
 #define GLDRAW_APP_EDITOR_ACTION_HANDLER_H
 
 #include <app/workspace_service_types.h>
-#include <ui/editor_action.h>
+#include <editor/editor_action.h>
 
 /** Execute one editor action against the current workspace state. */
 int editor_action_handler_dispatch(Workspace* workspace, const EditorAction* action);
