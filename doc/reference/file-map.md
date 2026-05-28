@@ -92,6 +92,8 @@
 - `src/ui/ui_layer_panel.c`
 - `src/ui/ui_dialog_runtime.c`
 - `src/ui/ui_layout.c`
+- `src/ui/ui_theme.c`
+  Theme registry, external theme loading, settings persistence, and Nuklear theme application.
 
 ### Understand rendering
 
@@ -118,4 +120,5 @@
 - `tests/test_document.c`
 - `tests/test_registry.c`
 - `tests/test_ui_logic.c`
+- `tests/test_ui_theme.c`
 - `tests/test_workspace_service.c`

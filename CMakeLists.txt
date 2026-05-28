@@ -552,6 +552,28 @@ set_target_properties(gldraw_ui_logic_tests PROPERTIES
 
 add_test(NAME gldraw_ui_logic_tests COMMAND $<TARGET_FILE:gldraw_ui_logic_tests>)
 
+add_executable(gldraw_ui_theme_tests
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_ui_theme.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_nuklear_impl.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ui_theme.c
+)
+
+target_include_directories(gldraw_ui_theme_tests
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+
+target_link_libraries(gldraw_ui_theme_tests PRIVATE editor_model)
+
+gldraw_apply_compile_options(gldraw_ui_theme_tests)
+gldraw_apply_sanitizers(gldraw_ui_theme_tests)
+
+set_target_properties(gldraw_ui_theme_tests PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+)
+
+add_test(NAME gldraw_ui_theme_tests COMMAND $<TARGET_FILE:gldraw_ui_theme_tests>)
+
 add_executable(gldraw_renderer_tests
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_renderer.c
 )
@@ -603,6 +625,7 @@ add_custom_target(gldraw_tests
         gldraw_fake_star_tests
         gldraw_no_builtin_knowledge_tests
         gldraw_ui_logic_tests
+        gldraw_ui_theme_tests
         gldraw_renderer_tests
         gldraw_workspace_service_tests
 )

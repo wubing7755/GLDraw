@@ -1,5 +1,26 @@
 # Refactor Log
 
+## 2026-05-28 - Phase 1: Theme System Regression Coverage
+
+- Branch:
+  `refactor-editor-architecture-roadmap`
+- Audit:
+  `src/ui/ui_theme.c` currently combines built-in theme definitions, external theme registry/reload, ad hoc JSON value extraction, hex color parsing, token clamp/validation, selected-theme settings persistence, external directory signatures, and Nuklear style application.
+  The intended split boundaries are built-ins, parse helpers, external loading, settings persistence, and Nuklear apply.
+- Modified files:
+  `tests/test_ui_theme.c`,
+  `tests/test_nuklear_impl.c`,
+  `CMakeLists.txt`,
+  `doc/reference/file-map.md`,
+  `REFACTOR_LOG.md`
+- Key changes:
+  Added focused theme regression coverage for default/built-in lookup, invalid theme fallback, external hex color loading, reload error rollback, selected theme ID load/save, compatibility settings key load, and numeric token clamp behavior.
+  Registered the new `gldraw_ui_theme_tests` target and included it in `gldraw_tests`.
+- Validation:
+  `cmake --build build --parallel` passed.
+  `ctest --test-dir build --output-on-failure` passed with 12/12 tests passing.
+  `git diff --check` passed.
+
 ## 2026-05-26 - P2: Complete UI Composition Refactor Round
 
 - Branch:
