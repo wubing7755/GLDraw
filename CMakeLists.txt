@@ -118,10 +118,15 @@ set(RENDER_GLFW_GL_SOURCES
 
 set(EDITOR_COMMANDS_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/commands/command.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/commands/command_create_object.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/commands/command_delete_selection.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/commands/command_executor.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/commands/command_layer_ops.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/commands/command_move_objects.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/commands/command_object_checks.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/commands/command_object_ops.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/commands/command_paste_objects.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/commands/command_set_property.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/commands/command_transaction.c
 )
 

@@ -54,6 +54,7 @@ The next refactor should not reduce layering for its own sake. It should turn pa
 - Document object persistence parsing and loaded-object construction live in `persistence_objects.c/.h`.
 - Document JSON writing lives in `persistence_write.c`.
 - Object command pre-execution validation lives in `command_object_checks.c`.
+- Create, delete-selection, move, paste, and set-property object command implementations live in separate command source files.
 - `render_system_draw()` consumes `RenderSceneDesc`.
 - This refactor round is complete for command routing, workspace API coupling, view-model construction, and low-risk UI composition cleanup.
 

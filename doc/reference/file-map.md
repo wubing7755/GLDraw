@@ -50,8 +50,13 @@
 - `include/app/workspace_layout_types.h`
 - `include/app/workspace_service_types.h`
 - `src/commands/command_executor.c`
+- `src/commands/command_create_object.c`
+- `src/commands/command_delete_selection.c`
+- `src/commands/command_move_objects.c`
 - `src/commands/command_object_checks.c`
 - `src/commands/command_object_ops.c`
+- `src/commands/command_paste_objects.c`
+- `src/commands/command_set_property.c`
 - `src/commands/command_layer_ops.c`
 - `src/commands/command_transaction.c`
 - `src/app/command_dispatcher.c`

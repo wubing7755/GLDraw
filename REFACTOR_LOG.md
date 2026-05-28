@@ -1,5 +1,29 @@
 # Refactor Log
 
+## 2026-05-28 - Phase 5: Split Object Command Implementations
+
+- Branch:
+  `refactor-editor-architecture-roadmap`
+- Modified files:
+  `src/commands/command_create_object.c`,
+  `src/commands/command_delete_selection.c`,
+  `src/commands/command_move_objects.c`,
+  `src/commands/command_paste_objects.c`,
+  `src/commands/command_set_property.c`,
+  `src/commands/command_object_ops.c`,
+  `CMakeLists.txt`,
+  `doc/reference/file-map.md`,
+  `doc/architecture/refactor-roadmap.md`,
+  `REFACTOR_LOG.md`
+- Key changes:
+  Split create-object, delete-selection, move-objects, paste-objects, and set-property command implementations into one source file per command type.
+  Kept public factory function names, command vtables, and command behavior unchanged.
+  Left `command_object_ops.c` as a minimal boundary note for the former aggregate module.
+- Validation:
+  `cmake --build build --parallel` passed.
+  `ctest --test-dir build --output-on-failure` passed with 12/12 tests passing.
+  `git diff --check` passed.
+
 ## 2026-05-28 - Phase 5: Split Object Command Execute Checks
 
 - Branch:
