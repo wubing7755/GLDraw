@@ -99,6 +99,8 @@
   External theme registry, file/directory reload, reload errors, and directory signatures.
 - `src/ui/ui_theme_parse.c`
   Theme JSON value extraction, color parsing, path-derived IDs, override application, and token clamping.
+- `src/ui/ui_theme_settings.c`
+  Selected theme ID settings load/save.
 - `src/ui/ui_theme_internal.h`
   Private theme-system constants and cross-module declarations.
 

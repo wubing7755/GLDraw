@@ -187,6 +187,7 @@ set(UI_NUKLEAR_GLFW_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ui_theme_builtin.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ui_theme_external.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ui_theme_parse.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ui_theme_settings.c
 )
 
 set(EDITOR_APP_SOURCES
@@ -562,6 +563,7 @@ add_executable(gldraw_ui_theme_tests
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ui_theme_builtin.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ui_theme_external.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ui_theme_parse.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ui_theme_settings.c
 )
 
 target_include_directories(gldraw_ui_theme_tests

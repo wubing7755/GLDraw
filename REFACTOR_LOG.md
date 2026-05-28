@@ -1,5 +1,24 @@
 # Refactor Log
 
+## 2026-05-28 - Phase 2: Split Theme Settings Persistence
+
+- Branch:
+  `refactor-editor-architecture-roadmap`
+- Modified files:
+  `src/ui/ui_theme_settings.c`,
+  `src/ui/ui_theme.c`,
+  `CMakeLists.txt`,
+  `doc/reference/file-map.md`,
+  `doc/architecture/refactor-roadmap.md`,
+  `REFACTOR_LOG.md`
+- Key changes:
+  Moved selected theme ID load/save behavior into `ui_theme_settings.c`.
+  Kept the public `ui_theme_load_selected_id()` and `ui_theme_save_selected_id()` API unchanged.
+- Validation:
+  `cmake --build build --parallel` passed.
+  `ctest --test-dir build --output-on-failure` passed with 12/12 tests passing.
+  `git diff --check` passed.
+
 ## 2026-05-28 - Phase 2: Split External Theme Loading
 
 - Branch:
