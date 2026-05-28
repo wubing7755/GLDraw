@@ -1,5 +1,25 @@
 # Refactor Log
 
+## 2026-05-28 - Phase 6: Split Application Workspace Service Callbacks
+
+- Branch:
+  `refactor-editor-architecture-roadmap`
+- Modified files:
+  `src/app/application_workspace_services.c`,
+  `src/app/application.c`,
+  `src/app/application_internal.h`,
+  `CMakeLists.txt`,
+  `doc/reference/file-map.md`,
+  `doc/architecture/refactor-roadmap.md`,
+  `REFACTOR_LOG.md`
+- Key changes:
+  Moved application-owned workspace save, save-as, export, load, and workspace action executor callbacks into `application_workspace_services.c`.
+  Added an internal `application_register_workspace_services()` hook so initialization only registers the callback set.
+- Validation:
+  `cmake --build build --parallel` passed.
+  `ctest --test-dir build --output-on-failure` passed with 12/12 tests passing.
+  `git diff --check` passed.
+
 ## 2026-05-28 - Phase 6: Split Application Platform Callbacks
 
 - Branch:

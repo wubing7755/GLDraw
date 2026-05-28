@@ -14,6 +14,8 @@
   App bootstrap and frame loop.
 - `src/app/application_callbacks.c`
   Platform window callbacks for pointer, key, scroll, framebuffer, and close events.
+- `src/app/application_workspace_services.c`
+  Application-owned workspace save/load/export and action executor callbacks.
 - `include/app/editor_controller.h`
   Workspace-level editor runtime facade for tool input and render scene state.
 - `include/app/workspace.h`

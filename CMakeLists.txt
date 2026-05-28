@@ -207,6 +207,7 @@ set(EDITOR_APP_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/app/application_dialog_actions.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/app/application_file_actions.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/app/application_runtime.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/app/application_workspace_services.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/platform/file_dialog.c
 )
 

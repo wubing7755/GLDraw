@@ -23,5 +23,6 @@ typedef struct Application {
 } Application;
 
 void application_register_platform_callbacks(Application* app);
+void application_register_workspace_services(Application* app);
 
 #endif /* GLDRAW_APP_APPLICATION_INTERNAL_H */
