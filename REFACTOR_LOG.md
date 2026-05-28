@@ -1,5 +1,22 @@
 # Refactor Log
 
+## 2026-05-28 - Phase 6: Consolidate Application Lifecycle
+
+- Branch:
+  `refactor-editor-architecture-roadmap`
+- Modified files:
+  `src/app/application.c`,
+  `doc/reference/file-map.md`,
+  `doc/architecture/refactor-roadmap.md`,
+  `REFACTOR_LOG.md`
+- Key changes:
+  Updated the `application.c` file contract to match its current role: lifecycle setup, shutdown, and frame sequencing.
+  Confirmed platform callbacks and workspace service callbacks are delegated through focused internal registration modules.
+- Validation:
+  `cmake --build build --parallel` passed.
+  `ctest --test-dir build --output-on-failure` passed with 12/12 tests passing.
+  `git diff --check` passed.
+
 ## 2026-05-28 - Phase 6: Split Application Workspace Service Callbacks
 
 - Branch:

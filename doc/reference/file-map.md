@@ -11,7 +11,7 @@
 - `src/main.c`
   Process entrypoint, forwards to `app_run()`.
 - `src/app/application.c`
-  App bootstrap and frame loop.
+  App lifecycle, subsystem setup/teardown, and frame loop.
 - `src/app/application_callbacks.c`
   Platform window callbacks for pointer, key, scroll, framebuffer, and close events.
 - `src/app/application_workspace_services.c`

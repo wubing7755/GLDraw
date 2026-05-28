@@ -1,14 +1,14 @@
 /**
  * @file application.c
- * @brief Runtime bootstrap, event wiring, and main loop orchestration.
+ * @brief Application lifecycle and frame loop orchestration.
  *
  * Role in project:
  * - Owns application lifetime from initialization to shutdown.
- * - Wires platform, workspace, render, UI, and persistence subsystems.
+ * - Sequences subsystem setup, per-frame work, and teardown.
  *
  * Module relationships:
- * - Uses workspace as central state container.
- * - Coordinates platform window, render system, UI system, tools, and persistence.
+ * - Delegates platform callbacks and workspace service callbacks to focused modules.
+ * - Coordinates platform window, render system, UI system, and workspace runtime state.
  */
 #include <app/application.h>
 

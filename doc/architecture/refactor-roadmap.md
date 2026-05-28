@@ -57,6 +57,7 @@ The next refactor should not reduce layering for its own sake. It should turn pa
 - Create, delete-selection, move, paste, and set-property object command implementations live in separate command source files.
 - Platform window callbacks live in `application_callbacks.c`, leaving registration in the application lifecycle.
 - Application-owned workspace save/load/export and workspace action callbacks live in `application_workspace_services.c`.
+- `application.c` is scoped to lifecycle setup, shutdown, and frame sequencing.
 - `render_system_draw()` consumes `RenderSceneDesc`.
 - This refactor round is complete for command routing, workspace API coupling, view-model construction, and low-risk UI composition cleanup.
 
