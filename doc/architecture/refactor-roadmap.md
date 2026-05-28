@@ -48,6 +48,7 @@ The next refactor should not reduce layering for its own sake. It should turn pa
 - External theme registry state, file/directory reload, reload errors, and directory signatures live in `ui_theme_external.c`.
 - Theme JSON extraction, color parsing, path-derived IDs, override application, and token clamping live in `ui_theme_parse.c`.
 - Selected theme ID settings load/save lives in `ui_theme_settings.c`.
+- Nuklear stylesheet mapping for theme tokens lives in `ui_theme_apply.c`.
 - `render_system_draw()` consumes `RenderSceneDesc`.
 - This refactor round is complete for command routing, workspace API coupling, view-model construction, and low-risk UI composition cleanup.
 

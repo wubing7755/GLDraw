@@ -92,6 +92,8 @@
 - `src/ui/ui_layer_panel.c`
 - `src/ui/ui_dialog_runtime.c`
 - `src/ui/ui_layout.c`
+- `src/ui/ui_theme_apply.c`
+  Nuklear stylesheet application for theme tokens.
 - `src/ui/ui_theme.c`
 - `src/ui/ui_theme_builtin.c`
   Built-in theme descriptors and token presets.

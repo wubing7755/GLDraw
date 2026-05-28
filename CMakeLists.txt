@@ -184,6 +184,7 @@ set(UI_NUKLEAR_GLFW_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ui_menubar.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ui_menubar_render.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ui_theme.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ui_theme_apply.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ui_theme_builtin.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ui_theme_external.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ui_theme_parse.c
@@ -560,6 +561,7 @@ add_executable(gldraw_ui_theme_tests
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_ui_theme.c
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_nuklear_impl.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ui_theme.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ui_theme_apply.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ui_theme_builtin.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ui_theme_external.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ui_theme_parse.c

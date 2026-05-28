@@ -1,5 +1,24 @@
 # Refactor Log
 
+## 2026-05-28 - Phase 2: Split Nuklear Theme Application
+
+- Branch:
+  `refactor-editor-architecture-roadmap`
+- Modified files:
+  `src/ui/ui_theme_apply.c`,
+  `src/ui/ui_theme.c`,
+  `CMakeLists.txt`,
+  `doc/reference/file-map.md`,
+  `doc/architecture/refactor-roadmap.md`,
+  `REFACTOR_LOG.md`
+- Key changes:
+  Moved `ui_theme_apply()` and its color-mixing helper into `ui_theme_apply.c`.
+  Kept public theme lookup/orchestration APIs in `ui_theme.c`.
+- Validation:
+  `cmake --build build --parallel` passed.
+  `ctest --test-dir build --output-on-failure` passed with 12/12 tests passing.
+  `git diff --check` passed after removing a trailing blank line.
+
 ## 2026-05-28 - Phase 2: Split Theme Settings Persistence
 
 - Branch:
