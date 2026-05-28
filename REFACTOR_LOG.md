@@ -1,5 +1,26 @@
 # Refactor Log
 
+## 2026-05-28 - Phase 2: Split Built-In Theme Definitions
+
+- Branch:
+  `refactor-editor-architecture-roadmap`
+- Modified files:
+  `src/ui/ui_theme_builtin.c`,
+  `src/ui/ui_theme_internal.h`,
+  `src/ui/ui_theme.c`,
+  `CMakeLists.txt`,
+  `doc/reference/file-map.md`,
+  `doc/architecture/refactor-roadmap.md`,
+  `REFACTOR_LOG.md`
+- Key changes:
+  Moved light, dark plus, and high-contrast token construction plus built-in descriptor lookup/count helpers into `ui_theme_builtin.c`.
+  Added a private `ui_theme_internal.h` boundary for shared theme constants and built-in helper declarations while keeping `include/ui/ui_theme.h` unchanged.
+  Left external theme loading, settings persistence, parsing, and Nuklear apply behavior in `ui_theme.c` for subsequent focused splits.
+- Validation:
+  `cmake --build build --parallel` passed.
+  `ctest --test-dir build --output-on-failure` passed with 12/12 tests passing.
+  `git diff --check` passed.
+
 ## 2026-05-28 - Phase 1: Theme System Regression Coverage
 
 - Branch:

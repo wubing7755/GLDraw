@@ -93,7 +93,10 @@
 - `src/ui/ui_dialog_runtime.c`
 - `src/ui/ui_layout.c`
 - `src/ui/ui_theme.c`
-  Theme registry, external theme loading, settings persistence, and Nuklear theme application.
+- `src/ui/ui_theme_builtin.c`
+  Built-in theme descriptors and token presets.
+- `src/ui/ui_theme_internal.h`
+  Private theme-system constants and cross-module declarations.
 
 ### Understand rendering
 

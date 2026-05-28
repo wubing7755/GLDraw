@@ -44,6 +44,7 @@ The next refactor should not reduce layering for its own sake. It should turn pa
 - Inspector selection/property rendering and layer controls are split across `ui_inspector_panel.c` and `ui_layer_panel.c`.
 - Menu bar state/lifecycle and Nuklear rendering are split across `ui_menubar.c` and `ui_menubar_render.c`.
 - Context menu lifecycle/input handling and Nuklear item rendering are split across `ui_context_menu.c` and `ui_context_menu_render.c`.
+- Theme built-in descriptors and token presets live in `ui_theme_builtin.c`, with private theme-system declarations in `ui_theme_internal.h`.
 - `render_system_draw()` consumes `RenderSceneDesc`.
 - This refactor round is complete for command routing, workspace API coupling, view-model construction, and low-risk UI composition cleanup.
 
