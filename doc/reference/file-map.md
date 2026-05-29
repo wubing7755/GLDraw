@@ -40,6 +40,10 @@
 
 ### Understand document storage and queries
 
+- `include/document/document.h`
+  Public opaque document API and object/layer query surface.
+- `include/document/document_internal.h`
+  Private document storage layout for document implementation files and internal-state tests.
 - `src/document/document.c`
 - `src/document/document_objects.c`
 - `src/document/document_layers.c`

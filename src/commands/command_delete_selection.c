@@ -70,6 +70,7 @@ Command* command_create_delete_selection(const Document* document,
     DeleteSelectionCommand* command = NULL;
     int i = 0;
     int count = 0;
+    int object_count = 0;
 
     if (!document || !selection || selection->count <= 0) {
         return NULL;
@@ -89,8 +90,9 @@ Command* command_create_delete_selection(const Document* document,
         return NULL;
     }
 
-    for (i = 0; i < document->count; ++i) {
-        const GraphicObject* object = document->objects[i];
+    object_count = document_object_count(document);
+    for (i = 0; i < object_count; ++i) {
+        const GraphicObject* object = document_get_object_at_const(document, i);
         if (object && selection_set_contains(selection, object->id)) {
             command->objects[count] = object_clone(object);
             if (!command->objects[count]) {

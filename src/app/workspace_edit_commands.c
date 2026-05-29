@@ -96,6 +96,7 @@ int workspace_edit_select_all(Workspace* workspace)
 {
     Document* document = workspace_get_document(workspace);
     SelectionSet* selection = workspace_get_selection(workspace);
+    int object_count = 0;
     int i = 0;
 
     if (!document || !selection) {
@@ -103,7 +104,8 @@ int workspace_edit_select_all(Workspace* workspace)
     }
 
     selection_set_clear(selection);
-    for (i = 0; i < document->count; ++i) {
+    object_count = document_object_count(document);
+    for (i = 0; i < object_count; ++i) {
         GraphicObject* object = document_get_object_at(document, i);
         if (object &&
             !document_layer_is_locked(document, object->layer_id)) {

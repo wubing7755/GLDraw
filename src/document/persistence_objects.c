@@ -2,6 +2,8 @@
 
 #include <base/log.h>
 
+#include "document_internal.h"
+
 #include <stdio.h>
 #include <string.h>
 

@@ -2,6 +2,8 @@
 
 #include <base/file_utils.h>
 
+#include "document_internal.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 

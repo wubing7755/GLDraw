@@ -19,6 +19,46 @@
   `ctest --test-dir build --output-on-failure` passed.
   `git diff --check` passed.
 
+## 2026-05-29 - R2: Make Document Storage Opaque To Public Callers
+
+- Branch:
+  `refactor-input-document-render-boundaries`
+- Modified files:
+  `include/document/document.h`,
+  `include/document/document_internal.h`,
+  `include/app/workspace_internal.h`,
+  `src/canvas/canvas_view.c`,
+  `src/render/canvas_drawlist.c`,
+  `src/render/render_system.c`,
+  `src/commands/command_delete_selection.c`,
+  `src/commands/command_paste_objects.c`,
+  `src/app/workspace.c`,
+  `src/app/workspace_edit_commands.c`,
+  `src/app/editor_viewmodel.c`,
+  `src/document/document_internal.h`,
+  `src/document/document_objects.c`,
+  `src/document/persistence.c`,
+  `src/document/persistence_layers.c`,
+  `src/document/persistence_objects.c`,
+  `src/document/persistence_write.c`,
+  `tests/test_commands.c`,
+  `tests/test_document.c`,
+  `tests/test_document_core.c`,
+  `tests/test_fake_star.c`,
+  `tests/test_renderer.c`,
+  `tests/test_script_runtime.c`,
+  `doc/reference/file-map.md`,
+  `doc/architecture/refactor-roadmap.md`,
+  `REFACTOR_LOG.md`
+- Key changes:
+  Moved the `Document` storage layout into a private internal header and converted the public header to an opaque forward declaration with explicit query helpers for object count, revision, and next object ID.
+  Updated canvas rendering, render cache keys, edit commands, workspace dirty tracking, and view-model building to use the new accessors instead of direct field reads.
+  Kept document implementation and internal-state tests on the internal layout header so storage assertions remain possible without widening the public API again.
+- Validation:
+  `cmake --build build --parallel` passed.
+  `ctest --test-dir build --output-on-failure` passed.
+  `git diff --check` passed.
+
 ## 2026-05-28 - Phase 7: Final Audit and Wrap-Up
 
 - Branch:

@@ -2,6 +2,7 @@
 
 #include <app/extension_loader.h>
 #include <base/math2d.h>
+#include <document/document_internal.h>
 
 #include <math.h>
 #include <stdio.h>

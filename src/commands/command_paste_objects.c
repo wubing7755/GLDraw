@@ -95,6 +95,7 @@ Command* command_create_paste_objects(const Document* document,
 {
     PasteObjectsCommand* command = NULL;
     int i = 0;
+    ObjectId next_id = 0u;
 
     if (!document || !object_snapshots || object_count <= 0 || layer_id == 0u) {
         return NULL;
@@ -118,6 +119,7 @@ Command* command_create_paste_objects(const Document* document,
     command->base.vtable = &PASTE_OBJECTS_VTABLE;
     command->object_count = object_count;
     command->layer_id = layer_id;
+    next_id = document_next_object_id(document);
     if (out_selection) {
         selection_set_clear(out_selection);
         if (!selection_set_reserve(out_selection, object_count)) {
@@ -135,7 +137,7 @@ Command* command_create_paste_objects(const Document* document,
 
         object_translate(command->object_snapshots[i], delta);
         command->object_snapshots[i]->layer_id = layer_id;
-        command->object_snapshots[i]->id = document->next_id + (ObjectId)i;
+        command->object_snapshots[i]->id = next_id + (ObjectId)i;
         command->object_ids[i] = command->object_snapshots[i]->id;
 
         if (out_selection) {

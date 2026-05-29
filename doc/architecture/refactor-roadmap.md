@@ -55,6 +55,7 @@ The next refactor should not reduce layering for its own sake. It should turn pa
 - Document JSON writing lives in `persistence_write.c`.
 - Object command pre-execution validation lives in `command_object_checks.c`.
 - Create, delete-selection, move, paste, and set-property object command implementations live in separate command source files.
+- `Document` storage layout now lives in `include/document/document_internal.h`; public callers use the opaque `Document` API plus object/layer query functions.
 - Platform window callbacks live in `application_callbacks.c`, leaving registration in the application lifecycle.
 - Platform window event dispatch now fans out key, character, mouse-button, and scroll input to Nuklear before application callbacks, keeping immediate-mode UI input ownership in the platform adapter rather than in application code.
 - Application-owned workspace save/load/export and workspace action callbacks live in `application_workspace_services.c`.

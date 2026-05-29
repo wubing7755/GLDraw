@@ -388,6 +388,7 @@ GraphicObject* canvas_view_pick_object(const CanvasView* canvas, Vec2 screen_poi
     float tolerance_world = 0.0f;
     int* indices = NULL;
     int candidate_count = 0;
+    int object_count = 0;
     int i = 0;
 
     if (!canvas || !canvas->document) {
@@ -396,8 +397,9 @@ GraphicObject* canvas_view_pick_object(const CanvasView* canvas, Vec2 screen_poi
 
     world_point = canvas_view_screen_to_world(canvas, screen_point);
     tolerance_world = canvas_view_world_tolerance_for_pixels(canvas, tolerance_pixels);
-    if (canvas->document->count > 0) {
-        indices = (int*)malloc((size_t)canvas->document->count * sizeof(indices[0]));
+    object_count = document_object_count(canvas->document);
+    if (object_count > 0) {
+        indices = (int*)malloc((size_t)object_count * sizeof(indices[0]));
         if (!indices) {
             return NULL;
         }
@@ -407,16 +409,16 @@ GraphicObject* canvas_view_pick_object(const CanvasView* canvas, Vec2 screen_poi
                                                    world_point,
                                                    tolerance_world,
                                                    indices,
-                                                   canvas->document->count);
+                                                   object_count);
     if (candidate_count <= 0) {
-        candidate_count = canvas->document->count;
+        candidate_count = object_count;
         for (i = 0; i < candidate_count; ++i) {
             indices[i] = i;
         }
     }
 
     for (i = candidate_count - 1; i >= 0; --i) {
-        GraphicObject* object = canvas->document->objects[indices[i]];
+        GraphicObject* object = document_get_object_at(canvas->document, indices[i]);
         if (object &&
             !document_layer_is_locked(canvas->document, object->layer_id) &&
             object_hit_test(object, world_point, tolerance_world)) {

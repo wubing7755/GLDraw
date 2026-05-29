@@ -13,6 +13,7 @@
 #include <app/editor_session.h>
 #include <app/workspace.h>
 #include <base/path_utils.h>
+#include <document/document_internal.h>
 
 typedef struct EditorCore {
     Document document;

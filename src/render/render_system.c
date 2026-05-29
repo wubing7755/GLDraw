@@ -53,7 +53,7 @@ static RenderSceneCacheKey render_system_scene_cache_key(const RenderSceneDesc* 
 {
     RenderSceneCacheKey key;
 
-    key.document_revision = scene && scene->document ? scene->document->revision : 0u;
+    key.document_revision = scene && scene->document ? document_revision(scene->document) : 0u;
     key.overlay_revision = scene && scene->overlay_object
                                ? scene->overlay_object->revision
                                : 0u;

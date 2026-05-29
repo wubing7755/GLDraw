@@ -274,6 +274,7 @@ int canvas_drawlist_build(CanvasDrawList* draw_list,
     int* visible_indices = NULL;
     int visible_count = 0;
     int layer_index = 0;
+    int object_count = 0;
     int success = 0;
 
     if (!draw_list || !document || !canvas) {
@@ -288,8 +289,9 @@ int canvas_drawlist_build(CanvasDrawList* draw_list,
         goto cleanup;
     }
 
-    if (document->count > 0) {
-        visible_indices = (int*)malloc((size_t)document->count * sizeof(visible_indices[0]));
+    object_count = document_object_count(document);
+    if (object_count > 0) {
+        visible_indices = (int*)malloc((size_t)object_count * sizeof(visible_indices[0]));
         if (!visible_indices) {
             goto cleanup;
         }
@@ -299,11 +301,11 @@ int canvas_drawlist_build(CanvasDrawList* draw_list,
     visible_count = document_query_visible_indices(document,
                                                    visible_rect,
                                                    visible_indices,
-                                                   document->count);
+                                                   object_count);
 
-    if (visible_count <= 0 && document->count > 0) {
+    if (visible_count <= 0 && object_count > 0) {
         int i = 0;
-        visible_count = document->count;
+        visible_count = object_count;
         for (i = 0; i < visible_count; ++i) {
             visible_indices[i] = i;
         }
@@ -318,7 +320,8 @@ int canvas_drawlist_build(CanvasDrawList* draw_list,
         }
 
         for (i = 0; i < visible_count; ++i) {
-            const GraphicObject* object = document->objects[visible_indices[i]];
+            const GraphicObject* object =
+                document_get_object_at_const(document, visible_indices[i]);
             int selected = object && selection && selection_set_contains(selection, object->id);
             Vec2 preview_delta = (selection_preview_active && selected)
                                      ? selection_preview_delta

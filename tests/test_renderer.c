@@ -1,5 +1,5 @@
 #include <canvas/canvas_view.h>
-#include <document/document.h>
+#include <document/document_internal.h>
 #include <render/canvas_drawlist.h>
 #include <render/canvas_renderer.h>
 #include <render/render_system.h>

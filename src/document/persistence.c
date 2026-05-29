@@ -15,6 +15,7 @@
 #include <base/file_utils.h>
 #include <base/log.h>
 
+#include "document_internal.h"
 #include "persistence_layers.h"
 #include "persistence_json.h"
 #include "persistence_objects.h"
