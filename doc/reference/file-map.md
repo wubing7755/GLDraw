@@ -86,6 +86,8 @@
 
 ### Understand tool interactions
 
+- `include/tools/tool.h`
+  Tool descriptors plus platform-neutral tool input constants.
 - `src/tools/tool_runtime.c`
 - `src/tools/tool_input_dispatch.c`
 - `src/tools/tool_select.c`

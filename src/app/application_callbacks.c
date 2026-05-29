@@ -5,8 +5,42 @@
 #include <app/workspace_actions.h>
 #include <base/math2d.h>
 #include <input/input_router.h>
+#include <tools/tool.h>
 
 #include <GLFW/glfw3.h>
+
+static int tool_button_from_glfw(int button)
+{
+    switch (button) {
+    case GLFW_MOUSE_BUTTON_LEFT:
+        return TOOL_POINTER_BUTTON_LEFT;
+    case GLFW_MOUSE_BUTTON_RIGHT:
+        return TOOL_POINTER_BUTTON_RIGHT;
+    case GLFW_MOUSE_BUTTON_MIDDLE:
+        return TOOL_POINTER_BUTTON_MIDDLE;
+    default:
+        return TOOL_POINTER_BUTTON_UNKNOWN;
+    }
+}
+
+static int tool_mods_from_glfw(int mods)
+{
+    int tool_mods = 0;
+
+    if ((mods & GLFW_MOD_SHIFT) != 0) {
+        tool_mods |= TOOL_INPUT_MOD_SHIFT;
+    }
+    if ((mods & GLFW_MOD_CONTROL) != 0) {
+        tool_mods |= TOOL_INPUT_MOD_CONTROL;
+    }
+    if ((mods & GLFW_MOD_ALT) != 0) {
+        tool_mods |= TOOL_INPUT_MOD_ALT;
+    }
+    if ((mods & GLFW_MOD_SUPER) != 0) {
+        tool_mods |= TOOL_INPUT_MOD_SUPER;
+    }
+    return tool_mods;
+}
 
 static void framebuffer_size_callback(PlatformWindow* window,
                                       int width,
@@ -79,7 +113,10 @@ static void mouse_button_callback(PlatformWindow* window,
             return;
         }
         context = application_runtime_tool_context(app);
-        event = application_runtime_make_tool_event(app, button, mods, 0.0f);
+        event = application_runtime_make_tool_event(app,
+                                                   tool_button_from_glfw(button),
+                                                   tool_mods_from_glfw(mods),
+                                                   0.0f);
         editor_controller_pointer_down(app->workspace, &context, &event);
     } else if (action == GLFW_RELEASE) {
         /* Ignore release outside canvas unless pointer capture is active. */
@@ -90,7 +127,10 @@ static void mouse_button_callback(PlatformWindow* window,
             return;
         }
         context = application_runtime_tool_context(app);
-        event = application_runtime_make_tool_event(app, button, mods, 0.0f);
+        event = application_runtime_make_tool_event(app,
+                                                   tool_button_from_glfw(button),
+                                                   tool_mods_from_glfw(mods),
+                                                   0.0f);
         editor_controller_pointer_up(app->workspace, &context, &event);
     }
 }

@@ -40,6 +40,7 @@ The next refactor should not reduce layering for its own sake. It should turn pa
 - Application code owns an opaque `Workspace*` instead of embedding workspace internals.
 - Outer app/input/UI/view-model/controller layers no longer include `workspace_internal.h`.
 - `input_router.c` now consumes public workspace/keymap APIs and routes tool key events through `editor_controller`, keeping keyboard routing outside the concrete workspace storage layout.
+- Built-in tools now consume `ToolPointerButton`, `ToolInputModifier`, and `ToolInputKey` values from `include/tools/tool.h`; GLFW button/key/modifier values are mapped at the application/input boundary.
 - `EditorViewModel` construction is split by view concern behind the stable public view-model shape.
 - `ui_system_build()` lives in `ui_frame.c`.
 - Inspector selection/property rendering and layer controls are split across `ui_inspector_panel.c` and `ui_layer_panel.c`.

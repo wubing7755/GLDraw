@@ -78,6 +78,29 @@
   `ctest --test-dir build --output-on-failure` passed.
   `git diff --check` passed.
 
+## 2026-05-29 - R4: Decouple Tools From GLFW Input Constants
+
+- Branch:
+  `refactor-input-document-render-boundaries`
+- Modified files:
+  `include/tools/tool.h`,
+  `src/app/application_callbacks.c`,
+  `src/input/input_router.c`,
+  `src/tools/tool_select.c`,
+  `src/tools/tool_pan.c`,
+  `src/tools/tool_shape.c`,
+  `doc/reference/file-map.md`,
+  `doc/architecture/refactor-roadmap.md`,
+  `REFACTOR_LOG.md`
+- Key changes:
+  Added platform-neutral tool input constants for pointer buttons, modifiers, and keys.
+  Mapped GLFW button/modifier/key values at the application and input-router boundaries before dispatching to tools.
+  Removed GLFW includes and GLFW constants from built-in tool implementations.
+- Validation:
+  `cmake --build build --parallel` passed.
+  `ctest --test-dir build --output-on-failure` passed.
+  `git diff --check` passed.
+
 ## 2026-05-28 - Phase 7: Final Audit and Wrap-Up
 
 - Branch:

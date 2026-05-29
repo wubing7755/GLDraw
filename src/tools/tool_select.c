@@ -4,8 +4,6 @@
 #include <canvas/canvas_view.h>
 #include <commands/command.h>
 
-#include <GLFW/glfw3.h>
-
 #include <stdlib.h>
 #include <string.h>
 
@@ -86,7 +84,7 @@ static int select_tool_pointer_down(Tool* tool, ToolContext* context,
     GraphicObject* hit = NULL;
     int i = 0;
 
-    if (!state || !context || !event || event->button != GLFW_MOUSE_BUTTON_LEFT) {
+    if (!state || !context || !event || event->button != TOOL_POINTER_BUTTON_LEFT) {
         return 0;
     }
 
@@ -97,13 +95,13 @@ static int select_tool_pointer_down(Tool* tool, ToolContext* context,
     tool_context_set_selection_preview(context, 0, vec2_make(0.0f, 0.0f));
     hit = canvas_view_pick_object(context->canvas, event->screen_pos, 8.0f);
     if (!hit) {
-        if ((event->mods & GLFW_MOD_SHIFT) == 0) {
+        if ((event->mods & TOOL_INPUT_MOD_SHIFT) == 0) {
             selection_set_clear(context->selection);
         }
         return 0;
     }
 
-    if ((event->mods & GLFW_MOD_SHIFT) != 0) {
+    if ((event->mods & TOOL_INPUT_MOD_SHIFT) != 0) {
         selection_set_toggle(context->selection, hit->id);
         state->dragging = selection_set_contains(context->selection, hit->id);
     } else {
@@ -187,7 +185,7 @@ static void select_tool_key_down(Tool* tool, ToolContext* context, int key, int 
 {
     (void)tool;
     (void)mods;
-    if (context && key == GLFW_KEY_ESCAPE) {
+    if (context && key == TOOL_INPUT_KEY_ESCAPE) {
         selection_set_clear(context->selection);
     }
 }

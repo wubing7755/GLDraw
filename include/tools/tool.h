@@ -19,6 +19,25 @@ struct CanvasView;
 #define TOOL_ID_RECT "rect"
 #define TOOL_ID_ELLIPSE "ellipse"
 
+typedef enum ToolPointerButton {
+    TOOL_POINTER_BUTTON_UNKNOWN = -1,
+    TOOL_POINTER_BUTTON_LEFT = 0,
+    TOOL_POINTER_BUTTON_RIGHT = 1,
+    TOOL_POINTER_BUTTON_MIDDLE = 2
+} ToolPointerButton;
+
+typedef enum ToolInputModifier {
+    TOOL_INPUT_MOD_SHIFT = 0x0001,
+    TOOL_INPUT_MOD_CONTROL = 0x0002,
+    TOOL_INPUT_MOD_ALT = 0x0004,
+    TOOL_INPUT_MOD_SUPER = 0x0008
+} ToolInputModifier;
+
+typedef enum ToolInputKey {
+    TOOL_INPUT_KEY_UNKNOWN = 0,
+    TOOL_INPUT_KEY_ESCAPE = 256
+} ToolInputKey;
+
 /* ShapeToolConfig: reusable configuration for shape-drawing tools.
  * Extension tools can provide their own config and call register_shape_tool()
  * to get a fully-functional drawing tool without reimplementing the

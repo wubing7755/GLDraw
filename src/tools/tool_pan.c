@@ -2,8 +2,6 @@
 
 #include <canvas/canvas_view.h>
 
-#include <GLFW/glfw3.h>
-
 typedef struct {
     int panning;
 } PanToolState;
@@ -28,7 +26,7 @@ static int pan_tool_pointer_down(Tool* tool, ToolContext* context,
 {
     PanToolState* state = tool ? (PanToolState*)tool->state : NULL;
     (void)context;
-    if (!state || !event || event->button != GLFW_MOUSE_BUTTON_LEFT) {
+    if (!state || !event || event->button != TOOL_POINTER_BUTTON_LEFT) {
         return 0;
     }
     state->panning = 1;
@@ -61,7 +59,7 @@ static void pan_tool_key_down(Tool* tool, ToolContext* context, int key, int mod
     PanToolState* state = tool ? (PanToolState*)tool->state : NULL;
     (void)context;
     (void)mods;
-    if (state && key == GLFW_KEY_ESCAPE) {
+    if (state && key == TOOL_INPUT_KEY_ESCAPE) {
         state->panning = 0;
     }
 }

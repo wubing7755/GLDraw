@@ -14,6 +14,35 @@
 
 #include <GLFW/glfw3.h>
 
+static int tool_key_from_glfw(int key)
+{
+    switch (key) {
+    case GLFW_KEY_ESCAPE:
+        return TOOL_INPUT_KEY_ESCAPE;
+    default:
+        return TOOL_INPUT_KEY_UNKNOWN;
+    }
+}
+
+static int tool_mods_from_glfw(int mods)
+{
+    int tool_mods = 0;
+
+    if ((mods & GLFW_MOD_SHIFT) != 0) {
+        tool_mods |= TOOL_INPUT_MOD_SHIFT;
+    }
+    if ((mods & GLFW_MOD_CONTROL) != 0) {
+        tool_mods |= TOOL_INPUT_MOD_CONTROL;
+    }
+    if ((mods & GLFW_MOD_ALT) != 0) {
+        tool_mods |= TOOL_INPUT_MOD_ALT;
+    }
+    if ((mods & GLFW_MOD_SUPER) != 0) {
+        tool_mods |= TOOL_INPUT_MOD_SUPER;
+    }
+    return tool_mods;
+}
+
 int input_router_handle_key(const InputRouterContext* context, const KeyEvent* event)
 {
     KeyChord chord;
@@ -54,7 +83,7 @@ int input_router_handle_key(const InputRouterContext* context, const KeyEvent* e
 
     editor_controller_key_down(context->workspace,
                                context->tool_context,
-                               event->key,
-                               event->mods);
+                               tool_key_from_glfw(event->key),
+                               tool_mods_from_glfw(event->mods));
     return 1;
 }

@@ -3,8 +3,6 @@
 #include <commands/command.h>
 #include <document/document.h>
 
-#include <GLFW/glfw3.h>
-
 #include <math.h>
 #include <string.h>
 
@@ -106,7 +104,7 @@ static int shape_tool_pointer_down(Tool* tool, ToolContext* context,
         ? (const ShapeToolConfig*)tool->descriptor->user_data : NULL;
     GraphicStyle style = object_default_style();
 
-    if (!state || !config || !event || event->button != GLFW_MOUSE_BUTTON_LEFT) {
+    if (!state || !config || !event || event->button != TOOL_POINTER_BUTTON_LEFT) {
         return 0;
     }
     if (!context || !context->document ||
@@ -185,7 +183,7 @@ static void shape_tool_pointer_up(Tool* tool, ToolContext* context,
 static void shape_tool_key_down(Tool* tool, ToolContext* context, int key, int mods)
 {
     (void)mods;
-    if (key == GLFW_KEY_ESCAPE) {
+    if (key == TOOL_INPUT_KEY_ESCAPE) {
         shape_tool_deactivate(tool, context);
     }
 }
