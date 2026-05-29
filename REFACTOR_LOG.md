@@ -1,5 +1,22 @@
 # Refactor Log
 
+## 2026-05-29 - R2: Tighten Window And Nuklear GL Lifetimes
+
+- Branch:
+  `refactor-render-scene-snapshot-boundaries`
+- Modified files:
+  `include/nuklear/nuklear_glfw_gl3.h`,
+  `src/platform/window.c`,
+  `doc/architecture/refactor-roadmap.md`,
+  `REFACTOR_LOG.md`
+- Key changes:
+  Matched the Nuklear GL3 backend's VAO creation with explicit VAO deletion during device teardown and cleared device handles after release.
+  Kept single-window behavior unchanged while making `platform_window_shutdown()` terminate GLFW only after the final tracked window is removed.
+- Validation:
+  `cmake --build build --parallel` passed.
+  `ctest --test-dir build --output-on-failure` passed.
+  `git diff --check` passed.
+
 ## 2026-05-29 - R1: Capture Render Scene Snapshots Internally
 
 - Branch:

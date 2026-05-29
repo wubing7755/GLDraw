@@ -271,7 +271,7 @@ void platform_window_shutdown(PlatformWindow* window)
     free(window->handle);
     window->handle = NULL;
 
-    if (g_glfw_initialized) {
+    if (g_glfw_initialized && !g_window_list) {
         glfwTerminate();
         g_glfw_initialized = 0;
     }
