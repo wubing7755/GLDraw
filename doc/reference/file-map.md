@@ -3,7 +3,7 @@
 > Audience: contributors, maintainers
 > Purpose: provide fast entrypoints into the source tree by task
 > Source of truth: current source tree layout
-> Last reviewed with code: 2026-05-28
+> Last reviewed with code: 2026-05-29
 > Related: [../architecture/overview.md](../architecture/overview.md)
 
 ## First Entry Points
@@ -37,6 +37,13 @@
 - `src/app/extension_manifest.c`
 - `src/app/tool_manifest.c`
 - `src/app/manifest_runner.c`
+
+### Understand bundled resource lookup
+
+- `include/base/resource_path.h`
+  Public helper for resolving bundled resource paths without exposing platform-specific executable-path lookup.
+- `src/base/resource_path.c`
+  Searches current working directory, executable directory, installed `share/gldraw`, and the configured source resource root.
 
 ### Understand document storage and queries
 
@@ -161,6 +168,7 @@
 - `tests/test_commands.c`
 - `tests/test_document_core.c`
 - `tests/test_document.c`
+- `tests/test_resource_path.c`
 - `tests/test_registry.c`
 - `tests/test_ui_logic.c`
 - `tests/test_ui_theme.c`

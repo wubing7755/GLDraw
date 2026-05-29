@@ -9,10 +9,6 @@
 #include <stdio.h>
 #include <string.h>
 
-#define UI_THEME_SETTINGS_PATH "gldraw.settings.json"
-#define UI_THEME_DIRECTORY_PATH "themes"
-#define UI_THEME_WATCH_INTERVAL_SECONDS 0.35
-
 static const char *ui_theme_reload_reason_label(UiThemeReloadReason reason) {
   switch (reason) {
   case UI_THEME_RELOAD_REASON_MANUAL:
@@ -23,6 +19,13 @@ static const char *ui_theme_reload_reason_label(UiThemeReloadReason reason) {
   default:
     return "startup";
   }
+}
+
+static const char *ui_system_theme_directory_path(const UiSystem *ui) {
+  if (ui && ui->theme_directory_path[0] != '\0') {
+    return ui->theme_directory_path;
+  }
+  return UI_THEME_DIRECTORY_PATH;
 }
 
 void ui_system_sync_menubar_themes(UiSystem *ui) {
@@ -107,10 +110,10 @@ void ui_system_reload_themes(UiSystem *ui, int notify_status,
 
   snprintf(previous_theme_id, sizeof(previous_theme_id), "%s",
            ui->active_theme_id);
-  custom_theme_count = ui_theme_reload_external(UI_THEME_DIRECTORY_PATH);
+  custom_theme_count = ui_theme_reload_external(ui_system_theme_directory_path(ui));
   if (custom_theme_count < 0) {
     ui->theme_directory_signature =
-        ui_theme_external_signature(UI_THEME_DIRECTORY_PATH);
+        ui_theme_external_signature(ui_system_theme_directory_path(ui));
     if (notify_status) {
       const char *error_summary = ui_theme_last_reload_error();
       ui_system_emit_status(ui,
@@ -123,7 +126,7 @@ void ui_system_reload_themes(UiSystem *ui, int notify_status,
   }
 
   ui->theme_directory_signature =
-      ui_theme_external_signature(UI_THEME_DIRECTORY_PATH);
+      ui_theme_external_signature(ui_system_theme_directory_path(ui));
   ui_system_set_theme(ui, previous_theme_id, 0);
   fallback_to_default = (strcmp(previous_theme_id, ui->active_theme_id) != 0);
 
@@ -171,7 +174,7 @@ void ui_system_poll_theme_hot_reload(UiSystem *ui, double now_seconds) {
   }
   ui->theme_watch_last_check_seconds = now_seconds;
 
-  signature = ui_theme_external_signature(UI_THEME_DIRECTORY_PATH);
+  signature = ui_theme_external_signature(ui_system_theme_directory_path(ui));
   if (signature == ui->theme_directory_signature) {
     return;
   }

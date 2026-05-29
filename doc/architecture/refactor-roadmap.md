@@ -3,7 +3,7 @@
 > Audience: maintainers, contributors doing structural work
 > Purpose: sequence the next architecture cleanup without changing editor behavior accidentally
 > Source of truth: current source tree, `REFACTOR_LOG.md`, and the architecture pages in this directory
-> Last reviewed with code: 2026-05-28
+> Last reviewed with code: 2026-05-29
 > Related: [overview.md](overview.md), [core-systems.md](core-systems.md), [data-flow.md](data-flow.md)
 
 ## Intent
@@ -24,6 +24,7 @@ The next refactor should not reduce layering for its own sake. It should turn pa
 - UI frame construction has moved to `src/ui/ui_frame.c`, the inspector's layer controls now live in `src/ui/ui_layer_panel.c`, menu bar rendering lives in `src/ui/ui_menubar_render.c`, and context menu rendering lives in `src/ui/ui_context_menu_render.c`.
 - Render submission now uses `RenderSceneDesc` and a cache-key value. The next render cleanup should focus on ownership and lifetime of scene snapshots rather than parameter shape.
 - Canvas draw-list strokes are normalized to line-segment geometry and `canvas_renderer_submit()` batches adjacent strokes with identical material and primitive metadata before backend submission.
+- Bundled shader, theme, and script paths now resolve through a base resource-path helper instead of assuming the process current working directory is the repository root.
 
 ## Progress Snapshot
 
@@ -64,7 +65,9 @@ The next refactor should not reduce layering for its own sake. It should turn pa
 - Application-owned workspace save/load/export and workspace action callbacks live in `application_workspace_services.c`.
 - `application.c` is scoped to lifecycle setup, shutdown, and frame sequencing.
 - `render_system_draw()` consumes `RenderSceneDesc`.
-- This refactor round is complete for theme modules, document persistence modules, object command modules, and application lifecycle boundaries.
+- Resource lookup for bundled files lives in `base/resource_path`, with OpenGL shader loading, UI theme directory reloads, and optional script tools resolving the same installed/development search paths.
+- CMake installs bundled `shaders`, `themes`, and `scripts` under `share/gldraw`, and the GLFW FetchContent declaration pins the downloaded archive with `URL_HASH`.
+- This refactor round is complete for theme modules, document persistence modules, object command modules, application lifecycle boundaries, input/document/render boundary tightening, and bundled resource/build layout hardening.
 
 ## Compatibility Notes
 

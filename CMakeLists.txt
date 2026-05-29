@@ -22,23 +22,27 @@ set(CMAKE_C_EXTENSIONS OFF)
 option(GLDRAW_ENABLE_SCRIPTING "Enable Lua-based scripting support" OFF)
 option(GLDRAW_ENABLE_ASAN "Enable AddressSanitizer for supported compilers" OFF)
 
+file(TO_CMAKE_PATH "${CMAKE_CURRENT_SOURCE_DIR}" GLDRAW_RESOURCE_ROOT)
+
 set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
 set(GLFW_INSTALL OFF CACHE BOOL "" FORCE)
 
-set(GLDRAW_LOCAL_GLFW_DIR "${CMAKE_SOURCE_DIR}/build/_deps/glfw-src")
+set(GLDRAW_FETCHCONTENT_BASE_DIR "${CMAKE_BINARY_DIR}/_deps" CACHE PATH "FetchContent download directory")
+set(GLDRAW_LOCAL_GLFW_DIR "${GLDRAW_FETCHCONTENT_BASE_DIR}/glfw-src" CACHE PATH "Local GLFW source directory")
 
 if(EXISTS "${GLDRAW_LOCAL_GLFW_DIR}/CMakeLists.txt")
     add_subdirectory("${GLDRAW_LOCAL_GLFW_DIR}" "${CMAKE_BINARY_DIR}/glfw-local")
     set(glfw_SOURCE_DIR "${GLDRAW_LOCAL_GLFW_DIR}")
 else()
     include(FetchContent)
-    set(FETCHCONTENT_BASE_DIR "${CMAKE_SOURCE_DIR}/build/_deps")
+    set(FETCHCONTENT_BASE_DIR "${GLDRAW_FETCHCONTENT_BASE_DIR}")
     set(FETCHCONTENT_UPDATES_DISCONNECTED ON)
     FetchContent_Declare(
         glfw
         URL https://github.com/glfw/glfw/archive/refs/tags/3.3.9.tar.gz
+        URL_HASH SHA256=a7e7faef424fcb5f83d8faecf9d697a338da7f7a906fc1afbc0e1879ef31bd53
         DOWNLOAD_EXTRACT_TIMESTAMP FALSE
     )
     FetchContent_MakeAvailable(glfw)
@@ -77,6 +81,7 @@ endfunction()
 set(EDITOR_MODEL_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/base/file_utils.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/base/path_utils.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/base/resource_path.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/model/selection.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/app/extension_manifest.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/app/manifest_runner.c
@@ -244,6 +249,7 @@ endfunction()
 
 add_library(editor_model STATIC ${EDITOR_MODEL_SOURCES})
 gldraw_target_defaults(editor_model)
+target_compile_definitions(editor_model PUBLIC GLDRAW_RESOURCE_ROOT="${GLDRAW_RESOURCE_ROOT}")
 if(UNIX AND NOT APPLE)
     target_link_libraries(editor_model PUBLIC m)
 endif()
@@ -426,6 +432,26 @@ set_target_properties(gldraw_selection_tests PROPERTIES
 )
 
 add_test(NAME gldraw_selection_tests COMMAND $<TARGET_FILE:gldraw_selection_tests>)
+
+add_executable(gldraw_resource_path_tests
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_resource_path.c
+)
+
+target_include_directories(gldraw_resource_path_tests
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+
+target_link_libraries(gldraw_resource_path_tests PRIVATE editor_model)
+
+gldraw_apply_compile_options(gldraw_resource_path_tests)
+gldraw_apply_sanitizers(gldraw_resource_path_tests)
+
+set_target_properties(gldraw_resource_path_tests PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+)
+
+add_test(NAME gldraw_resource_path_tests COMMAND $<TARGET_FILE:gldraw_resource_path_tests>)
 
 add_executable(gldraw_document_tests
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_document.c
@@ -641,6 +667,7 @@ add_custom_target(gldraw_tests
         gldraw_document_core_tests
         gldraw_png_writer_tests
         gldraw_selection_tests
+        gldraw_resource_path_tests
         gldraw_document_tests
         gldraw_command_tests
         gldraw_registry_tests
@@ -655,3 +682,19 @@ add_custom_target(gldraw_tests
 install(TARGETS ${PROJECT_NAME}
     RUNTIME DESTINATION bin
 )
+
+install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/shaders/"
+    DESTINATION share/gldraw/shaders
+)
+
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/themes")
+    install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/themes/"
+        DESTINATION share/gldraw/themes
+    )
+endif()
+
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/scripts")
+    install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/scripts/"
+        DESTINATION share/gldraw/scripts
+    )
+endif()

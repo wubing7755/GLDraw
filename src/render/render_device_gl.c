@@ -2,6 +2,8 @@
 
 #include <base/log.h>
 #include <base/math2d.h>
+#include <base/path_utils.h>
+#include <base/resource_path.h>
 
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
@@ -339,11 +341,9 @@ static const RenderDeviceVTable GL_RENDER_DEVICE_VTABLE = {
 RenderDevice* gl_render_device_create(PlatformWindow* window)
 {
     GLRenderDevice* device = NULL;
-    static const RenderShaderProgramDesc BASIC_PROGRAM_DESC = {
-        "shaders/basic.vert",
-        "shaders/basic.frag",
-        "basic"
-    };
+    char vertex_shader_path[GLDRAW_PATH_MAX];
+    char fragment_shader_path[GLDRAW_PATH_MAX];
+    RenderShaderProgramDesc basic_program_desc;
     static const RenderVertexAttribute STROKE_ATTRIBUTES[] = {
         {0u, 2, 0u},
         {1u, 4, 2u * sizeof(float)}
@@ -356,6 +356,14 @@ RenderDevice* gl_render_device_create(PlatformWindow* window)
     };
 
     if (!window) {
+        return NULL;
+    }
+    if (!resource_path_resolve("shaders/basic.vert",
+                               vertex_shader_path,
+                               sizeof(vertex_shader_path)) ||
+        !resource_path_resolve("shaders/basic.frag",
+                               fragment_shader_path,
+                               sizeof(fragment_shader_path))) {
         return NULL;
     }
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
@@ -371,8 +379,12 @@ RenderDevice* gl_render_device_create(PlatformWindow* window)
     shader_manager_init(&device->shader_manager);
     buffer_pool_init(&device->buffer_pool);
 
+    basic_program_desc.vertex_path = vertex_shader_path;
+    basic_program_desc.fragment_path = fragment_shader_path;
+    basic_program_desc.debug_label = "basic";
+
     if (!shader_manager_load_program(&device->shader_manager,
-                                     &BASIC_PROGRAM_DESC,
+                                     &basic_program_desc,
                                      &device->basic_program)) {
         gl_render_destroy(&device->base);
         return NULL;

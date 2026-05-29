@@ -1,5 +1,32 @@
 # Refactor Log
 
+## 2026-05-29 - R6: Harden Bundled Resource Lookup And Install Layout
+
+- Branch:
+  `refactor-input-document-render-boundaries`
+- Modified files:
+  `CMakeLists.txt`,
+  `include/base/resource_path.h`,
+  `src/base/resource_path.c`,
+  `src/render/render_device_gl.c`,
+  `src/tools/script_tool_lua.c`,
+  `src/ui/ui_runtime.c`,
+  `src/ui/ui_system_internal.h`,
+  `src/ui/ui_theme_runtime.c`,
+  `tests/test_resource_path.c`,
+  `doc/reference/file-map.md`,
+  `doc/architecture/refactor-roadmap.md`,
+  `REFACTOR_LOG.md`
+- Key changes:
+  Added a shared bundled-resource lookup helper that preserves current working directory behavior while also resolving resources beside the executable, from installed `share/gldraw`, and from the configured source resource root.
+  Routed OpenGL shader loading, UI external theme directory reloads, and optional Lua script-tool paths through the shared resolver without changing the relative paths those systems request.
+  Added install rules for `shaders`, `themes`, and `scripts`, moved FetchContent downloads under the active build tree, and pinned the GLFW 3.3.9 archive with `URL_HASH`.
+  Added regression coverage for current-working-directory resource resolution and missing-resource fallback.
+- Validation:
+  `cmake --build build --parallel` passed.
+  `ctest --test-dir build --output-on-failure` passed.
+  `git diff --check` passed.
+
 ## 2026-05-29 - R1: Fan Out Platform Input To Nuklear
 
 - Branch:

@@ -1,5 +1,7 @@
 #include <tools/tool.h>
 
+#include <base/path_utils.h>
+#include <base/resource_path.h>
 #include <script/script_runtime.h>
 
 #include <stdio.h>
@@ -8,7 +10,7 @@
 
 typedef struct {
     ScriptRuntime runtime;
-    char script_path[260];
+    char script_path[GLDRAW_PATH_MAX];
 } ScriptToolState;
 
 static int script_tool_create(Tool* tool, const ToolDescriptor* descriptor)
@@ -31,7 +33,7 @@ static int script_tool_create(Tool* tool, const ToolDescriptor* descriptor)
         return 0;
     }
 
-    snprintf(state->script_path, sizeof(state->script_path), "%s", script_path);
+    resource_path_resolve(script_path, state->script_path, sizeof(state->script_path));
     tool->state = state;
     return 1;
 }
