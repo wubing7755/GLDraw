@@ -3,20 +3,10 @@
 #include <image/png_writer.h>
 #include <render/canvas_renderer.h>
 
+#include "render_scene_snapshot.h"
+
 #include <math.h>
 #include <stdlib.h>
-
-typedef struct RenderSceneCacheKey {
-    unsigned int document_revision;
-    unsigned int overlay_revision;
-    int selection_count;
-    uint64_t selection_revision;
-    int selection_preview_active;
-    RectF viewport;
-    Vec2 center;
-    Vec2 selection_preview_delta;
-    float zoom;
-} RenderSceneCacheKey;
 
 struct RenderSystem {
     RenderDevice* device;
@@ -26,8 +16,8 @@ struct RenderSystem {
     int framebuffer_width;
     int framebuffer_height;
     int owns_device;
-    RenderSceneCacheKey cache_key;
-    int draw_list_valid;
+    RenderSceneSnapshot scene_snapshot;
+    int scene_snapshot_valid;
 };
 
 static RenderTransform render_system_make_transform(const RenderSystem* renderer)
@@ -47,50 +37,6 @@ static RenderTransform render_system_make_transform(const RenderSystem* renderer
             (float)renderer->framebuffer_height / (float)renderer->logical_height;
     }
     return transform;
-}
-
-static RenderSceneCacheKey render_system_scene_cache_key(const RenderSceneDesc* scene)
-{
-    RenderSceneCacheKey key;
-
-    key.document_revision = scene && scene->document ? document_revision(scene->document) : 0u;
-    key.overlay_revision = scene && scene->overlay_object
-                               ? scene->overlay_object->revision
-                               : 0u;
-    key.selection_count = scene && scene->selection ? scene->selection->count : 0;
-    key.selection_revision = scene && scene->selection ? scene->selection->revision : 0u;
-    key.selection_preview_active = scene ? scene->selection_preview_active : 0;
-    key.selection_preview_delta = scene ? scene->selection_preview_delta
-                                        : (Vec2){0.0f, 0.0f};
-    key.viewport = scene && scene->canvas ? canvas_view_viewport(scene->canvas)
-                                          : (RectF){0.0f, 0.0f, 0.0f, 0.0f};
-    key.center = scene && scene->canvas ? canvas_view_center(scene->canvas)
-                                        : (Vec2){0.0f, 0.0f};
-    key.zoom = scene && scene->canvas ? canvas_view_zoom(scene->canvas) : 0.0f;
-    return key;
-}
-
-static int render_system_scene_cache_key_equal(const RenderSceneCacheKey* a,
-                                               const RenderSceneCacheKey* b)
-{
-    if (!a || !b) {
-        return 0;
-    }
-
-    return a->document_revision == b->document_revision &&
-           a->overlay_revision == b->overlay_revision &&
-           a->selection_count == b->selection_count &&
-           a->selection_revision == b->selection_revision &&
-           a->selection_preview_active == b->selection_preview_active &&
-           a->selection_preview_delta.x == b->selection_preview_delta.x &&
-           a->selection_preview_delta.y == b->selection_preview_delta.y &&
-           a->zoom == b->zoom &&
-           a->center.x == b->center.x &&
-           a->center.y == b->center.y &&
-           a->viewport.x == b->viewport.x &&
-           a->viewport.y == b->viewport.y &&
-           a->viewport.w == b->viewport.w &&
-           a->viewport.h == b->viewport.h;
 }
 
 RenderSystem* render_system_create_with_desc(RenderDevice* device,
@@ -160,7 +106,7 @@ void render_system_resize(RenderSystem* renderer,
     renderer->logical_height = logical_height;
     renderer->framebuffer_width = framebuffer_width;
     renderer->framebuffer_height = framebuffer_height;
-    renderer->draw_list_valid = 0;
+    renderer->scene_snapshot_valid = 0;
     render_device_resize(renderer->device,
                          logical_width,
                          logical_height,
@@ -170,34 +116,26 @@ void render_system_resize(RenderSystem* renderer,
 
 void render_system_draw(RenderSystem* renderer, const RenderSceneDesc* scene)
 {
-    RenderSceneCacheKey cache_key;
+    RenderSceneSnapshot snapshot;
     RenderFrameDesc frame_desc;
     RenderTransform transform;
-    const Document* document = scene ? scene->document : NULL;
-    const SelectionSet* selection = scene ? scene->selection : NULL;
-    const CanvasView* canvas = scene ? scene->canvas : NULL;
-    const GraphicObject* overlay_object = scene ? scene->overlay_object : NULL;
-    int selection_preview_active = scene ? scene->selection_preview_active : 0;
-    Vec2 selection_preview_delta = scene ? scene->selection_preview_delta
-                                         : (Vec2){0.0f, 0.0f};
 
-    if (!renderer || !document || !canvas) {
+    if (!renderer || !render_scene_snapshot_capture(&snapshot, scene)) {
         return;
     }
-    cache_key = render_system_scene_cache_key(scene);
-    if (!renderer->draw_list_valid ||
-        !render_system_scene_cache_key_equal(&renderer->cache_key, &cache_key)) {
+    if (!renderer->scene_snapshot_valid ||
+        !render_scene_snapshot_equal(&renderer->scene_snapshot, &snapshot)) {
         if (!canvas_drawlist_build(&renderer->draw_list,
-                                   document,
-                                   selection,
-                                   canvas,
-                                   selection_preview_active,
-                                   selection_preview_delta,
-                                   overlay_object)) {
+                                   snapshot.desc.document,
+                                   snapshot.desc.selection,
+                                   snapshot.desc.canvas,
+                                   snapshot.desc.selection_preview_active,
+                                   snapshot.desc.selection_preview_delta,
+                                   snapshot.desc.overlay_object)) {
             return;
         }
-        renderer->cache_key = cache_key;
-        renderer->draw_list_valid = 1;
+        renderer->scene_snapshot = snapshot;
+        renderer->scene_snapshot_valid = 1;
     }
 
     frame_desc.logical_width = renderer->logical_width;

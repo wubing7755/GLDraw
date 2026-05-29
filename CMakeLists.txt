@@ -109,6 +109,7 @@ set(RENDER_CORE_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/render/canvas_drawlist.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/render/canvas_renderer.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/render/render_arena.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/render/render_scene_snapshot.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/render/render_system.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/image/png_writer.c
 )
