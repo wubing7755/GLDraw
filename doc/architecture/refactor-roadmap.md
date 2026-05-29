@@ -23,6 +23,7 @@ The next refactor should not reduce layering for its own sake. It should turn pa
 - View-model construction now captures workspace state into a build context and emits summary, command, tool, layer, property, and dialog snapshots through separate builders.
 - UI frame construction has moved to `src/ui/ui_frame.c`, the inspector's layer controls now live in `src/ui/ui_layer_panel.c`, menu bar rendering lives in `src/ui/ui_menubar_render.c`, and context menu rendering lives in `src/ui/ui_context_menu_render.c`.
 - Render submission now uses `RenderSceneDesc` and a cache-key value. The next render cleanup should focus on ownership and lifetime of scene snapshots rather than parameter shape.
+- Canvas draw-list strokes are normalized to line-segment geometry and `canvas_renderer_submit()` batches adjacent strokes with identical material and primitive metadata before backend submission.
 
 ## Progress Snapshot
 

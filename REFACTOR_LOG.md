@@ -101,6 +101,27 @@
   `ctest --test-dir build --output-on-failure` passed.
   `git diff --check` passed.
 
+## 2026-05-29 - R5: Batch Canvas Line Rendering
+
+- Branch:
+  `refactor-input-document-render-boundaries`
+- Modified files:
+  `src/render/canvas_drawlist.c`,
+  `src/render/canvas_renderer.c`,
+  `src/render/render_device_gl.c`,
+  `tests/test_renderer.c`,
+  `doc/reference/file-map.md`,
+  `doc/architecture/refactor-roadmap.md`,
+  `REFACTOR_LOG.md`
+- Key changes:
+  Normalized draw-list line strips to explicit line-segment geometry so adjacent object strokes can be batched without accidental strip connections.
+  Added canvas renderer batching for adjacent strokes with identical material and primitive metadata, reducing backend draw submissions for same-style geometry.
+  Cleared the full framebuffer at GL frame start before the clipped canvas pass so UI-adjacent areas do not depend on prior-frame contents.
+- Validation:
+  `cmake --build build --parallel` passed.
+  `ctest --test-dir build --output-on-failure` passed.
+  `git diff --check` passed.
+
 ## 2026-05-28 - Phase 7: Final Audit and Wrap-Up
 
 - Branch:

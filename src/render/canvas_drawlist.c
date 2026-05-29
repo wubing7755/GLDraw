@@ -69,27 +69,44 @@ static int canvas_drawlist_append_stroke(CanvasDrawList* draw_list,
                                          RenderPrimitiveType primitive)
 {
     CanvasStrokeCommand* stroke = NULL;
+    size_t write_offset = 0u;
+    int stored_point_count = point_count;
+    int i = 0;
 
     if (!draw_list || !points || point_count <= 1) {
         return 0;
     }
+    if (primitive == RENDER_PRIMITIVE_LINE_STRIP) {
+        stored_point_count = (point_count - 1) * 2;
+        primitive = RENDER_PRIMITIVE_LINES;
+    }
     if (!canvas_drawlist_reserve_points(draw_list,
-                                        draw_list->point_count + (size_t)point_count) ||
+                                        draw_list->point_count + (size_t)stored_point_count) ||
         !canvas_drawlist_reserve_strokes(draw_list, draw_list->stroke_count + 1u)) {
         return 0;
     }
 
-    memcpy(draw_list->points + draw_list->point_count,
-           points,
-           (size_t)point_count * sizeof(points[0]));
+    write_offset = draw_list->point_count;
+    if (primitive == RENDER_PRIMITIVE_LINES && stored_point_count != point_count) {
+        Vec2* out_points = draw_list->points + write_offset;
+
+        for (i = 0; i < point_count - 1; ++i) {
+            out_points[i * 2] = points[i];
+            out_points[i * 2 + 1] = points[i + 1];
+        }
+    } else {
+        memcpy(draw_list->points + write_offset,
+               points,
+               (size_t)stored_point_count * sizeof(points[0]));
+    }
 
     stroke = &draw_list->strokes[draw_list->stroke_count++];
     stroke->color = color;
     stroke->line_width = line_width;
     stroke->primitive = primitive;
-    stroke->point_offset = draw_list->point_count;
-    stroke->point_count = point_count;
-    draw_list->point_count += (size_t)point_count;
+    stroke->point_offset = write_offset;
+    stroke->point_count = stored_point_count;
+    draw_list->point_count += (size_t)stored_point_count;
     return 1;
 }
 

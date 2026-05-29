@@ -191,6 +191,13 @@ static int gl_render_begin_frame(RenderDevice* render_device, const RenderFrameD
                                             (float)frame_desc->logical_width,
                                             (float)frame_desc->logical_height};
 
+    glDisable(GL_SCISSOR_TEST);
+    glViewport(0, 0, frame_desc->framebuffer_width, frame_desc->framebuffer_height);
+    glClearColor(frame_desc->clear_color.r,
+                 frame_desc->clear_color.g,
+                 frame_desc->clear_color.b,
+                 frame_desc->clear_color.a);
+    glClear(GL_COLOR_BUFFER_BIT);
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glUseProgram(shader_program_handle(&device->basic_program));

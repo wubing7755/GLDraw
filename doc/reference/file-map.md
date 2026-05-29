@@ -127,6 +127,10 @@
 ### Understand rendering
 
 - `src/render/render_system.c`
+- `src/render/canvas_drawlist.c`
+  Builds cached canvas geometry and normalizes object outlines to line-segment strokes.
+- `src/render/canvas_renderer.c`
+  Submits draw-list batches to the render device.
 - `src/render/`
 
 ### Understand persistence

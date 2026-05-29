@@ -190,6 +190,7 @@ static int test_canvas_renderer_submit_sequence(void)
     canvas_view_init(&canvas, &document, (RectF){0.0f, 0.0f, 800.0f, 600.0f});
     canvas.show_grid = 0;
     EXPECT_TRUE(document_add_object(&document, make_rect(10.0f, 20.0f, 40.0f, 50.0f)));
+    EXPECT_TRUE(document_add_object(&document, make_rect(80.0f, 20.0f, 40.0f, 50.0f)));
 
     canvas_drawlist_init(&draw_list);
     EXPECT_TRUE(canvas_drawlist_build(&draw_list,
@@ -199,7 +200,7 @@ static int test_canvas_renderer_submit_sequence(void)
                                       0,
                                       (Vec2){0.0f, 0.0f},
                                       NULL));
-    EXPECT_INT_EQ((int)draw_list.stroke_count, 1);
+    EXPECT_INT_EQ((int)draw_list.stroke_count, 2);
 
     mock.base.vtable = &MOCK_VTABLE;
     frame_desc.logical_width = 800;
@@ -214,12 +215,13 @@ static int test_canvas_renderer_submit_sequence(void)
     EXPECT_TRUE(strcmp(mock.calls[1], "pass") == 0);
     EXPECT_TRUE(strcmp(mock.calls[2], "draw") == 0);
     EXPECT_TRUE(strcmp(mock.calls[3], "end") == 0);
+    EXPECT_INT_EQ(mock.draw_call_count, 1);
     EXPECT_FLOAT_EQ(mock.pass.clip_rect.w, 800.0f);
     EXPECT_FLOAT_EQ(mock.pass.clip_rect.h, 600.0f);
     EXPECT_FLOAT_EQ(mock.pass.transform.scale_x, 1.0f);
     EXPECT_FLOAT_EQ(mock.pass.transform.scale_y, 1.0f);
-    EXPECT_INT_EQ(mock.draw_calls[0].point_count, 5);
-    EXPECT_INT_EQ((int)mock.draw_calls[0].primitive, (int)RENDER_PRIMITIVE_LINE_STRIP);
+    EXPECT_INT_EQ(mock.draw_calls[0].point_count, 16);
+    EXPECT_INT_EQ((int)mock.draw_calls[0].primitive, (int)RENDER_PRIMITIVE_LINES);
 
     canvas_drawlist_shutdown(&draw_list);
     document_shutdown(&document);
