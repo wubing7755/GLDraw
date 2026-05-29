@@ -14,6 +14,8 @@
   App lifecycle, subsystem setup/teardown, and frame loop.
 - `src/app/application_callbacks.c`
   Platform window callbacks for pointer, key, scroll, framebuffer, and close events.
+- `src/platform/window.c`
+  GLFW window ownership, event callback fan-out, and Nuklear input forwarding.
 - `src/app/application_workspace_services.c`
   Application-owned workspace save/load/export and action executor callbacks.
 - `include/app/editor_controller.h`

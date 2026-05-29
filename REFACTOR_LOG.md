@@ -1,5 +1,24 @@
 # Refactor Log
 
+## 2026-05-29 - R1: Fan Out Platform Input To Nuklear
+
+- Branch:
+  `refactor-input-document-render-boundaries`
+- Modified files:
+  `include/platform/window.h`,
+  `src/platform/window.c`,
+  `src/platform/window_internal.h`,
+  `doc/reference/file-map.md`,
+  `doc/architecture/refactor-roadmap.md`,
+  `REFACTOR_LOG.md`
+- Key changes:
+  Added platform character callback plumbing and routed GLFW key, character, mouse-button, and scroll events through the platform adapter into Nuklear before application callbacks run.
+  Kept application callback ownership unchanged while making Nuklear text edit and scroll input receive the event stream it expects.
+- Validation:
+  `cmake --build build --parallel` passed.
+  `ctest --test-dir build --output-on-failure` passed.
+  `git diff --check` passed.
+
 ## 2026-05-28 - Phase 7: Final Audit and Wrap-Up
 
 - Branch:

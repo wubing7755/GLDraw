@@ -56,6 +56,7 @@ The next refactor should not reduce layering for its own sake. It should turn pa
 - Object command pre-execution validation lives in `command_object_checks.c`.
 - Create, delete-selection, move, paste, and set-property object command implementations live in separate command source files.
 - Platform window callbacks live in `application_callbacks.c`, leaving registration in the application lifecycle.
+- Platform window event dispatch now fans out key, character, mouse-button, and scroll input to Nuklear before application callbacks, keeping immediate-mode UI input ownership in the platform adapter rather than in application code.
 - Application-owned workspace save/load/export and workspace action callbacks live in `application_workspace_services.c`.
 - `application.c` is scoped to lifecycle setup, shutdown, and frame sequencing.
 - `render_system_draw()` consumes `RenderSceneDesc`.
