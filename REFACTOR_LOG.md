@@ -59,6 +59,25 @@
   `ctest --test-dir build --output-on-failure` passed.
   `git diff --check` passed.
 
+## 2026-05-29 - R3: Route Input Without Workspace Internals
+
+- Branch:
+  `refactor-input-document-render-boundaries`
+- Modified files:
+  `include/app/editor_controller.h`,
+  `src/app/editor_controller.c`,
+  `src/input/input_router.c`,
+  `doc/reference/file-map.md`,
+  `doc/architecture/refactor-roadmap.md`,
+  `REFACTOR_LOG.md`
+- Key changes:
+  Added `editor_controller_key_down()` as the public editor-runtime facade for active-tool key handling.
+  Updated `input_router.c` to use `workspace_get_keymap_const()` and the editor controller facade instead of including `workspace_internal.h` or directly accessing `ToolController`.
+- Validation:
+  `cmake --build build --parallel` passed.
+  `ctest --test-dir build --output-on-failure` passed.
+  `git diff --check` passed.
+
 ## 2026-05-28 - Phase 7: Final Audit and Wrap-Up
 
 - Branch:

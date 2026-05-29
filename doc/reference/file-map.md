@@ -143,6 +143,8 @@
 ### Understand shortcuts and menu wiring
 
 - `src/input/keymap.c`
+- `src/input/input_router.c`
+  Public workspace/keymap based keyboard routing into commands and active-tool key handling.
 - `src/ui/ui_menu_def.c`
 - `src/ui/ui_menubar.c`
 - `src/ui/ui_menubar_render.c`
