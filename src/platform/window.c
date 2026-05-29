@@ -82,6 +82,9 @@ static void platform_mouse_button_dispatch(GLFWwindow* glfw, int button, int act
 {
     GldWindow* native_window = platform_window_find_native(glfw);
 
+    if (glfwGetWindowUserPointer(glfw)) {
+        nk_glfw3_mouse_button_callback(glfw, button, action, mods);
+    }
     if (native_window && native_window->mouse_button_callback) {
         native_window->mouse_button_callback(native_window->owner,
                                              button,
@@ -99,6 +102,9 @@ static void platform_key_dispatch(GLFWwindow* glfw,
 {
     GldWindow* native_window = platform_window_find_native(glfw);
 
+    if (glfwGetWindowUserPointer(glfw)) {
+        nk_glfw3_key_callback(glfw, key, scancode, action, mods);
+    }
     if (native_window && native_window->key_callback) {
         native_window->key_callback(native_window->owner,
                                     key,
@@ -109,10 +115,27 @@ static void platform_key_dispatch(GLFWwindow* glfw,
     }
 }
 
+static void platform_char_dispatch(GLFWwindow* glfw, unsigned int codepoint)
+{
+    GldWindow* native_window = platform_window_find_native(glfw);
+
+    if (glfwGetWindowUserPointer(glfw)) {
+        nk_glfw3_char_callback(glfw, codepoint);
+    }
+    if (native_window && native_window->char_callback) {
+        native_window->char_callback(native_window->owner,
+                                     codepoint,
+                                     native_window->char_user_data);
+    }
+}
+
 static void platform_scroll_dispatch(GLFWwindow* glfw, double xoffset, double yoffset)
 {
     GldWindow* native_window = platform_window_find_native(glfw);
 
+    if (glfwGetWindowUserPointer(glfw)) {
+        nk_gflw3_scroll_callback(glfw, xoffset, yoffset);
+    }
     if (native_window && native_window->scroll_callback) {
         native_window->scroll_callback(native_window->owner,
                                        xoffset,
@@ -198,6 +221,7 @@ int platform_window_init(PlatformWindow* window, int width, int height, const ch
     glfwSetCursorPosCallback(native_window->glfw, platform_cursor_pos_dispatch);
     glfwSetMouseButtonCallback(native_window->glfw, platform_mouse_button_dispatch);
     glfwSetKeyCallback(native_window->glfw, platform_key_dispatch);
+    glfwSetCharCallback(native_window->glfw, platform_char_dispatch);
     glfwSetScrollCallback(native_window->glfw, platform_scroll_dispatch);
     glfwSetWindowCloseCallback(native_window->glfw, platform_close_dispatch);
 
@@ -396,6 +420,18 @@ void platform_window_on_key(PlatformWindow* window,
 
     window->handle->key_callback = callback;
     window->handle->key_user_data = user_data;
+}
+
+void platform_window_on_char(PlatformWindow* window,
+                             PlatformCharCallback callback,
+                             void* user_data)
+{
+    if (!window || !window->handle) {
+        return;
+    }
+
+    window->handle->char_callback = callback;
+    window->handle->char_user_data = user_data;
 }
 
 void platform_window_on_scroll(PlatformWindow* window,

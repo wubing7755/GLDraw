@@ -116,6 +116,20 @@ void editor_controller_scroll(Workspace* workspace,
     tool_controller_scroll(tools, context, screen_pos, yoffset);
 }
 
+void editor_controller_key_down(Workspace* workspace,
+                                ToolContext* context,
+                                int key,
+                                int mods)
+{
+    ToolController* tools = workspace_get_tool_controller(workspace);
+
+    if (!tools) {
+        return;
+    }
+
+    tool_controller_key_down(tools, context, key, mods);
+}
+
 void editor_controller_set_canvas_viewport(Workspace* workspace, RectF viewport)
 {
     CanvasView* canvas = workspace_get_canvas(workspace);

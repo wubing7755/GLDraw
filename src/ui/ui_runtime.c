@@ -5,6 +5,7 @@
 #include <ui/ui_system.h>
 
 #include <base/math2d.h>
+#include <base/resource_path.h>
 #include <glad/glad.h>
 
 #define NK_INCLUDE_FIXED_TYPES
@@ -75,6 +76,9 @@ UiSystem *ui_system_create(PlatformWindow *window) {
 
   snprintf(ui->theme_settings_path, sizeof(ui->theme_settings_path), "%s",
            UI_THEME_SETTINGS_PATH);
+  resource_path_resolve(UI_THEME_DIRECTORY_PATH,
+                        ui->theme_directory_path,
+                        sizeof(ui->theme_directory_path));
 
   ui_system_reload_themes(ui, 0, UI_THEME_RELOAD_REASON_STARTUP);
   ui->theme_watch_last_check_seconds = platform_time_seconds();

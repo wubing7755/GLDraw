@@ -137,6 +137,26 @@ GraphicObject* document_get_object_at(const Document* document, int index)
     return document->objects[index];
 }
 
+const GraphicObject* document_get_object_at_const(const Document* document, int index)
+{
+    return document_get_object_at(document, index);
+}
+
+int document_object_count(const Document* document)
+{
+    return document ? document->count : 0;
+}
+
+unsigned int document_revision(const Document* document)
+{
+    return document ? document->revision : 0u;
+}
+
+ObjectId document_next_object_id(const Document* document)
+{
+    return document ? document->next_id : 0u;
+}
+
 int document_remove_object(Document* document, ObjectId id)
 {
     int i = 0;

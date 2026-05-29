@@ -1,6 +1,6 @@
 #include <app/extension_loader.h>
 #include <commands/command.h>
-#include <document/document.h>
+#include <document/document_internal.h>
 #include <script/script_runtime.h>
 
 #include <stdio.h>

@@ -2,7 +2,7 @@
 #include <app/extension_loader.h>
 #include <base/path_utils.h>
 #include <commands/command.h>
-#include <document/document.h>
+#include <document/document_internal.h>
 #include <document/object.h>
 #include <document/persistence.h>
 

@@ -1,6 +1,6 @@
 #include <app/extension_loader.h>
 #include <canvas/canvas_view.h>
-#include <document/document.h>
+#include <document/document_internal.h>
 #include <document/object.h>
 #include <document/persistence.h>
 

@@ -1,4 +1,4 @@
-#include <document/document.h>
+#include <document/document_internal.h>
 #include <document/object.h>
 
 #include <app/extension_loader.h>

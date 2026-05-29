@@ -44,6 +44,10 @@ void editor_controller_scroll(Workspace* workspace,
                               ToolContext* context,
                               Vec2 screen_pos,
                               float yoffset);
+void editor_controller_key_down(Workspace* workspace,
+                                ToolContext* context,
+                                int key,
+                                int mods);
 void editor_controller_set_canvas_viewport(Workspace* workspace, RectF viewport);
 void editor_controller_set_canvas_background(Workspace* workspace, Color background);
 RectF editor_controller_canvas_content_bounds(const Workspace* workspace);

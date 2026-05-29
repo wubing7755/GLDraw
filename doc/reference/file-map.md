@@ -3,7 +3,7 @@
 > Audience: contributors, maintainers
 > Purpose: provide fast entrypoints into the source tree by task
 > Source of truth: current source tree layout
-> Last reviewed with code: 2026-05-28
+> Last reviewed with code: 2026-05-29
 > Related: [../architecture/overview.md](../architecture/overview.md)
 
 ## First Entry Points
@@ -14,6 +14,8 @@
   App lifecycle, subsystem setup/teardown, and frame loop.
 - `src/app/application_callbacks.c`
   Platform window callbacks for pointer, key, scroll, framebuffer, and close events.
+- `src/platform/window.c`
+  GLFW window ownership, event callback fan-out, and Nuklear input forwarding.
 - `src/app/application_workspace_services.c`
   Application-owned workspace save/load/export and action executor callbacks.
 - `include/app/editor_controller.h`
@@ -36,8 +38,19 @@
 - `src/app/tool_manifest.c`
 - `src/app/manifest_runner.c`
 
+### Understand bundled resource lookup
+
+- `include/base/resource_path.h`
+  Public helper for resolving bundled resource paths without exposing platform-specific executable-path lookup.
+- `src/base/resource_path.c`
+  Searches current working directory, executable directory, installed `share/gldraw`, and the configured source resource root.
+
 ### Understand document storage and queries
 
+- `include/document/document.h`
+  Public opaque document API and object/layer query surface.
+- `include/document/document_internal.h`
+  Private document storage layout for document implementation files and internal-state tests.
 - `src/document/document.c`
 - `src/document/document_objects.c`
 - `src/document/document_layers.c`
@@ -80,6 +93,8 @@
 
 ### Understand tool interactions
 
+- `include/tools/tool.h`
+  Tool descriptors plus platform-neutral tool input constants.
 - `src/tools/tool_runtime.c`
 - `src/tools/tool_input_dispatch.c`
 - `src/tools/tool_select.c`
@@ -119,6 +134,10 @@
 ### Understand rendering
 
 - `src/render/render_system.c`
+- `src/render/canvas_drawlist.c`
+  Builds cached canvas geometry and normalizes object outlines to line-segment strokes.
+- `src/render/canvas_renderer.c`
+  Submits draw-list batches to the render device.
 - `src/render/`
 
 ### Understand persistence
@@ -137,6 +156,8 @@
 ### Understand shortcuts and menu wiring
 
 - `src/input/keymap.c`
+- `src/input/input_router.c`
+  Public workspace/keymap based keyboard routing into commands and active-tool key handling.
 - `src/ui/ui_menu_def.c`
 - `src/ui/ui_menubar.c`
 - `src/ui/ui_menubar_render.c`
@@ -147,6 +168,7 @@
 - `tests/test_commands.c`
 - `tests/test_document_core.c`
 - `tests/test_document.c`
+- `tests/test_resource_path.c`
 - `tests/test_registry.c`
 - `tests/test_ui_logic.c`
 - `tests/test_ui_theme.c`

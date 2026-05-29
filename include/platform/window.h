@@ -50,6 +50,9 @@ typedef void (*PlatformKeyCallback)(PlatformWindow* window,
                                     int action,
                                     int mods,
                                     void* user_data);
+typedef void (*PlatformCharCallback)(PlatformWindow* window,
+                                     unsigned int codepoint,
+                                     void* user_data);
 typedef void (*PlatformScrollCallback)(PlatformWindow* window,
                                        double xoffset,
                                        double yoffset,
@@ -110,6 +113,9 @@ void platform_window_on_mouse_button(PlatformWindow* window,
 void platform_window_on_key(PlatformWindow* window,
                             PlatformKeyCallback callback,
                             void* user_data);
+void platform_window_on_char(PlatformWindow* window,
+                             PlatformCharCallback callback,
+                             void* user_data);
 void platform_window_on_scroll(PlatformWindow* window,
                                PlatformScrollCallback callback,
                                void* user_data);

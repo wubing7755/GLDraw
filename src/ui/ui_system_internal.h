@@ -78,6 +78,7 @@ struct UiSystem {
   UiThemeTokens theme;
   char active_theme_id[UI_THEME_ID_CAPACITY];
   char theme_settings_path[GLDRAW_PATH_MAX];
+  char theme_directory_path[GLDRAW_PATH_MAX];
   UiThemeDescriptor theme_descriptors_cache[UI_THEME_DESCRIPTOR_CACHE_MAX];
   unsigned long long theme_directory_signature;
   double theme_watch_last_check_seconds;

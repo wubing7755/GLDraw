@@ -362,12 +362,14 @@ static void editor_viewmodel_build_layers(EditorViewModel* view_model,
     int i = 0;
     int j = 0;
     int doc_layer_count = 0;
+    int object_count = 0;
 
     if (!view_model || !context || !context->document) {
         return;
     }
 
     doc_layer_count = document_layer_count(context->document);
+    object_count = document_object_count(context->document);
     if (!editor_viewmodel_reserve_layers(view_model, doc_layer_count)) {
         view_model->layer_count = 0;
         return;
@@ -390,9 +392,9 @@ static void editor_viewmodel_build_layers(EditorViewModel* view_model,
             (document_active_layer_id(context->document) == layer->id);
         layer_view->object_count = 0;
 
-        for (j = 0; j < context->document->count; ++j) {
+        for (j = 0; j < object_count; ++j) {
             const GraphicObject* object =
-                document_get_object_at(context->document, j);
+                document_get_object_at_const(context->document, j);
             if (object && object->layer_id == layer->id) {
                 layer_view->object_count++;
             }
@@ -410,7 +412,7 @@ static void editor_viewmodel_build_summary(
     }
 
     view_model->summary.object_count =
-        context->document ? context->document->count : 0;
+        document_object_count(context->document);
     view_model->summary.selection_count =
         context->selection ? context->selection->count : 0;
     view_model->summary.undo_count =

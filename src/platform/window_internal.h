@@ -21,6 +21,8 @@ struct GldWindow {
     void* mouse_button_user_data;
     PlatformKeyCallback key_callback;
     void* key_user_data;
+    PlatformCharCallback char_callback;
+    void* char_user_data;
     PlatformScrollCallback scroll_callback;
     void* scroll_user_data;
     PlatformCloseCallback close_callback;

@@ -22,45 +22,11 @@ typedef struct DocumentLayer {
   DocumentLayerBlendMode blend_mode;
 } DocumentLayer;
 
-typedef struct DocumentSpatialEntry {
-  int object_index;
-  int next;
-} DocumentSpatialEntry;
-
 /**
  * @struct Document
- * @brief Document main data structure.
- *
- * @member objects Object pointer array (document owns the lifetime).
- * @member count Current object count.
- * @member revision Document revision number (incremented after edits).
- * @member next_id Auto-assigned ID for new objects.
+ * @brief Opaque document main data structure.
  */
-typedef struct Document {
-  GraphicObject **objects;
-  int count;
-  int capacity;
-  unsigned int revision;
-  ObjectId next_id;
-  DocumentLayer *layers;
-  int layer_count;
-  int layer_capacity;
-  LayerId active_layer_id;
-  LayerId next_layer_id;
-  RectF spatial_bounds;
-  float spatial_cell_size;
-  int spatial_cols;
-  int spatial_rows;
-  int spatial_cell_count;
-  int *spatial_heads;
-  DocumentSpatialEntry *spatial_entries;
-  int spatial_entry_count;
-  int spatial_entry_capacity;
-  unsigned int spatial_revision;
-  unsigned int spatial_query_token;
-  unsigned int *spatial_marks;
-  int spatial_mark_capacity;
-} Document;
+typedef struct Document Document;
 
 /**
  * @brief Initialize the document to a fresh empty state.
@@ -126,6 +92,10 @@ GraphicObject *document_find_object(const Document *document, ObjectId id);
  * @return Object pointer if index is valid, `NULL` otherwise.
  */
 GraphicObject *document_get_object_at(const Document *document, int index);
+const GraphicObject *document_get_object_at_const(const Document *document, int index);
+int document_object_count(const Document *document);
+unsigned int document_revision(const Document *document);
+ObjectId document_next_object_id(const Document *document);
 
 /**
  * @brief Remove an object by ID and compact the object array.

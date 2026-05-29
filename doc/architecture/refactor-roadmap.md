@@ -3,7 +3,7 @@
 > Audience: maintainers, contributors doing structural work
 > Purpose: sequence the next architecture cleanup without changing editor behavior accidentally
 > Source of truth: current source tree, `REFACTOR_LOG.md`, and the architecture pages in this directory
-> Last reviewed with code: 2026-05-28
+> Last reviewed with code: 2026-05-29
 > Related: [overview.md](overview.md), [core-systems.md](core-systems.md), [data-flow.md](data-flow.md)
 
 ## Intent
@@ -23,6 +23,8 @@ The next refactor should not reduce layering for its own sake. It should turn pa
 - View-model construction now captures workspace state into a build context and emits summary, command, tool, layer, property, and dialog snapshots through separate builders.
 - UI frame construction has moved to `src/ui/ui_frame.c`, the inspector's layer controls now live in `src/ui/ui_layer_panel.c`, menu bar rendering lives in `src/ui/ui_menubar_render.c`, and context menu rendering lives in `src/ui/ui_context_menu_render.c`.
 - Render submission now uses `RenderSceneDesc` and a cache-key value. The next render cleanup should focus on ownership and lifetime of scene snapshots rather than parameter shape.
+- Canvas draw-list strokes are normalized to line-segment geometry and `canvas_renderer_submit()` batches adjacent strokes with identical material and primitive metadata before backend submission.
+- Bundled shader, theme, and script paths now resolve through a base resource-path helper instead of assuming the process current working directory is the repository root.
 
 ## Progress Snapshot
 
@@ -39,6 +41,8 @@ The next refactor should not reduce layering for its own sake. It should turn pa
 - Editor actions dispatch through `editor_action_handler`.
 - Application code owns an opaque `Workspace*` instead of embedding workspace internals.
 - Outer app/input/UI/view-model/controller layers no longer include `workspace_internal.h`.
+- `input_router.c` now consumes public workspace/keymap APIs and routes tool key events through `editor_controller`, keeping keyboard routing outside the concrete workspace storage layout.
+- Built-in tools now consume `ToolPointerButton`, `ToolInputModifier`, and `ToolInputKey` values from `include/tools/tool.h`; GLFW button/key/modifier values are mapped at the application/input boundary.
 - `EditorViewModel` construction is split by view concern behind the stable public view-model shape.
 - `ui_system_build()` lives in `ui_frame.c`.
 - Inspector selection/property rendering and layer controls are split across `ui_inspector_panel.c` and `ui_layer_panel.c`.
@@ -55,11 +59,15 @@ The next refactor should not reduce layering for its own sake. It should turn pa
 - Document JSON writing lives in `persistence_write.c`.
 - Object command pre-execution validation lives in `command_object_checks.c`.
 - Create, delete-selection, move, paste, and set-property object command implementations live in separate command source files.
+- `Document` storage layout now lives in `include/document/document_internal.h`; public callers use the opaque `Document` API plus object/layer query functions.
 - Platform window callbacks live in `application_callbacks.c`, leaving registration in the application lifecycle.
+- Platform window event dispatch now fans out key, character, mouse-button, and scroll input to Nuklear before application callbacks, keeping immediate-mode UI input ownership in the platform adapter rather than in application code.
 - Application-owned workspace save/load/export and workspace action callbacks live in `application_workspace_services.c`.
 - `application.c` is scoped to lifecycle setup, shutdown, and frame sequencing.
 - `render_system_draw()` consumes `RenderSceneDesc`.
-- This refactor round is complete for theme modules, document persistence modules, object command modules, and application lifecycle boundaries.
+- Resource lookup for bundled files lives in `base/resource_path`, with OpenGL shader loading, UI theme directory reloads, and optional script tools resolving the same installed/development search paths.
+- CMake installs bundled `shaders`, `themes`, and `scripts` under `share/gldraw`, and the GLFW FetchContent declaration pins the downloaded archive with `URL_HASH`.
+- This refactor round is complete for theme modules, document persistence modules, object command modules, application lifecycle boundaries, input/document/render boundary tightening, and bundled resource/build layout hardening.
 
 ## Compatibility Notes
 

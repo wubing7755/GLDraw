@@ -305,7 +305,7 @@ void workspace_mark_saved(Workspace* workspace)
         return;
     }
 
-    workspace->session.saved_revision = workspace->core.document.revision;
+    workspace->session.saved_revision = document_revision(&workspace->core.document);
     workspace->session.document_dirty = 0;
 }
 
@@ -316,7 +316,7 @@ void workspace_sync_document_dirty(Workspace* workspace)
     }
 
     workspace->session.document_dirty =
-        (workspace->session.saved_revision != workspace->core.document.revision);
+        (workspace->session.saved_revision != document_revision(&workspace->core.document));
 }
 
 void workspace_clear_clipboard(Workspace* workspace)

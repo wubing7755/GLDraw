@@ -1,5 +1,154 @@
 # Refactor Log
 
+## 2026-05-29 - R6: Harden Bundled Resource Lookup And Install Layout
+
+- Branch:
+  `refactor-input-document-render-boundaries`
+- Modified files:
+  `CMakeLists.txt`,
+  `include/base/resource_path.h`,
+  `src/base/resource_path.c`,
+  `src/render/render_device_gl.c`,
+  `src/tools/script_tool_lua.c`,
+  `src/ui/ui_runtime.c`,
+  `src/ui/ui_system_internal.h`,
+  `src/ui/ui_theme_runtime.c`,
+  `tests/test_resource_path.c`,
+  `doc/reference/file-map.md`,
+  `doc/architecture/refactor-roadmap.md`,
+  `REFACTOR_LOG.md`
+- Key changes:
+  Added a shared bundled-resource lookup helper that preserves current working directory behavior while also resolving resources beside the executable, from installed `share/gldraw`, and from the configured source resource root.
+  Routed OpenGL shader loading, UI external theme directory reloads, and optional Lua script-tool paths through the shared resolver without changing the relative paths those systems request.
+  Added install rules for `shaders`, `themes`, and `scripts`, moved FetchContent downloads under the active build tree, and pinned the GLFW 3.3.9 archive with `URL_HASH`.
+  Added regression coverage for current-working-directory resource resolution and missing-resource fallback.
+- Validation:
+  `cmake --build build --parallel` passed.
+  `ctest --test-dir build --output-on-failure` passed.
+  `git diff --check` passed.
+
+## 2026-05-29 - R1: Fan Out Platform Input To Nuklear
+
+- Branch:
+  `refactor-input-document-render-boundaries`
+- Modified files:
+  `include/platform/window.h`,
+  `src/platform/window.c`,
+  `src/platform/window_internal.h`,
+  `doc/reference/file-map.md`,
+  `doc/architecture/refactor-roadmap.md`,
+  `REFACTOR_LOG.md`
+- Key changes:
+  Added platform character callback plumbing and routed GLFW key, character, mouse-button, and scroll events through the platform adapter into Nuklear before application callbacks run.
+  Kept application callback ownership unchanged while making Nuklear text edit and scroll input receive the event stream it expects.
+- Validation:
+  `cmake --build build --parallel` passed.
+  `ctest --test-dir build --output-on-failure` passed.
+  `git diff --check` passed.
+
+## 2026-05-29 - R2: Make Document Storage Opaque To Public Callers
+
+- Branch:
+  `refactor-input-document-render-boundaries`
+- Modified files:
+  `include/document/document.h`,
+  `include/document/document_internal.h`,
+  `include/app/workspace_internal.h`,
+  `src/canvas/canvas_view.c`,
+  `src/render/canvas_drawlist.c`,
+  `src/render/render_system.c`,
+  `src/commands/command_delete_selection.c`,
+  `src/commands/command_paste_objects.c`,
+  `src/app/workspace.c`,
+  `src/app/workspace_edit_commands.c`,
+  `src/app/editor_viewmodel.c`,
+  `src/document/document_internal.h`,
+  `src/document/document_objects.c`,
+  `src/document/persistence.c`,
+  `src/document/persistence_layers.c`,
+  `src/document/persistence_objects.c`,
+  `src/document/persistence_write.c`,
+  `tests/test_commands.c`,
+  `tests/test_document.c`,
+  `tests/test_document_core.c`,
+  `tests/test_fake_star.c`,
+  `tests/test_renderer.c`,
+  `tests/test_script_runtime.c`,
+  `doc/reference/file-map.md`,
+  `doc/architecture/refactor-roadmap.md`,
+  `REFACTOR_LOG.md`
+- Key changes:
+  Moved the `Document` storage layout into a private internal header and converted the public header to an opaque forward declaration with explicit query helpers for object count, revision, and next object ID.
+  Updated canvas rendering, render cache keys, edit commands, workspace dirty tracking, and view-model building to use the new accessors instead of direct field reads.
+  Kept document implementation and internal-state tests on the internal layout header so storage assertions remain possible without widening the public API again.
+- Validation:
+  `cmake --build build --parallel` passed.
+  `ctest --test-dir build --output-on-failure` passed.
+  `git diff --check` passed.
+
+## 2026-05-29 - R3: Route Input Without Workspace Internals
+
+- Branch:
+  `refactor-input-document-render-boundaries`
+- Modified files:
+  `include/app/editor_controller.h`,
+  `src/app/editor_controller.c`,
+  `src/input/input_router.c`,
+  `doc/reference/file-map.md`,
+  `doc/architecture/refactor-roadmap.md`,
+  `REFACTOR_LOG.md`
+- Key changes:
+  Added `editor_controller_key_down()` as the public editor-runtime facade for active-tool key handling.
+  Updated `input_router.c` to use `workspace_get_keymap_const()` and the editor controller facade instead of including `workspace_internal.h` or directly accessing `ToolController`.
+- Validation:
+  `cmake --build build --parallel` passed.
+  `ctest --test-dir build --output-on-failure` passed.
+  `git diff --check` passed.
+
+## 2026-05-29 - R4: Decouple Tools From GLFW Input Constants
+
+- Branch:
+  `refactor-input-document-render-boundaries`
+- Modified files:
+  `include/tools/tool.h`,
+  `src/app/application_callbacks.c`,
+  `src/input/input_router.c`,
+  `src/tools/tool_select.c`,
+  `src/tools/tool_pan.c`,
+  `src/tools/tool_shape.c`,
+  `doc/reference/file-map.md`,
+  `doc/architecture/refactor-roadmap.md`,
+  `REFACTOR_LOG.md`
+- Key changes:
+  Added platform-neutral tool input constants for pointer buttons, modifiers, and keys.
+  Mapped GLFW button/modifier/key values at the application and input-router boundaries before dispatching to tools.
+  Removed GLFW includes and GLFW constants from built-in tool implementations.
+- Validation:
+  `cmake --build build --parallel` passed.
+  `ctest --test-dir build --output-on-failure` passed.
+  `git diff --check` passed.
+
+## 2026-05-29 - R5: Batch Canvas Line Rendering
+
+- Branch:
+  `refactor-input-document-render-boundaries`
+- Modified files:
+  `src/render/canvas_drawlist.c`,
+  `src/render/canvas_renderer.c`,
+  `src/render/render_device_gl.c`,
+  `tests/test_renderer.c`,
+  `doc/reference/file-map.md`,
+  `doc/architecture/refactor-roadmap.md`,
+  `REFACTOR_LOG.md`
+- Key changes:
+  Normalized draw-list line strips to explicit line-segment geometry so adjacent object strokes can be batched without accidental strip connections.
+  Added canvas renderer batching for adjacent strokes with identical material and primitive metadata, reducing backend draw submissions for same-style geometry.
+  Cleared the full framebuffer at GL frame start before the clipped canvas pass so UI-adjacent areas do not depend on prior-frame contents.
+- Validation:
+  `cmake --build build --parallel` passed.
+  `ctest --test-dir build --output-on-failure` passed.
+  `git diff --check` passed.
+
 ## 2026-05-28 - Phase 7: Final Audit and Wrap-Up
 
 - Branch:
