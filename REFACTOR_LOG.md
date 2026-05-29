@@ -1,5 +1,61 @@
 # Refactor Log
 
+## 2026-05-29 - R3: Preserve Render Device Ownership On Startup Failure
+
+- Branch:
+  `refactor-render-scene-snapshot-boundaries`
+- Modified files:
+  `src/app/application.c`,
+  `doc/architecture/refactor-roadmap.md`,
+  `REFACTOR_LOG.md`
+- Key changes:
+  Released a successfully created `RenderDevice` when `render_system_create()` fails during application startup.
+  Kept the successful startup path and normal render-system-owned teardown path unchanged.
+- Validation:
+  `cmake --build build --parallel` passed.
+  `ctest --test-dir build --output-on-failure` passed.
+  `git diff --check` passed.
+
+## 2026-05-29 - R2: Tighten Window And Nuklear GL Lifetimes
+
+- Branch:
+  `refactor-render-scene-snapshot-boundaries`
+- Modified files:
+  `include/nuklear/nuklear_glfw_gl3.h`,
+  `src/platform/window.c`,
+  `doc/architecture/refactor-roadmap.md`,
+  `REFACTOR_LOG.md`
+- Key changes:
+  Matched the Nuklear GL3 backend's VAO creation with explicit VAO deletion during device teardown and cleared device handles after release.
+  Kept single-window behavior unchanged while making `platform_window_shutdown()` terminate GLFW only after the final tracked window is removed.
+- Validation:
+  `cmake --build build --parallel` passed.
+  `ctest --test-dir build --output-on-failure` passed.
+  `git diff --check` passed.
+
+## 2026-05-29 - R1: Capture Render Scene Snapshots Internally
+
+- Branch:
+  `refactor-render-scene-snapshot-boundaries`
+- Modified files:
+  `CMakeLists.txt`,
+  `include/render/render_scene.h`,
+  `include/render/render_system.h`,
+  `src/render/render_scene_snapshot.c`,
+  `src/render/render_scene_snapshot.h`,
+  `src/render/render_system.c`,
+  `doc/reference/file-map.md`,
+  `doc/architecture/refactor-roadmap.md`,
+  `REFACTOR_LOG.md`
+- Key changes:
+  Moved the public `RenderSceneDesc` value type into a dedicated render-scene header so render-system lifecycle APIs are no longer the owner of editor scene input shape.
+  Added an internal render scene snapshot helper that captures descriptor pointers plus cache-key values before draw-list reuse decisions.
+  Kept `render_system_draw()` behavior and external call sites unchanged while separating scene capture/cache comparison from frame submission.
+- Validation:
+  `cmake --build build --parallel` passed.
+  `ctest --test-dir build --output-on-failure` passed.
+  `git diff --check` passed.
+
 ## 2026-05-29 - R6: Harden Bundled Resource Lookup And Install Layout
 
 - Branch:

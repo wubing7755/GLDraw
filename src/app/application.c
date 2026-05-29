@@ -62,6 +62,9 @@ static int app_init(Application *app) {
   {
     RenderDevice *device = render_device_factory_create_gl(&app->window);
     app->renderer = render_system_create(device, &app->window);
+    if (!app->renderer) {
+      render_device_destroy(device);
+    }
   }
   if (!app->renderer) {
     LOG_ERROR("%s", "Failed to initialize renderer");

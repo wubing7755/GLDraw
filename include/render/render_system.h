@@ -6,10 +6,9 @@
 #define GLDRAW_RENDER_RENDER_SYSTEM_H
 
 #include <canvas/canvas_view.h>
-#include <document/document.h>
-#include <model/selection.h>
 #include <platform/window.h>
 #include <render/render_device.h>
+#include <render/render_scene.h>
 
 typedef struct RenderSystem RenderSystem;
 
@@ -20,15 +19,6 @@ typedef struct RenderSystemDesc {
     int framebuffer_height;
     int owns_device;
 } RenderSystemDesc;
-
-typedef struct RenderSceneDesc {
-    const Document* document;
-    const SelectionSet* selection;
-    const CanvasView* canvas;
-    int selection_preview_active;
-    Vec2 selection_preview_delta;
-    const GraphicObject* overlay_object;
-} RenderSceneDesc;
 
 /**
  * @brief Create the rendering system and initialize GPU resources.

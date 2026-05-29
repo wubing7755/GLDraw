@@ -211,7 +211,9 @@ nk_glfw3_device_destroy(struct nk_glfw* glfw)
     glDeleteTextures(1, &dev->font_tex);
     glDeleteBuffers(1, &dev->vbo);
     glDeleteBuffers(1, &dev->ebo);
+    glDeleteVertexArrays(1, &dev->vao);
     nk_buffer_free(&dev->cmds);
+    memset(dev, 0, sizeof(*dev));
 }
 
 NK_API void

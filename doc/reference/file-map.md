@@ -133,7 +133,12 @@
 
 ### Understand rendering
 
+- `include/render/render_scene.h`
+  Public read-only scene descriptor consumed by `render_system_draw()`.
 - `src/render/render_system.c`
+  Owns render-system lifetime, resize/export operations, and cached scene submission.
+- `src/render/render_scene_snapshot.c`
+  Captures render-scene descriptors into internal cache keys for draw-list reuse decisions.
 - `src/render/canvas_drawlist.c`
   Builds cached canvas geometry and normalizes object outlines to line-segment strokes.
 - `src/render/canvas_renderer.c`
