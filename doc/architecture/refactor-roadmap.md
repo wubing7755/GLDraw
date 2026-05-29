@@ -24,6 +24,7 @@ The next refactor should not reduce layering for its own sake. It should turn pa
 - UI frame construction has moved to `src/ui/ui_frame.c`, the inspector's layer controls now live in `src/ui/ui_layer_panel.c`, menu bar rendering lives in `src/ui/ui_menubar_render.c`, and context menu rendering lives in `src/ui/ui_context_menu_render.c`.
 - Render submission now uses `RenderSceneDesc`; render-system internals capture that descriptor into a scene snapshot/cache-key helper before deciding whether to reuse the draw list.
 - The GLFW/Nuklear boundary now pairs Nuklear GL3 VAO teardown with creation and keeps GLFW initialized until the final tracked platform window is shut down.
+- Application startup now preserves render-device ownership on render-system creation failure before normal renderer ownership begins.
 - Canvas draw-list strokes are normalized to line-segment geometry and `canvas_renderer_submit()` batches adjacent strokes with identical material and primitive metadata before backend submission.
 - Bundled shader, theme, and script paths now resolve through a base resource-path helper instead of assuming the process current working directory is the repository root.
 
@@ -68,6 +69,7 @@ The next refactor should not reduce layering for its own sake. It should turn pa
 - `render_system_draw()` consumes `RenderSceneDesc`.
 - `RenderSceneDesc` lives in `include/render/render_scene.h`, while scene cache-key capture and comparison live behind the render-system implementation boundary.
 - Platform window and Nuklear GL lifetimes are still adapter-owned, with teardown now matching tracked resource ownership more closely.
+- Application lifecycle owns the render-device handoff until `render_system_create()` succeeds.
 - Resource lookup for bundled files lives in `base/resource_path`, with OpenGL shader loading, UI theme directory reloads, and optional script tools resolving the same installed/development search paths.
 - CMake installs bundled `shaders`, `themes`, and `scripts` under `share/gldraw`, and the GLFW FetchContent declaration pins the downloaded archive with `URL_HASH`.
 - This refactor round is complete for theme modules, document persistence modules, object command modules, application lifecycle boundaries, input/document/render boundary tightening, and bundled resource/build layout hardening.

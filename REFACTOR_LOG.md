@@ -1,5 +1,21 @@
 # Refactor Log
 
+## 2026-05-29 - R3: Preserve Render Device Ownership On Startup Failure
+
+- Branch:
+  `refactor-render-scene-snapshot-boundaries`
+- Modified files:
+  `src/app/application.c`,
+  `doc/architecture/refactor-roadmap.md`,
+  `REFACTOR_LOG.md`
+- Key changes:
+  Released a successfully created `RenderDevice` when `render_system_create()` fails during application startup.
+  Kept the successful startup path and normal render-system-owned teardown path unchanged.
+- Validation:
+  `cmake --build build --parallel` passed.
+  `ctest --test-dir build --output-on-failure` passed.
+  `git diff --check` passed.
+
 ## 2026-05-29 - R2: Tighten Window And Nuklear GL Lifetimes
 
 - Branch:
