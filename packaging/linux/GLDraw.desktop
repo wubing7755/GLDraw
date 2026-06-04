@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=GLDraw
+Comment=Canvas-oriented OpenGL drawing editor
+Exec=GLDraw
+Icon=gldraw
+Terminal=false
+Categories=Graphics;2DGraphics;RasterGraphics;

@@ -113,15 +113,28 @@ On Windows with MinGW/MSYS2, create a distributable zip package with:
 release.bat
 ```
 
+After creating the Windows zip package, create a Windows installer when Inno
+Setup 6 is installed:
+
+```bat
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\package_windows_installer.ps1 -Version 0.0.3 -Platform windows-x64
+```
+
 On Linux, create a distributable tarball with:
 
 ```sh
 bash ./release.sh
 ```
 
+After creating the Linux tarball, create an AppImage:
+
+```sh
+bash ./tools/package_appimage.sh --version 0.0.3 --platform linux-x64
+```
+
 The package is written to `dist/` and contains the application binary, bundled
 resources, README files, license text, and detected non-system runtime DLLs. The
-installed layout is:
+installed layout used by current releases is:
 
 ```text
 bin/GLDraw.exe
@@ -142,7 +155,36 @@ bash ./release.sh --version 0.0.3 --platform linux-x64
 
 GitHub Actions also has a release workflow. Pushing a tag such as `v0.0.3`, or
 running the workflow manually with version `0.0.3`, builds and uploads both
-`windows-x64` and `linux-x64` packages to the matching GitHub Release.
+Windows and Linux packages to the matching GitHub Release:
+
+```text
+GLDraw-v0.0.3-windows-x64-setup.exe
+GLDraw-v0.0.3-windows-x64.zip
+GLDraw-v0.0.3-linux-x64.AppImage
+GLDraw-v0.0.3-linux-x64.tar.gz
+```
+
+Use the Windows setup installer for normal installation, the Windows zip package
+for portable use, the Linux AppImage for a desktop-style portable app, or the
+Linux tarball for manual extraction.
+
+Release notes should use this short format:
+
+```text
+GLDraw vX.Y.Z <one-sentence release summary>.
+
+Highlights:
+- ...
+
+Downloads:
+- GLDraw-vX.Y.Z-windows-x64-setup.exe
+- GLDraw-vX.Y.Z-windows-x64.zip
+- GLDraw-vX.Y.Z-linux-x64.AppImage
+- GLDraw-vX.Y.Z-linux-x64.tar.gz
+
+Target commit:
+- <short-sha> <commit title>
+```
 
 
 Troubleshooting

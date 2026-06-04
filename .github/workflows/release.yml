@@ -55,7 +55,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential cmake libgl1-mesa-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev
+          sudo apt-get install -y build-essential cmake curl libgl1-mesa-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev
 
       - name: Package Windows
         if: runner.os == 'Windows'
@@ -63,9 +63,21 @@ jobs:
         run: |
           $version = "${{ steps.version.outputs.value }}"
           if ($version) {
-            ./release.bat -Version $version -Platform ${{ matrix.platform }}
+            ./release.bat -Version $version -Platform "${{ matrix.platform }}"
           } else {
-            ./release.bat -Platform ${{ matrix.platform }}
+            ./release.bat -Platform "${{ matrix.platform }}"
+          }
+
+      - name: Build Windows installer
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $version = "${{ steps.version.outputs.value }}"
+          choco install innosetup --no-progress -y
+          if ($version) {
+            pwsh -NoProfile -ExecutionPolicy Bypass -File tools/package_windows_installer.ps1 -Version $version -Platform "${{ matrix.platform }}"
+          } else {
+            pwsh -NoProfile -ExecutionPolicy Bypass -File tools/package_windows_installer.ps1 -Platform "${{ matrix.platform }}"
           }
 
       - name: Package Linux
@@ -78,11 +90,25 @@ jobs:
             bash ./release.sh --platform "${{ matrix.platform }}"
           fi
 
+      - name: Build Linux AppImage
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          version="${{ steps.version.outputs.value }}"
+          if [ -z "$version" ]; then
+            version="$(sed -nE '/project[[:space:]]*\([[:space:]]*GLDraw/,/\)/s/.*VERSION[[:space:]]+([0-9A-Za-z._-]+).*/\1/p' CMakeLists.txt | head -n 1)"
+          fi
+          bash ./tools/package_appimage.sh --version "$version" --platform "${{ matrix.platform }}"
+
       - name: Upload package artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact }}
-          path: dist/GLDraw-v*
+          path: |
+            dist/GLDraw-v*.zip
+            dist/GLDraw-v*.tar.gz
+            dist/GLDraw-v*.exe
+            dist/GLDraw-v*.AppImage
           if-no-files-found: error
 
   publish:
