@@ -30,47 +30,57 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     steps:
+      - name: Checkout release tools
+        uses: actions/checkout@v4
+        with:
+          path: release-tools
+
       - name: Checkout target ref
         uses: actions/checkout@v4
         with:
           ref: ${{ inputs.target_ref }}
+          path: target
 
       - name: Cache GLFW source
         uses: actions/cache@v4
         with:
-          path: build/_deps
+          path: target/build/_deps
           key: ${{ runner.os }}-legacy-glfw-3.3.9-${{ inputs.target_ref }}
 
       - name: Install dependencies (Linux)
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential cmake libgl1-mesa-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev
+          sudo apt-get install -y build-essential cmake curl libgl1-mesa-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev
 
       - name: Build Windows
         if: runner.os == 'Windows'
         shell: cmd
+        working-directory: target
         run: build.bat release
 
       - name: Build Linux
         if: runner.os == 'Linux'
         shell: bash
+        working-directory: target
         run: bash ./build.sh release
 
-      - name: Package Windows
+      - name: Stage Windows package
         if: runner.os == 'Windows'
         shell: pwsh
+        working-directory: target
         run: |
           $version = "${{ inputs.version }}"
           $platform = "${{ matrix.platform }}"
           $root = "GLDraw-v$version-$platform"
           $stage = Join-Path "dist" $root
-          New-Item -ItemType Directory -Path $stage | Out-Null
-          Copy-Item -LiteralPath "build/Release/bin/GLDraw.exe" -Destination $stage
+          $bin = Join-Path $stage "bin"
+          New-Item -ItemType Directory -Path $bin | Out-Null
+          Copy-Item -LiteralPath "build/Release/bin/GLDraw.exe" -Destination $bin
           foreach ($dir in @("shaders", "themes", "scripts")) {
             $path = Join-Path "build/Release/bin" $dir
             if (Test-Path $path) {
-              Copy-Item -Recurse -LiteralPath $path -Destination $stage
+              Copy-Item -Recurse -LiteralPath $path -Destination $bin
             }
           }
           foreach ($file in @("README.md", "README.zh-CN.md", "LICENSE.txt")) {
@@ -78,21 +88,40 @@ jobs:
               Copy-Item -LiteralPath $file -Destination $stage
             }
           }
-          Compress-Archive -Path $stage -DestinationPath "dist/$root.zip" -Force
 
-      - name: Package Linux
+      - name: Package Windows zip
+        if: runner.os == 'Windows'
+        shell: pwsh
+        working-directory: target
+        run: |
+          $version = "${{ inputs.version }}"
+          $platform = "${{ matrix.platform }}"
+          $root = "GLDraw-v$version-$platform"
+          Compress-Archive -Path "dist/$root" -DestinationPath "dist/$root.zip" -Force
+
+      - name: Package Windows installer
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          choco install innosetup --no-progress -y
+          $stage = (Resolve-Path "target/dist/GLDraw-v${{ inputs.version }}-${{ matrix.platform }}").Path
+          $output = (Resolve-Path "target/dist").Path
+          pwsh -NoProfile -ExecutionPolicy Bypass -File release-tools/tools/package_windows_installer.ps1 -Version "${{ inputs.version }}" -Platform "${{ matrix.platform }}" -SourceDir $stage -OutputDir $output
+
+      - name: Stage Linux package
         if: runner.os == 'Linux'
         shell: bash
+        working-directory: target
         run: |
           version="${{ inputs.version }}"
           platform="${{ matrix.platform }}"
           root="GLDraw-v$version-$platform"
           stage="dist/$root"
-          mkdir -p "$stage"
-          cp "build/Release/bin/GLDraw" "$stage/"
+          mkdir -p "$stage/bin"
+          cp "build/Release/bin/GLDraw" "$stage/bin/"
           for dir in shaders themes scripts; do
             if [ -d "build/Release/bin/$dir" ]; then
-              cp -R "build/Release/bin/$dir" "$stage/"
+              cp -R "build/Release/bin/$dir" "$stage/bin/"
             fi
           done
           for file in README.md README.zh-CN.md LICENSE.txt; do
@@ -100,15 +129,34 @@ jobs:
               cp "$file" "$stage/"
             fi
           done
+
+      - name: Package Linux tarball
+        if: runner.os == 'Linux'
+        shell: bash
+        working-directory: target
+        run: |
+          version="${{ inputs.version }}"
+          platform="${{ matrix.platform }}"
+          root="GLDraw-v$version-$platform"
           tar -czf "dist/$root.tar.gz" -C dist "$root"
+
+      - name: Package Linux AppImage
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          stage="$GITHUB_WORKSPACE/target/dist/GLDraw-v${{ inputs.version }}-${{ matrix.platform }}"
+          dist="$GITHUB_WORKSPACE/target/dist"
+          bash release-tools/tools/package_appimage.sh --version "${{ inputs.version }}" --platform "${{ matrix.platform }}" --stage-dir "$stage" --dist-dir "$dist"
 
       - name: Upload package artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact }}
           path: |
-            dist/GLDraw-v*.zip
-            dist/GLDraw-v*.tar.gz
+            target/dist/GLDraw-v*.zip
+            target/dist/GLDraw-v*.tar.gz
+            target/dist/GLDraw-v*.exe
+            target/dist/GLDraw-v*.AppImage
           if-no-files-found: error
 
   publish:
@@ -128,4 +176,4 @@ jobs:
         run: |
           tag="v${{ inputs.version }}"
           gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 || gh release create "$tag" --repo "$GITHUB_REPOSITORY" --target "${{ inputs.target_ref }}" --title "$tag" --notes ""
-          gh release upload "$tag" dist/GLDraw-v*.zip dist/GLDraw-v*.tar.gz --repo "$GITHUB_REPOSITORY" --clobber
+          gh release upload "$tag" dist/GLDraw-v* --repo "$GITHUB_REPOSITORY" --clobber

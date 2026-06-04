@@ -60,6 +60,11 @@ cp "$STAGE_DIR/bin/GLDraw" "$APPDIR/usr/bin/GLDraw"
 if [[ -d "$STAGE_DIR/share/gldraw" ]]; then
     cp -R "$STAGE_DIR/share/gldraw/." "$APPDIR/usr/share/gldraw/"
 fi
+for dir in shaders themes scripts; do
+    if [[ -d "$STAGE_DIR/bin/$dir" ]]; then
+        cp -R "$STAGE_DIR/bin/$dir" "$APPDIR/usr/bin/"
+    fi
+done
 
 cp "packaging/linux/GLDraw.desktop" "$APPDIR/usr/share/applications/GLDraw.desktop"
 cp "packaging/linux/gldraw.svg" "$APPDIR/usr/share/icons/hicolor/scalable/apps/gldraw.svg"

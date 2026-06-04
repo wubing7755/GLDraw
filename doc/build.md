@@ -168,6 +168,11 @@ Use the Windows setup installer for normal installation, the Windows zip package
 for portable use, the Linux AppImage for a desktop-style portable app, or the
 Linux tarball for manual extraction.
 
+For older tags that predate the current release scripts, run the `Legacy
+Release` workflow with the desired version and target ref. It checks out the
+target ref for building while using current packaging tools to upload zip,
+setup, tarball, and AppImage assets to the matching GitHub Release.
+
 Release notes should use this short format:
 
 ```text
