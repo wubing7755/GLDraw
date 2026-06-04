@@ -1,95 +1,137 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file gives Claude Code repository-specific guidance for GLDraw.
 
-## Build Commands
+## Project Shape
+
+GLDraw is a C11 canvas drawing editor built with CMake, GLFW, GLAD, Nuklear,
+and OpenGL 3.3. The runtime is centered on `Workspace`:
+
+```text
+Workspace
+  -> EditorCore: Document, CommandExecutor, CanvasView, ToolController
+  -> EditorSession: keymap, layout, selection, clipboard, dialogs, dirty state
+  -> EditorServices: save, load, export, and top-level action callbacks
+```
+
+Treat `Workspace` as the editor hub, but prefer public workspace and controller
+APIs over direct access to internals.
+
+## Build And Verification
+
+Use the scripts for normal local builds:
 
 ```sh
-# Windows (MinGW/MSYS2)
-cmake -S . -B build-mingw -G "MinGW Makefiles"
-cmake --build build-mingw --parallel
-./build-mingw/bin/GLDraw.exe
+./build.sh
+./build.sh debug
+./build.sh clean
+```
 
-# Windows (Visual Studio 2022)
-cmake -S . -B build -G "Visual Studio 17 2022" -A x64
-cmake --build build --config Release
-./build/bin/Release/GLDraw.exe
+On Windows CMD with MinGW/MSYS2:
 
-# Linux/macOS
+```bat
+build.bat
+build.bat debug
+build.bat clean
+```
+
+Manual CMake references:
+
+```sh
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build --parallel
-./build/bin/GLDraw
-
-# Convenience script
-./build.sh          # Release build
-./build.sh debug    # Debug build
-./build.sh clean    # Clean artifacts
+ctest --test-dir build --output-on-failure
 ```
 
-**Dependencies**: GLFW 3.3.9 (fetched via CMake), GLAD (committed), Nuklear (header-only). Tests run via CTest (Linux/macOS only in CI).
-
----
-
-## Architecture
-
-GLDraw is a canvas-oriented OpenGL drawing editor in C11. The central hub is **Workspace** (`include/app/workspace.h`), which contains:
-
-```
-Workspace → EditorCore (Document + CommandExecutor + CanvasView + ToolController)
-          → EditorSession (Keymap, Layout, Selection, Clipboard)
-          → EditorServices (save/load/export callbacks)
+```bat
+cmake -S . -B build-mingw -G "MinGW Makefiles"
+cmake --build build-mingw --parallel
 ```
 
-### Core Systems
-
-| System | Purpose |
-|--------|---------|
-| **document** | Owns dynamic `GraphicObject` array, layer system, spatial index, revision tracking |
-| **model** | `SelectionSet` (dynamic), `EditorSession` state |
-| **canvas** | Viewport, zoom/pan, world↔screen coordinate transforms |
-| **tools** | Routes pointer/key events to active tool via `ToolDescriptor` |
-| **commands** | `CommandExecutor` with undo/redo, transactions, memory budgeting |
-| **render** | `RenderDevice` abstraction, draw-list build, GL backend via factory |
-| **ui** | Nuklear toolbar, menu, inspector panel, status bar, dialogs |
-
-### Key Patterns
-
-**Object Descriptor Pattern** — `GraphicObjectDescriptor` (`include/document/object.h`) lets object types (line, rect, ellipse, extensions) define their own create/clone/destroy/translate/get_bounds/hit_test/serialize/deserialize methods. New shape types register via `register_object_type()` without modifying core files.
-
-**Tool Descriptor Pattern** — Tools (`include/tools/tool.h`) register `ToolDescriptor` with create/activate/pointer/key handlers. Commands and menu items for tools are dynamically generated from the `ToolRegistry`. Extensions register tools the same way as built-ins.
-
-**Command-Based Undo** — All document mutations go through `CommandExecutor` (`include/commands/command.h`). Commands implement execute/undo/redo/merge/destroy. The executor supports transactions with auto-rollback on failure. No external snapshot-based undo exists.
-
-### Data Flow
-
-```
-GLFW events → application.c callbacks → input_router → command_registry_execute
-           → tool_controller_* → command_executor_execute → Document mutation
-           → render_system_draw → canvas_drawlist → canvas_renderer → OpenGL frame
+```bat
+cmake -S . -B build -G "Visual Studio 17 2022" -A x64
+cmake --build build --config Release
 ```
 
-### Extension System
+Dependencies: GLFW 3.3.9 is fetched by CMake, GLAD is committed, and Nuklear is
+header-only. Tests are expected mainly in Linux/macOS CI.
 
-- **Object types**: Register via `register_object_type()` in `extension_loader.c`. Core `object.c` never imports extension headers.
-- **Tools**: Register via `register_tool()`. Commands, shortcuts, and menu items are derived from `ToolDescriptor` metadata.
-- **Serialization**: Extensions serialize/deserialize via `GraphicObjectDescriptor` vtable — no core change needed.
+## Current Entry Points
 
-JSON persistence via `document_save_json()` / `document_load_json()`.
+Start code reading here:
 
----
+* `src/main.c` - process entrypoint, calls `app_run()`.
+* `src/app/application.c` - application lifecycle and frame sequencing.
+* `src/app/application_callbacks.c` - platform callback registration targets.
+* `src/app/application_workspace_services.c` - app-owned save/load/export callbacks.
+* `include/app/workspace.h` - public workspace API.
+* `include/app/editor_controller.h` - editor runtime facade for input and render scene state.
+* `src/app/registration_manifest.c` - built-in registration sequence.
+* `src/app/extension_manifest.c` - built-in object registration.
+* `src/app/tool_manifest.c` - built-in tool registration.
+* `src/app/command_registry.c` - public command execution entrypoint.
+* `src/commands/command_executor.c` - undo/redo history and command execution.
+* `src/render/render_system.c` - render system lifecycle and scene submission.
+* `src/tools/tool_runtime.c` - active tool lifecycle and dispatch.
 
-## Entry Points
+## Ownership Rules
 
-- `src/main.c` — single line calling `app_run()`
-- `src/app/application.c` — bootstrap, window, main loop, dependency injection
-- `src/app/extension_loader.c` — extension registration assembly point
-- `src/commands/command.c` — command types, executor, transactions
-- `src/render/render_system.c` — draw-list build, render submission
-- `src/tools/tool_controller.c` — tool routing and built-in tool implementations
+Keep edits aligned with the current boundaries:
+
+* Durable document mutations should go through `CommandExecutor`.
+* Object storage, layers, IDs, revisions, and spatial queries belong to `document/`.
+* Selection, clipboard, dialogs, dirty state, and layout are workspace/session concerns.
+* Tool input should flow through `editor_controller` and `tool_runtime`, not directly from UI widgets.
+* UI code should consume view-model or workspace query state and emit actions; it should not own editing rules.
+* Rendering consumes `RenderSceneDesc` or editor render scene state; it should not define document behavior.
+* Platform-specific input values should be converted at the app/input boundary before reaching tools.
+* Resource lookup for shaders, themes, and scripts should use `base/resource_path`.
+
+Avoid adding new includes of `workspace_internal.h` outside workspace implementation files unless a test is explicitly verifying internal lifecycle behavior.
+
+## Extension Patterns
+
+Objects are descriptor-driven through `GraphicObjectDescriptor` in
+`include/document/object.h`.
+
+* Implement create, clone, destroy, translate, bounds, hit-test, path, property,
+  and persistence callbacks as needed.
+* Register object descriptors with `register_object_type()`.
+* Add built-in object registration through `src/app/extension_manifest.c`.
+* Prefer `GRAPHIC_OBJECT_INVALID` for new auto-assigned object type IDs.
+
+Tools are descriptor-driven through `ToolDescriptor` in `include/tools/tool.h`.
+
+* Register custom tools with `register_tool()`.
+* Use `register_shape_tool()` when the standard shape-drag lifecycle is enough.
+* Add built-in tool registration through `src/app/tool_manifest.c`.
+* Keep durable edits command-based; overlays are for previews.
+
+## Command And UI Notes
+
+Command metadata, availability, and execution are split:
+
+* `command_catalog` owns command descriptors and IDs.
+* `command_availability` owns executable-state checks.
+* `command_registry_execute()` remains the public execution entrypoint.
+* Concrete workspace behavior is split across `workspace_file_commands`,
+  `workspace_edit_commands`, `workspace_view_commands`,
+  `workspace_tool_commands`, and `workspace_dialog_commands`.
+
+UI frame construction is split across focused `src/ui/` modules such as
+`ui_frame.c`, `ui_chrome.c`, `ui_menubar*.c`, `ui_context_menu*.c`,
+`ui_inspector_panel.c`, `ui_layer_panel.c`, and dialog/theme modules.
 
 ## Documentation
 
-Detailed architecture docs in `doc/wiki/`:
-- `architecture.md`, `core-systems-overview.md` — high-level design
-- `data-flow.md` — main loop, event, render flows
-- `extending.md` — guide for adding new object types and tools
+Repository-local docs are intentionally short:
+
+* `doc/README.md` - documentation entrypoint.
+* `doc/build.md` - build, run, dependencies, and troubleshooting.
+* `doc/controls.md` - default shortcuts and pointer behavior.
+
+Architecture and source navigation are maintained through Zread:
+https://zread.ai/wubing7755/GLDraw
+
+Update local docs only when build commands, run paths, dependencies, controls,
+or documentation policy change.
