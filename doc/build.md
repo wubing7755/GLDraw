@@ -104,6 +104,47 @@ For manual CMake builds, replace `build/Release` with the build directory used
 during configure.
 
 
+Release Packaging
+-----------------
+
+On Windows with MinGW/MSYS2, create a distributable zip package with:
+
+```bat
+release.bat
+```
+
+On Linux, create a distributable tarball with:
+
+```sh
+bash ./release.sh
+```
+
+The package is written to `dist/` and contains the application binary, bundled
+resources, README files, license text, and detected non-system runtime DLLs. The
+installed layout is:
+
+```text
+bin/GLDraw.exe
+share/gldraw/shaders/
+share/gldraw/themes/
+share/gldraw/scripts/
+```
+
+Override the generated version or platform label when needed:
+
+```bat
+release.bat -Version 0.0.3 -Platform windows-x64
+```
+
+```sh
+bash ./release.sh --version 0.0.3 --platform linux-x64
+```
+
+GitHub Actions also has a release workflow. Pushing a tag such as `v0.0.3`
+builds and uploads both `windows-x64` and `linux-x64` packages to the matching
+GitHub Release.
+
+
 Troubleshooting
 ---------------
 
