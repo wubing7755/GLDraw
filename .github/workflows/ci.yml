@@ -101,7 +101,3 @@ jobs:
       run: |
         BUILD_DIR="build/${{ matrix.os }}-asan"
         cd "$BUILD_DIR" && ctest --output-on-failure
-
-    - name: Valgrind smoke suite (skipped)
-      if: false
-      run: echo "Valgrind skipped — incompatible with ASan; ASan+LSan already cover memory checking"

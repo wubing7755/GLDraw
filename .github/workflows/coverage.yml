@@ -1,0 +1,59 @@
+name: Coverage
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  coverage:
+    runs-on: ubuntu-latest
+
+    env:
+      CFLAGS: --coverage -O0 -g
+      LDFLAGS: --coverage
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake gcovr libgl1-mesa-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev
+
+      - name: Configure CMake
+        run: cmake -S . -B build/coverage -DCMAKE_BUILD_TYPE=Debug
+
+      - name: Build
+        run: cmake --build build/coverage --parallel
+
+      - name: Test
+        run: ctest --test-dir build/coverage --output-on-failure
+
+      - name: Generate coverage reports
+        run: |
+          mkdir -p build/coverage-report
+          gcovr \
+            --root . \
+            --exclude 'build/.*' \
+            --exclude 'include/nuklear/.*' \
+            --exclude 'include/glad/.*' \
+            --exclude 'src/glad.c' \
+            --exclude 'tests/.*' \
+            --gcov-ignore-parse-errors \
+            --html-details build/coverage-report/index.html \
+            --xml build/coverage-report/coverage.xml \
+            --print-summary
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: build/coverage-report
+          if-no-files-found: error
