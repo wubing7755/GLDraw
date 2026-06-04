@@ -140,9 +140,9 @@ release.bat -Version 0.0.3 -Platform windows-x64
 bash ./release.sh --version 0.0.3 --platform linux-x64
 ```
 
-GitHub Actions also has a release workflow. Pushing a tag such as `v0.0.3`
-builds and uploads both `windows-x64` and `linux-x64` packages to the matching
-GitHub Release.
+GitHub Actions also has a release workflow. Pushing a tag such as `v0.0.3`, or
+running the workflow manually with version `0.0.3`, builds and uploads both
+`windows-x64` and `linux-x64` packages to the matching GitHub Release.
 
 
 Troubleshooting

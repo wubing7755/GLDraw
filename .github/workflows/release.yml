@@ -4,8 +4,8 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Release version override, for example 2.0.1"
-        required: false
+        description: "Release version, for example 0.0.3"
+        required: true
         type: string
   push:
     tags:
@@ -32,6 +32,19 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Resolve release version
+        id: version
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            version="${{ inputs.version }}"
+          elif [[ "$GITHUB_REF_NAME" == v* ]]; then
+            version="${GITHUB_REF_NAME#v}"
+          else
+            version=""
+          fi
+          echo "value=$version" >> "$GITHUB_OUTPUT"
+
       - name: Cache GLFW source
         uses: actions/cache@v4
         with:
@@ -48,7 +61,7 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          $version = "${{ github.event.inputs.version }}"
+          $version = "${{ steps.version.outputs.value }}"
           if ($version) {
             ./release.bat -Version $version -Platform ${{ matrix.platform }}
           } else {
@@ -59,8 +72,8 @@ jobs:
         if: runner.os == 'Linux'
         shell: bash
         run: |
-          if [ -n "${{ github.event.inputs.version }}" ]; then
-            bash ./release.sh --version "${{ github.event.inputs.version }}" --platform "${{ matrix.platform }}"
+          if [ -n "${{ steps.version.outputs.value }}" ]; then
+            bash ./release.sh --version "${{ steps.version.outputs.value }}" --platform "${{ matrix.platform }}"
           else
             bash ./release.sh --platform "${{ matrix.platform }}"
           fi
@@ -73,11 +86,24 @@ jobs:
           if-no-files-found: error
 
   publish:
-    if: startsWith(github.ref, 'refs/tags/')
     needs: package
     runs-on: ubuntu-latest
 
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Resolve release tag
+        id: release
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            tag="v${{ inputs.version }}"
+          else
+            tag="$GITHUB_REF_NAME"
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
       - name: Download package artifacts
         uses: actions/download-artifact@v4
         with:
@@ -88,5 +114,6 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 || gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --notes ""
-          gh release upload "$GITHUB_REF_NAME" dist/GLDraw-v* --clobber
+          tag="${{ steps.release.outputs.tag }}"
+          gh release view "$tag" >/dev/null 2>&1 || gh release create "$tag" --target "$GITHUB_SHA" --title "$tag" --notes ""
+          gh release upload "$tag" dist/GLDraw-v* --clobber
