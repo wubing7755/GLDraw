@@ -19,6 +19,7 @@ Quick Start
 * Build and run GLDraw: See build.md
 * Learn basic controls: See controls.md
 * Understand testing expectations: See testing.md
+* Review dependencies: See dependencies.md
 * Prepare a release: See release.md
 * Use AI agents safely: See ai-agents.md and agent-playbooks.md
 * Review stable architecture decisions: See adr/README.md
@@ -35,6 +36,7 @@ All users and contributors should be familiar with:
 * Build requirements: build.md
 * Runtime controls: controls.md
 * Testing policy: testing.md
+* Dependency policy: dependencies.md
 * Release policy: release.md
 * AI agent policy: ai-agents.md
 * AI agent playbooks: agent-playbooks.md

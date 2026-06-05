@@ -20,6 +20,8 @@ Requirements
 * GLAD is committed in the repository
 * Nuklear is header-only and included in the source tree
 
+Dependency layout and update notes are documented in dependencies.md.
+
 
 Quick Start
 -----------
