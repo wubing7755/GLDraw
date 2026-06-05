@@ -373,7 +373,7 @@ void ui_theme_apply_color_overrides(const char* source_path, const char* text, U
             continue;
         }
 
-        *(struct nk_color*)((char*)tokens + fields[i].offset) = parsed;
+        memcpy((char*)tokens + fields[i].offset, &parsed, sizeof(parsed));
     }
 }
 
@@ -411,7 +411,7 @@ void ui_theme_apply_float_overrides(const char* source_path, const char* text, U
             }
             continue;
         }
-        *(float*)((char*)tokens + fields[i].offset) = value;
+        memcpy((char*)tokens + fields[i].offset, &value, sizeof(value));
     }
 }
 
