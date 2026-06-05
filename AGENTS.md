@@ -96,6 +96,9 @@ Start code reading here:
 * `src/commands/command_executor.c` - undo/redo history and command execution.
 * `src/render/render_system.c` - render system lifecycle and scene submission.
 * `src/tools/tool_runtime.c` - active tool lifecycle and dispatch.
+* `CMakeLists.txt` - CMake project entrypoint.
+* `cmake/` - CMake modules for compiler options, dependencies, sources, tests,
+  and packaging.
 
 ## Ownership Rules
 

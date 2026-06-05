@@ -200,6 +200,20 @@ Release` workflow with the desired version and target ref. It checks out the
 target ref for building while using current packaging tools to upload zip,
 setup, tarball, and AppImage assets to the matching GitHub Release.
 
+
+CMake Project Layout
+--------------------
+
+`CMakeLists.txt` is the project entry point. Supporting CMake modules live in
+`cmake/`:
+
+* `CompilerOptions.cmake` - compiler warnings, sanitizers, source-specific
+  warning suppressions, and target defaults.
+* `Dependencies.cmake` - GLFW, OpenGL, and optional scripting dependencies.
+* `Sources.cmake` - source lists grouped by target.
+* `Tests.cmake` - test targets and CTest registration.
+* `Packaging.cmake` - install rules used by packaging scripts.
+
 Release notes should use this short format:
 
 ```text

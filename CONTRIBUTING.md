@@ -28,6 +28,9 @@ cmake --build --preset debug
 ctest --preset debug --output-on-failure
 ```
 
+`CMakeLists.txt` should stay the project entry point. Keep reusable CMake logic
+in `cmake/` modules instead of growing the root file.
+
 ## Branches and Commits
 
 Use short, scoped branch names:

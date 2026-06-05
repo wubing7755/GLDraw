@@ -1,0 +1,137 @@
+set(EDITOR_MODEL_SOURCES
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/base/file_utils.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/base/path_utils.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/base/resource_path.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/model/selection.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/app/extension_manifest.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/app/manifest_runner.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/document/object_registry.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/document/object_properties.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/document/object_runtime.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/document/object_line.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/document/object_rect.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/document/object_ellipse.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/document/object_fake_star.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/document/document.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/document/document_objects.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/document/document_layers.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/document/document_spatial_index.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/document/persistence.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/document/persistence_json.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/document/persistence_layers.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/document/persistence_objects.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/document/persistence_write.c
+)
+
+set(RENDER_CORE_SOURCES
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/canvas/canvas_view.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/render/render_device.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/render/canvas_drawlist.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/render/canvas_renderer.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/render/render_arena.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/render/render_scene_snapshot.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/render/render_system.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/image/png_writer.c
+)
+
+set(RENDER_GLFW_GL_SOURCES
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/render/buffer_pool.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/render/render_device_factory.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/render/render_device_gl.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/render/shader_manager.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/glad.c
+)
+
+set(EDITOR_COMMANDS_SOURCES
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/commands/command.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/commands/command_create_object.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/commands/command_delete_selection.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/commands/command_executor.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/commands/command_layer_ops.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/commands/command_move_objects.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/commands/command_object_checks.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/commands/command_object_ops.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/commands/command_paste_objects.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/commands/command_set_property.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/commands/command_transaction.c
+)
+
+set(EDITOR_TOOLS_SOURCES
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/app/tool_manifest.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/tools/tool_registry.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/tools/tool_runtime.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/tools/tool_input_dispatch.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/tools/tool_select.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/tools/tool_pan.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/tools/tool_shape.c
+)
+
+set(EDITOR_RUNTIME_SOURCES
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/editor_action.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/app/command_availability.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/app/command_catalog.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/app/command_registry.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/app/command_dispatcher.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/app/editor_action_handler.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/app/editor_controller.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/app/editor_viewmodel.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/app/registration_manifest.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/app/workspace.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/app/workspace_actions.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/app/workspace_clipboard.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/app/workspace_dialog_commands.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/app/workspace_dialogs.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/app/workspace_edit_commands.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/app/workspace_file_commands.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/app/workspace_service.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/app/workspace_tool_commands.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/app/workspace_view_commands.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/input/key_chord.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/input/keymap.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/input/input_router.c
+)
+
+if(GLDRAW_ENABLE_SCRIPTING)
+    list(APPEND EDITOR_TOOLS_SOURCES
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/script/script_runtime_lua.c
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/tools/script_tool_lua.c
+    )
+endif()
+
+set(PLATFORM_GLFW_SOURCES
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/platform/window.c
+)
+
+set(UI_NUKLEAR_GLFW_SOURCES
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ui_chrome.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ui_context_menu.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ui_context_menu_render.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ui_frame.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ui_inspector_panel.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ui_layer_panel.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ui_layout.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ui_runtime.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ui_dialog_runtime.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ui_theme_runtime.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ui_dialog.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ui_menu_def.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ui_menu_actions.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ui_menubar.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ui_menubar_render.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ui_theme.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ui_theme_apply.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ui_theme_builtin.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ui_theme_external.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ui_theme_parse.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ui_theme_settings.c
+)
+
+set(EDITOR_APP_SOURCES
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/app/application.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/app/application_callbacks.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/app/application_dialog_actions.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/app/application_file_actions.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/app/application_runtime.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/app/application_workspace_services.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/platform/file_dialog.c
+)
