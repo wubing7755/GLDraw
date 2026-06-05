@@ -91,7 +91,6 @@ Thumbs.db
 *~
 
 ### Version Control ###
-.gitattributes
 .git/
 *.orig
 *.rej

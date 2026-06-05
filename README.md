@@ -50,6 +50,11 @@ Documentation
 
 * Build and run: [doc/build.md](doc/build.md)
 * Controls: [doc/controls.md](doc/controls.md)
+* Contributing: [CONTRIBUTING.md](CONTRIBUTING.md)
+* Testing: [doc/testing.md](doc/testing.md)
+* Release process: [doc/release.md](doc/release.md)
+* Changelog: [CHANGELOG.md](CHANGELOG.md)
+* Security policy: [SECURITY.md](SECURITY.md)
 * Local documentation index: [doc/README.md](doc/README.md)
 * Architecture and source guide: https://zread.ai/wubing7755/GLDraw
 
