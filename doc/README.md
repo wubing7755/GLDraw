@@ -3,7 +3,7 @@ GLDraw Documentation
 
 This directory contains only the small documentation that should live with the
 repository: build instructions, run commands, basic controls, testing policy,
-release policy, and short architecture decision records.
+release policy, AI agent policy, and short architecture decision records.
 
 Project architecture, source navigation, and module-level explanations are
 maintained through Zread:
@@ -20,6 +20,7 @@ Quick Start
 * Learn basic controls: See controls.md
 * Understand testing expectations: See testing.md
 * Prepare a release: See release.md
+* Use AI agents safely: See ai-agents.md and agent-playbooks.md
 * Review stable architecture decisions: See adr/README.md
 * Read project architecture: https://zread.ai/wubing7755/GLDraw
 * Check the license: See ../LICENSE.txt
@@ -34,6 +35,8 @@ All users and contributors should be familiar with:
 * Runtime controls: controls.md
 * Testing policy: testing.md
 * Release policy: release.md
+* AI agent policy: ai-agents.md
+* AI agent playbooks: agent-playbooks.md
 * Contributor guide: ../CONTRIBUTING.md
 * Project overview: ../README.md
 * Source and architecture guide: https://zread.ai/wubing7755/GLDraw
@@ -44,7 +47,8 @@ Documentation Policy
 
 Keep this directory short.
 
-* Build, run, dependency, control, testing, and release notes belong here.
+* Build, run, dependency, control, testing, release, and AI agent notes belong
+  here.
 * Short ADRs may live in adr/ when they record stable contributor-facing
   decisions.
 * Long architecture pages should stay out of this directory.

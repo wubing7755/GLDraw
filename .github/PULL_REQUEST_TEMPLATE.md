@@ -1,3 +1,5 @@
+<!-- PR title format: type(scope): summary, for example docs(ai): add agent policy -->
+
 Closes #xx
 
 ## Summary
@@ -35,6 +37,14 @@ Closes #xx
 - [ ] Format or static-analysis checks completed when applicable.
 - [ ] UI/rendering screenshots or recordings attached when applicable.
 - [ ] Not run; reason:
+
+## AI Assistance
+- [ ] AI assistance was used.
+- Agent/tool:
+- What the agent did:
+- Required docs read:
+- Human verification performed:
+- [ ] Not applicable.
 
 ## Compatibility and Release Notes
 - File format impact:

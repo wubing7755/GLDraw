@@ -1,0 +1,89 @@
+name: AI agent task
+description: Prepare a scoped task for AI-assisted implementation or analysis.
+title: "[agent] "
+labels: ["agent-task"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template for work that should be clear enough for an AI agent
+        and reviewable by a maintainer. Keep the task focused.
+  - type: textarea
+    id: background
+    attributes:
+      label: Background
+      description: What context or problem should the agent understand?
+      placeholder: Describe the current behavior, related issue, or reason for the task.
+    validations:
+      required: true
+  - type: textarea
+    id: goal
+    attributes:
+      label: Goal
+      description: What should be true when the task is complete?
+      placeholder: Describe the desired outcome in concrete terms.
+    validations:
+      required: true
+  - type: textarea
+    id: non-goals
+    attributes:
+      label: Non-goals
+      description: What should the agent avoid changing?
+      placeholder: List behavior, modules, or follow-up work that is out of scope.
+    validations:
+      required: true
+  - type: checkboxes
+    id: required-context
+    attributes:
+      label: Required context
+      description: Documents the agent should read before editing.
+      options:
+        - label: AGENTS.md
+          required: true
+        - label: CONTRIBUTING.md
+          required: true
+        - label: doc/ai-agents.md
+          required: true
+        - label: doc/agent-playbooks.md
+          required: true
+        - label: doc/testing.md
+          required: true
+        - label: Relevant ADRs in doc/adr/
+          required: false
+        - label: doc/build.md or doc/release.md for build, CI, packaging, or release work
+          required: false
+  - type: textarea
+    id: affected-areas
+    attributes:
+      label: Expected affected areas
+      description: Which files, modules, or ownership boundaries are likely involved?
+      placeholder: Example: src/commands/, tests/, doc/testing.md
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: List concrete conditions reviewers can verify.
+      placeholder: |
+        - ...
+        - ...
+    validations:
+      required: true
+  - type: textarea
+    id: checks
+    attributes:
+      label: Required checks
+      description: Which local or CI checks should pass for this task?
+      placeholder: |
+        - cmake --list-presets
+        - ctest --preset debug --output-on-failure
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes for reviewers
+      description: Mention manual verification, screenshots, risks, or follow-up work.
+    validations:
+      required: false

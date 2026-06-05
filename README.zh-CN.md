@@ -53,6 +53,8 @@ build\Release\bin\GLDraw.exe
 * 贡献指南：[CONTRIBUTING.md](CONTRIBUTING.md)
 * 测试策略：[doc/testing.md](doc/testing.md)
 * 发布流程：[doc/release.md](doc/release.md)
+* AI agent 策略：[doc/ai-agents.md](doc/ai-agents.md)
+* AI agent 流程：[doc/agent-playbooks.md](doc/agent-playbooks.md)
 * 变更记录：[CHANGELOG.md](CHANGELOG.md)
 * 安全策略：[SECURITY.md](SECURITY.md)
 * 本地文档入口：[doc/README.md](doc/README.md)

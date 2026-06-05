@@ -18,6 +18,8 @@ grouped by release.
   contributor workflows.
 * Local check scripts for shell and PowerShell.
 * Testing, security, release, and ADR documentation for team collaboration.
+* AI agent policy, playbooks, PR disclosure, task issue template, and ADR for
+  AI-assisted contribution boundaries.
 
 ### Changed
 
