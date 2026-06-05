@@ -155,6 +155,7 @@ Repository-local docs are intentionally short:
 * `doc/testing.md` - testing policy and expectations.
 * `doc/ai-agents.md` - AI agent policy.
 * `doc/agent-playbooks.md` - AI-assisted task workflows.
+* `doc/archive/` - historical notes retained for reference only.
 
 Architecture and source navigation are maintained through Zread:
 https://zread.ai/wubing7755/GLDraw
