@@ -50,6 +50,11 @@ build\Release\bin\GLDraw.exe
 
 * 构建和运行：[doc/build.md](doc/build.md)
 * 快捷键和基本操作：[doc/controls.md](doc/controls.md)
+* 贡献指南：[CONTRIBUTING.md](CONTRIBUTING.md)
+* 测试策略：[doc/testing.md](doc/testing.md)
+* 发布流程：[doc/release.md](doc/release.md)
+* 变更记录：[CHANGELOG.md](CHANGELOG.md)
+* 安全策略：[SECURITY.md](SECURITY.md)
 * 本地文档入口：[doc/README.md](doc/README.md)
 * 架构和源码导览：https://zread.ai/wubing7755/GLDraw
 

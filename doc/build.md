@@ -4,13 +4,15 @@ Build and Run GLDraw
 GLDraw is a C11 OpenGL drawing editor built with CMake.
 
 The recommended path is to use the repository build scripts. Manual CMake
-commands are available when a specific generator or output layout is needed.
+commands and optional CMake presets are available when a specific generator or
+output layout is needed.
 
 
 Requirements
 ------------
 
 * CMake 3.15 or newer
+* CMake 3.21 or newer for optional CMake presets
 * A C11 compiler
 * OpenGL runtime and development files
 * Git and network access for the first CMake configure
@@ -60,6 +62,31 @@ Script output paths:
 
 * Release: build/Release/bin/GLDraw or build\Release\bin\GLDraw.exe
 * Debug: build/Debug/bin/GLDraw or build\Debug\bin\GLDraw.exe
+
+
+CMake Presets
+-------------
+
+Contributors with CMake 3.21 or newer can use shared presets:
+
+```sh
+cmake --preset debug
+cmake --build --preset debug
+ctest --preset debug --output-on-failure
+```
+
+Common presets:
+
+* debug
+* release
+* coverage
+* asan
+* mingw-debug
+* mingw-release
+* msvc-release
+
+Presets are used by CI, but the build scripts remain the recommended simple
+entry point for local users.
 
 
 Manual CMake

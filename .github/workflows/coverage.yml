@@ -14,10 +14,6 @@ jobs:
   coverage:
     runs-on: ubuntu-latest
 
-    env:
-      CFLAGS: --coverage -O0 -g
-      LDFLAGS: --coverage
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -28,13 +24,13 @@ jobs:
           sudo apt-get install -y build-essential cmake gcovr libgl1-mesa-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev
 
       - name: Configure CMake
-        run: cmake -S . -B build/coverage -DCMAKE_BUILD_TYPE=Debug
+        run: cmake --preset coverage
 
       - name: Build
-        run: cmake --build build/coverage --parallel
+        run: cmake --build --preset coverage --parallel
 
       - name: Test
-        run: ctest --test-dir build/coverage --output-on-failure
+        run: ctest --preset coverage --output-on-failure
 
       - name: Generate coverage reports
         run: |

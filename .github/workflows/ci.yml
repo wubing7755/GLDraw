@@ -22,7 +22,7 @@ jobs:
     - name: Cache GLFW source
       uses: actions/cache@v4
       with:
-        path: build/_deps
+        path: build/**/_deps
         key: ${{ runner.os }}-glfw-3.3.9-${{ hashFiles('CMakeLists.txt') }}
 
     - name: Install dependencies (Linux)
@@ -38,24 +38,20 @@ jobs:
     - name: Configure CMake
       shell: bash
       run: |
-        BUILD_DIR="build/${{ matrix.os }}-${{ matrix.build_type }}"
-        if [ "${{ matrix.os }}" == "windows-latest" ]; then
-          cmake -B "$BUILD_DIR" -G "MinGW Makefiles" -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
-        else
-          cmake -B "$BUILD_DIR" -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
+        preset="$(echo "${{ matrix.build_type }}" | tr '[:upper:]' '[:lower:]')"
+        if [ "${{ matrix.os }}" = "windows-latest" ]; then
+          preset="mingw-$preset"
         fi
+        echo "GLDRAW_CMAKE_PRESET=$preset" >> "$GITHUB_ENV"
+        cmake --preset "$preset"
 
     - name: Build
       shell: bash
-      run: |
-        BUILD_DIR="build/${{ matrix.os }}-${{ matrix.build_type }}"
-        cmake --build "$BUILD_DIR" --config ${{ matrix.build_type }}
+      run: cmake --build --preset "$GLDRAW_CMAKE_PRESET" --parallel
 
     - name: Test
       shell: bash
-      run: |
-        BUILD_DIR="build/${{ matrix.os }}-${{ matrix.build_type }}"
-        cd "$BUILD_DIR" && ctest --output-on-failure
+      run: ctest --preset "$GLDRAW_CMAKE_PRESET" --output-on-failure
 
   sanitize:
     strategy:
@@ -71,7 +67,7 @@ jobs:
     - name: Cache GLFW source
       uses: actions/cache@v4
       with:
-        path: build/_deps
+        path: build/**/_deps
         key: ${{ runner.os }}-glfw-3.3.9-${{ hashFiles('CMakeLists.txt') }}
 
     - name: Install dependencies (Linux)
@@ -86,18 +82,12 @@ jobs:
 
     - name: Configure with ASan
       shell: bash
-      run: |
-        BUILD_DIR="build/${{ matrix.os }}-asan"
-        cmake -B "$BUILD_DIR" -DCMAKE_BUILD_TYPE=Debug -DGLDRAW_ENABLE_ASAN=ON
+      run: cmake --preset asan
 
     - name: Build with ASan
       shell: bash
-      run: |
-        BUILD_DIR="build/${{ matrix.os }}-asan"
-        cmake --build "$BUILD_DIR" --config Debug
+      run: cmake --build --preset asan --parallel
 
     - name: Test with ASan
       shell: bash
-      run: |
-        BUILD_DIR="build/${{ matrix.os }}-asan"
-        cd "$BUILD_DIR" && ctest --output-on-failure
+      run: ctest --preset asan --output-on-failure

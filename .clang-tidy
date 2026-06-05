@@ -1,0 +1,19 @@
+Checks: >
+  clang-diagnostic-*,
+  clang-analyzer-*,
+  bugprone-*,
+  performance-*,
+  portability-*,
+  misc-*,
+  -bugprone-easily-swappable-parameters,
+  -bugprone-narrowing-conversions,
+  -bugprone-suspicious-string-compare,
+  -misc-include-cleaner,
+  -misc-no-recursion,
+  -readability-*
+WarningsAsErrors: ''
+HeaderFilterRegex: '^(include|src|tests)/'
+FormatStyle: file
+CheckOptions:
+  - key: bugprone-assert-side-effect.AssertMacros
+    value: assert
