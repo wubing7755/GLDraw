@@ -375,7 +375,7 @@ set_target_properties(${PROJECT_NAME} PROPERTIES
 )
 
 add_executable(gldraw_document_core_tests
-    ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_document_core.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/document/test_document_core.c
 )
 
 target_include_directories(gldraw_document_core_tests
@@ -395,7 +395,7 @@ set_target_properties(gldraw_document_core_tests PROPERTIES
 add_test(NAME gldraw_document_core_tests COMMAND $<TARGET_FILE:gldraw_document_core_tests>)
 
 add_executable(gldraw_png_writer_tests
-    ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_png_writer.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/image/test_png_writer.c
 )
 
 target_include_directories(gldraw_png_writer_tests
@@ -415,7 +415,7 @@ set_target_properties(gldraw_png_writer_tests PROPERTIES
 add_test(NAME gldraw_png_writer_tests COMMAND $<TARGET_FILE:gldraw_png_writer_tests>)
 
 add_executable(gldraw_selection_tests
-    ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_selection.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/document/test_selection.c
 )
 
 target_include_directories(gldraw_selection_tests
@@ -435,7 +435,7 @@ set_target_properties(gldraw_selection_tests PROPERTIES
 add_test(NAME gldraw_selection_tests COMMAND $<TARGET_FILE:gldraw_selection_tests>)
 
 add_executable(gldraw_resource_path_tests
-    ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_resource_path.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/base/test_resource_path.c
 )
 
 target_include_directories(gldraw_resource_path_tests
@@ -455,7 +455,7 @@ set_target_properties(gldraw_resource_path_tests PROPERTIES
 add_test(NAME gldraw_resource_path_tests COMMAND $<TARGET_FILE:gldraw_resource_path_tests>)
 
 add_executable(gldraw_document_tests
-    ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_document.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/document/test_document.c
 )
 
 target_include_directories(gldraw_document_tests
@@ -475,7 +475,7 @@ set_target_properties(gldraw_document_tests PROPERTIES
 add_test(NAME gldraw_document_tests COMMAND $<TARGET_FILE:gldraw_document_tests>)
 
 add_executable(gldraw_command_tests
-    ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_commands.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/commands/test_commands.c
 )
 
 target_include_directories(gldraw_command_tests
@@ -495,7 +495,7 @@ set_target_properties(gldraw_command_tests PROPERTIES
 add_test(NAME gldraw_command_tests COMMAND $<TARGET_FILE:gldraw_command_tests>)
 
 add_executable(gldraw_registry_tests
-    ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_registry.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/app/test_registry.c
 )
 
 target_include_directories(gldraw_registry_tests
@@ -516,7 +516,7 @@ add_test(NAME gldraw_registry_tests COMMAND $<TARGET_FILE:gldraw_registry_tests>
 
 if(GLDRAW_ENABLE_SCRIPTING)
     add_executable(gldraw_script_runtime_tests
-        ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_script_runtime.c
+        ${CMAKE_CURRENT_SOURCE_DIR}/tests/script/test_script_runtime.c
     )
 
     target_include_directories(gldraw_script_runtime_tests
@@ -537,7 +537,7 @@ if(GLDRAW_ENABLE_SCRIPTING)
 endif()
 
 add_executable(gldraw_fake_star_tests
-    ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_fake_star.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/document/test_fake_star.c
 )
 
 target_include_directories(gldraw_fake_star_tests
@@ -557,7 +557,7 @@ set_target_properties(gldraw_fake_star_tests PROPERTIES
 add_test(NAME gldraw_fake_star_tests COMMAND $<TARGET_FILE:gldraw_fake_star_tests>)
 
 add_executable(gldraw_no_builtin_knowledge_tests
-    ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_no_builtin_knowledge.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/app/test_no_builtin_knowledge.c
 )
 
 target_include_directories(gldraw_no_builtin_knowledge_tests
@@ -577,7 +577,7 @@ set_target_properties(gldraw_no_builtin_knowledge_tests PROPERTIES
 add_test(NAME gldraw_no_builtin_knowledge_tests COMMAND $<TARGET_FILE:gldraw_no_builtin_knowledge_tests>)
 
 add_executable(gldraw_ui_logic_tests
-    ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_ui_logic.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/ui/test_ui_logic.c
 )
 
 target_include_directories(gldraw_ui_logic_tests
@@ -597,8 +597,8 @@ set_target_properties(gldraw_ui_logic_tests PROPERTIES
 add_test(NAME gldraw_ui_logic_tests COMMAND $<TARGET_FILE:gldraw_ui_logic_tests>)
 
 add_executable(gldraw_ui_theme_tests
-    ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_ui_theme.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_nuklear_impl.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/ui/test_ui_theme.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/support/test_nuklear_impl.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ui_theme.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ui_theme_apply.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ui_theme_builtin.c
@@ -624,7 +624,7 @@ set_target_properties(gldraw_ui_theme_tests PROPERTIES
 add_test(NAME gldraw_ui_theme_tests COMMAND $<TARGET_FILE:gldraw_ui_theme_tests>)
 
 add_executable(gldraw_renderer_tests
-    ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_renderer.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/render/test_renderer.c
 )
 
 target_include_directories(gldraw_renderer_tests
@@ -644,7 +644,7 @@ set_target_properties(gldraw_renderer_tests PROPERTIES
 add_test(NAME gldraw_renderer_tests COMMAND $<TARGET_FILE:gldraw_renderer_tests>)
 
 add_executable(gldraw_workspace_service_tests
-    ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_workspace_service.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/app/test_workspace_service.c
 )
 
 target_include_directories(gldraw_workspace_service_tests

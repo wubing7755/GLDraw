@@ -33,7 +33,7 @@ jobs:
             ! -path 'src/render/render_device_gl.c' \
             ! -path 'src/render/shader_manager.c' \
             ! -path 'src/ui/ui_theme_parse.c' \
-            ! -path 'tests/test_nuklear_impl.c' \
+            ! -path 'tests/support/test_nuklear_impl.c' \
             | sort > cppcheck-files.txt
 
           echo "Cppcheck will scan $(wc -l < cppcheck-files.txt) C source files."
@@ -46,7 +46,7 @@ jobs:
             --inline-suppr \
             --suppress=*:include/nuklear/* \
             --suppress=missingIncludeSystem \
-            --suppress=memleak:tests/test_ui_logic.c \
+            --suppress=memleak:tests/ui/test_ui_logic.c \
             --suppress=returnDanglingLifetime:src/document/object_properties.c \
             --suppress=unmatchedSuppression \
             --error-exitcode=1 \

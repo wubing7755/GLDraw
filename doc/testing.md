@@ -61,6 +61,24 @@ Use the narrowest test layer that proves the behavior:
 * Render tests should cover renderer-owned contracts without moving document
   behavior into render code.
 
+Test files are grouped by ownership area:
+
+```text
+tests/
+  app/
+  base/
+  commands/
+  document/
+  image/
+  render/
+  script/
+  support/
+  ui/
+```
+
+Shared test-only shims belong in `tests/support/`. Keep new tests near the
+module boundary they verify.
+
 
 Regression Expectations
 -----------------------
