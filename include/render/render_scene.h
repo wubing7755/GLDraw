@@ -1,6 +1,6 @@
 /**
  * @file render_scene.h
- * @brief Read-only editor scene input consumed by the render system.
+ * @brief Editor scene input consumed by the render system.
  */
 #ifndef GLDRAW_RENDER_RENDER_SCENE_H
 #define GLDRAW_RENDER_RENDER_SCENE_H
@@ -10,7 +10,7 @@
 #include <model/selection.h>
 
 typedef struct RenderSceneDesc {
-    const Document* document;
+    Document* document;
     const SelectionSet* selection;
     const CanvasView* canvas;
     int selection_preview_active;

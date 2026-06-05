@@ -32,7 +32,6 @@ jobs:
             ! -path 'src/render/buffer_pool.c' \
             ! -path 'src/render/render_device_gl.c' \
             ! -path 'src/render/shader_manager.c' \
-            ! -path 'src/ui/ui_theme_parse.c' \
             ! -path 'tests/support/test_nuklear_impl.c' \
             | sort > cppcheck-files.txt
 

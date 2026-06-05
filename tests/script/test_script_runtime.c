@@ -3,8 +3,9 @@
 #include <document/document_internal.h>
 #include <script/script_runtime.h>
 
+#include "../support/test_temp_files.h"
+
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 
 #define EXPECT_TRUE(expr)                                                     \
@@ -64,27 +65,6 @@ static int test_ports_redo(void* user, Document* document)
     return command_executor_redo(ports->executor, document);
 }
 
-static int make_temp_path(char* buffer, size_t buffer_size, const char* suffix)
-{
-    char base_name[L_tmpnam] = {0};
-
-#ifdef _WIN32
-    if (tmpnam_s(base_name, sizeof(base_name)) != 0) {
-        return 0;
-    }
-#else
-    if (!tmpnam(base_name)) {
-        return 0;
-    }
-#endif
-
-    if (snprintf(buffer, buffer_size, "%s%s", base_name, suffix) >= (int)buffer_size) {
-        return 0;
-    }
-
-    return 1;
-}
-
 static int write_script_file(const char* path, const char* source)
 {
     FILE* file = NULL;
@@ -136,7 +116,7 @@ static int test_script_runtime_uses_safe_env_and_caches_script(void)
     ScriptRuntimeTestPorts ports;
     ToolPorts tool_ports;
     ToolEvent event = {0};
-    char script_path[512] = {0};
+    char script_path[TEST_TEMP_PATH_MAX] = {0};
 
     extension_loader_register_all();
     document_init(&document);
@@ -149,7 +129,7 @@ static int test_script_runtime_uses_safe_env_and_caches_script(void)
     tool_ports.redo = test_ports_redo;
     tool_ports.user = &ports;
 
-    EXPECT_TRUE(make_temp_path(script_path, sizeof(script_path), ".lua"));
+    EXPECT_TRUE(test_temp_make_path(script_path, sizeof(script_path), "script-runtime", ".lua"));
     EXPECT_TRUE(write_script_file(script_path, script_source));
 
     script_runtime_set_context(&runtime, &document, &selection, &tool_ports);

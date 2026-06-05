@@ -1,21 +1,10 @@
 #include <ui/ui_theme.h>
 
-#include <errno.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include "../../src/ui/ui_theme_internal.h"
+#include "../support/test_temp_files.h"
 
-#ifdef _WIN32
-#include <direct.h>
-#define test_mkdir(path) _mkdir(path)
-#define test_rmdir(path) _rmdir(path)
-#else
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <unistd.h>
-#define test_mkdir(path) mkdir((path), 0777)
-#define test_rmdir(path) rmdir(path)
-#endif
+#include <stdio.h>
+#include <string.h>
 
 #define EXPECT_TRUE(expr)                                                     \
     do {                                                                      \
@@ -72,20 +61,24 @@ static int write_text_file(const char* path, const char* text)
     return fclose(file) == 0;
 }
 
-static int ensure_directory(const char* path)
+static void cleanup_theme_test_files(const char* directory)
 {
-    if (test_mkdir(path) == 0 || errno == EEXIST) {
-        return 1;
-    }
-    return 0;
-}
+    char path[TEST_TEMP_PATH_MAX];
 
-static void cleanup_theme_test_files(void)
-{
-    remove("gldraw_theme_test_tmp/valid.json");
-    remove("gldraw_theme_test_tmp/invalid.json");
-    remove("gldraw_theme_test_tmp/settings.json");
-    test_rmdir("gldraw_theme_test_tmp");
+    if (!directory) {
+        return;
+    }
+
+    if (test_temp_join_path(path, sizeof(path), directory, "valid.json")) {
+        remove(path);
+    }
+    if (test_temp_join_path(path, sizeof(path), directory, "invalid.json")) {
+        remove(path);
+    }
+    if (test_temp_join_path(path, sizeof(path), directory, "settings.json")) {
+        remove(path);
+    }
+    test_temp_remove_dir(directory);
 }
 
 static int color_equals(struct nk_color color,
@@ -129,15 +122,67 @@ static int test_builtin_theme_lookup_and_fallback(void)
     return 0;
 }
 
+static int test_json_scalar_values_require_delimiters(void)
+{
+    float number_value = 0.0f;
+    int bool_value = -1;
+
+    EXPECT_TRUE(ui_extract_json_number_value("{ \"row_height\": 24, \"gap\": 3 }",
+                                             "row_height",
+                                             &number_value));
+    EXPECT_FLOAT_EQ(number_value, 24.0f);
+
+    number_value = 12.0f;
+    EXPECT_TRUE(!ui_extract_json_number_value("{ \"row_height\": 24px }",
+                                              "row_height",
+                                              &number_value));
+    EXPECT_FLOAT_EQ(number_value, 12.0f);
+
+    number_value = 12.0f;
+    EXPECT_TRUE(!ui_extract_json_number_value("{ \"row_height\": 24 true }",
+                                              "row_height",
+                                              &number_value));
+    EXPECT_FLOAT_EQ(number_value, 12.0f);
+
+    EXPECT_TRUE(ui_extract_json_bool_value("{ \"enable_transitions\": true }",
+                                           "enable_transitions",
+                                           &bool_value));
+    EXPECT_INT_EQ(bool_value, 1);
+
+    bool_value = -1;
+    EXPECT_TRUE(ui_extract_json_bool_value("{ \"enable_transitions\": false, \"x\": 1 }",
+                                           "enable_transitions",
+                                           &bool_value));
+    EXPECT_INT_EQ(bool_value, 0);
+
+    bool_value = -1;
+    EXPECT_TRUE(!ui_extract_json_bool_value("{ \"enable_transitions\": truex }",
+                                            "enable_transitions",
+                                            &bool_value));
+    EXPECT_INT_EQ(bool_value, -1);
+
+    bool_value = -1;
+    EXPECT_TRUE(!ui_extract_json_bool_value("{ \"enable_transitions\": false0 }",
+                                            "enable_transitions",
+                                            &bool_value));
+    EXPECT_INT_EQ(bool_value, -1);
+
+    return 0;
+}
+
 static int test_external_theme_load_error_and_clamp_behavior(void)
 {
     UiThemeTokens tokens;
+    char directory[TEST_TEMP_PATH_MAX];
+    char valid_path[TEST_TEMP_PATH_MAX];
+    char invalid_path[TEST_TEMP_PATH_MAX];
     int base_count = ui_theme_count();
     int custom_index = -1;
 
-    cleanup_theme_test_files();
-    EXPECT_TRUE(ensure_directory("gldraw_theme_test_tmp"));
-    EXPECT_TRUE(write_text_file("gldraw_theme_test_tmp/valid.json",
+    EXPECT_TRUE(test_temp_make_dir(directory, sizeof(directory), "ui-theme"));
+    EXPECT_TRUE(test_temp_join_path(valid_path, sizeof(valid_path), directory, "valid.json"));
+    EXPECT_TRUE(test_temp_join_path(invalid_path, sizeof(invalid_path), directory, "invalid.json"));
+    EXPECT_TRUE(write_text_file(valid_path,
                                 "{\n"
                                 "  \"id\": \"test-clamped-theme\",\n"
                                 "  \"label\": \"Test Clamped Theme\",\n"
@@ -153,7 +198,7 @@ static int test_external_theme_load_error_and_clamp_behavior(void)
                                 "  \"enable_transitions\": false\n"
                                 "}\n"));
 
-    EXPECT_INT_EQ(ui_theme_reload_external("gldraw_theme_test_tmp"), 1);
+    EXPECT_INT_EQ(ui_theme_reload_external(directory), 1);
     custom_index = ui_theme_index_of_id("test-clamped-theme");
     EXPECT_TRUE(custom_index >= base_count);
 
@@ -168,43 +213,49 @@ static int test_external_theme_load_error_and_clamp_behavior(void)
     EXPECT_FLOAT_EQ(tokens.transition_duration, 2.0f);
     EXPECT_INT_EQ(tokens.enable_transitions, 0);
 
-    EXPECT_TRUE(write_text_file("gldraw_theme_test_tmp/invalid.json",
+    EXPECT_TRUE(write_text_file(invalid_path,
                                 "{ \"id\": \"not a safe id\" }\n"));
-    EXPECT_INT_EQ(ui_theme_reload_external("gldraw_theme_test_tmp"), -1);
+    EXPECT_INT_EQ(ui_theme_reload_external(directory), -1);
     EXPECT_TRUE(ui_theme_last_reload_error()[0] != '\0');
     EXPECT_TRUE(ui_theme_index_of_id("test-clamped-theme") >= base_count);
 
-    cleanup_theme_test_files();
+    cleanup_theme_test_files(directory);
     return 0;
 }
 
 static int test_selected_theme_id_load_save(void)
 {
     char loaded_theme_id[64];
+    char directory[TEST_TEMP_PATH_MAX];
+    char settings_path[TEST_TEMP_PATH_MAX];
 
-    cleanup_theme_test_files();
-    EXPECT_TRUE(ensure_directory("gldraw_theme_test_tmp"));
-    EXPECT_TRUE(ui_theme_save_selected_id("gldraw_theme_test_tmp/settings.json",
+    EXPECT_TRUE(test_temp_make_dir(directory, sizeof(directory), "ui-theme-settings"));
+    EXPECT_TRUE(test_temp_join_path(settings_path,
+                                    sizeof(settings_path),
+                                    directory,
+                                    "settings.json"));
+    EXPECT_TRUE(ui_theme_save_selected_id(settings_path,
                                           "gldraw-dark-plus"));
-    EXPECT_TRUE(ui_theme_load_selected_id("gldraw_theme_test_tmp/settings.json",
+    EXPECT_TRUE(ui_theme_load_selected_id(settings_path,
                                           loaded_theme_id,
                                           sizeof(loaded_theme_id)));
     EXPECT_STR_EQ(loaded_theme_id, "gldraw-dark-plus");
 
-    EXPECT_TRUE(write_text_file("gldraw_theme_test_tmp/settings.json",
+    EXPECT_TRUE(write_text_file(settings_path,
                                 "{ \"theme\": \"gldraw-high-contrast\" }\n"));
-    EXPECT_TRUE(ui_theme_load_selected_id("gldraw_theme_test_tmp/settings.json",
+    EXPECT_TRUE(ui_theme_load_selected_id(settings_path,
                                           loaded_theme_id,
                                           sizeof(loaded_theme_id)));
     EXPECT_STR_EQ(loaded_theme_id, "gldraw-high-contrast");
 
-    cleanup_theme_test_files();
+    cleanup_theme_test_files(directory);
     return 0;
 }
 
 int main(void)
 {
     if (test_builtin_theme_lookup_and_fallback()) return 1;
+    if (test_json_scalar_values_require_delimiters()) return 1;
     if (test_external_theme_load_error_and_clamp_behavior()) return 1;
     if (test_selected_theme_id_load_save()) return 1;
 

@@ -280,7 +280,7 @@ void canvas_drawlist_shutdown(CanvasDrawList* draw_list)
 }
 
 int canvas_drawlist_build(CanvasDrawList* draw_list,
-                          const Document* document,
+                          Document* document,
                           const SelectionSet* selection,
                           const CanvasView* canvas,
                           int selection_preview_active,

@@ -27,15 +27,26 @@ static const ManifestInitFn g_tool_extensions[] = {
 
 int tool_manifest_register_all(void)
 {
+    static int registered = 0;
+    static int registering = 0;
+
+    if (registered || registering) {
+        return 1;
+    }
+
+    registering = 1;
     tool_registry_init();
     if (!manifest_runner_run(g_tool_extensions,
                              sizeof(g_tool_extensions) / sizeof(g_tool_extensions[0]),
                              MANIFEST_RUN_STOP_ON_FAILURE)) {
+        registering = 0;
         return 0;
     }
 
 #if defined(GLDRAW_ENABLE_SCRIPTING)
     gldraw_register_script_tool();
 #endif
+    registered = 1;
+    registering = 0;
     return 1;
 }

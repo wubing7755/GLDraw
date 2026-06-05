@@ -72,6 +72,19 @@ int ui_extract_json_string_value(const char* text,
     return 0;
 }
 
+static int ui_json_scalar_has_delimiter(const char* cursor)
+{
+    if (!cursor) {
+        return 0;
+    }
+
+    while (*cursor != '\0' && isspace((unsigned char)*cursor)) {
+        cursor++;
+    }
+
+    return *cursor == '\0' || *cursor == ',' || *cursor == '}' || *cursor == ']';
+}
+
 int ui_extract_json_number_value(const char* text, const char* key, float* out_value)
 {
     char key_pattern[96];
@@ -109,6 +122,9 @@ int ui_extract_json_number_value(const char* text, const char* key, float* out_v
 
     number_value = strtod(cursor, &number_end);
     if (number_end == cursor) {
+        return 0;
+    }
+    if (!ui_json_scalar_has_delimiter(number_end)) {
         return 0;
     }
 
@@ -149,11 +165,11 @@ int ui_extract_json_bool_value(const char* text, const char* key, int* out_value
         cursor++;
     }
 
-    if (strncmp(cursor, "true", 4) == 0) {
+    if (strncmp(cursor, "true", 4) == 0 && ui_json_scalar_has_delimiter(cursor + 4)) {
         *out_value = 1;
         return 1;
     }
-    if (strncmp(cursor, "false", 5) == 0) {
+    if (strncmp(cursor, "false", 5) == 0 && ui_json_scalar_has_delimiter(cursor + 5)) {
         *out_value = 0;
         return 1;
     }
@@ -357,7 +373,7 @@ void ui_theme_apply_color_overrides(const char* source_path, const char* text, U
             continue;
         }
 
-        *(struct nk_color*)((char*)tokens + fields[i].offset) = parsed;
+        memcpy((char*)tokens + fields[i].offset, &parsed, sizeof(parsed));
     }
 }
 
@@ -395,7 +411,7 @@ void ui_theme_apply_float_overrides(const char* source_path, const char* text, U
             }
             continue;
         }
-        *(float*)((char*)tokens + fields[i].offset) = value;
+        memcpy((char*)tokens + fields[i].offset, &value, sizeof(value));
     }
 }
 
