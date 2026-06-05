@@ -6,6 +6,8 @@
 #include <document/object.h>
 #include <document/persistence.h>
 
+#include "../support/test_temp_files.h"
+
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -148,31 +150,6 @@ static int write_text_file(const char* path, const char* text)
     }
 
     return fclose(file) == 0;
-}
-
-static int make_temp_path(char* buffer, size_t buffer_size, const char* suffix)
-{
-    char base_name[L_tmpnam];
-
-    if (!buffer || buffer_size == 0u || !suffix) {
-        return 0;
-    }
-
-#ifdef _WIN32
-    if (tmpnam_s(base_name, sizeof(base_name)) != 0) {
-        return 0;
-    }
-#else
-    if (!tmpnam(base_name)) {
-        return 0;
-    }
-#endif
-
-    if (snprintf(buffer, buffer_size, "%s%s", base_name, suffix) >= (int)buffer_size) {
-        return 0;
-    }
-
-    return 1;
 }
 
 static int test_document_selection_and_deletion(void)
@@ -345,7 +322,7 @@ static int test_persistence_round_trip(void)
 {
     Document saved;
     Document loaded;
-    char path[L_tmpnam + 16];
+    char path[TEST_TEMP_PATH_MAX];
     const DocumentLayer* loaded_overlay = NULL;
     const GraphicObject* loaded_rect = NULL;
     const GraphicObject* loaded_line = NULL;
@@ -380,7 +357,7 @@ static int test_persistence_round_trip(void)
                                                        rect_style)));
     EXPECT_TRUE(document_add_object(&saved, create_line(1.0f, 2.0f, 9.0f, 10.0f)));
 
-    EXPECT_TRUE(make_temp_path(path, sizeof(path), ".json"));
+    EXPECT_TRUE(test_temp_make_path(path, sizeof(path), "document-core", ".json"));
     EXPECT_TRUE(document_save_json(&saved, path));
     EXPECT_TRUE(document_load_json(&loaded, path));
 
@@ -426,7 +403,7 @@ static int test_persistence_escapes_layer_names(void)
 {
     Document saved;
     Document loaded;
-    char path[L_tmpnam + 16];
+    char path[TEST_TEMP_PATH_MAX];
     LayerId layer_id = 0u;
     const DocumentLayer* layer = NULL;
     const char* escaped_name = "Layer \"A\" \\ B\nC";
@@ -438,7 +415,7 @@ static int test_persistence_escapes_layer_names(void)
     EXPECT_TRUE(layer_id != 0u);
     EXPECT_TRUE(document_rename_layer(&saved, layer_id, escaped_name));
 
-    EXPECT_TRUE(make_temp_path(path, sizeof(path), ".json"));
+    EXPECT_TRUE(test_temp_make_path(path, sizeof(path), "document-core", ".json"));
     EXPECT_TRUE(document_save_json(&saved, path));
     EXPECT_TRUE(document_load_json(&loaded, path));
 
@@ -455,13 +432,13 @@ static int test_persistence_escapes_layer_names(void)
 static int test_persistence_ignores_unknown_fields(void)
 {
     Document document;
-    char path[L_tmpnam + 16];
+    char path[TEST_TEMP_PATH_MAX];
     const DocumentLayer* layer = NULL;
     GraphicObject* object = NULL;
     float width = 0.0f;
 
     document_init(&document);
-    EXPECT_TRUE(make_temp_path(path, sizeof(path), ".json"));
+    EXPECT_TRUE(test_temp_make_path(path, sizeof(path), "document-core", ".json"));
     EXPECT_TRUE(write_text_file(path,
                                 "{\n"
                                 "  \"format\": \"gldraw-document\",\n"
@@ -508,12 +485,12 @@ static int test_persistence_ignores_unknown_fields(void)
 static int test_persistence_rejects_invalid_json(void)
 {
     Document document;
-    char path[L_tmpnam + 16];
+    char path[TEST_TEMP_PATH_MAX];
 
     document_init(&document);
     EXPECT_TRUE(document_add_object(&document, create_rect(0.0f, 0.0f, 1.0f, 1.0f)));
 
-    EXPECT_TRUE(make_temp_path(path, sizeof(path), ".json"));
+    EXPECT_TRUE(test_temp_make_path(path, sizeof(path), "document-core", ".json"));
     EXPECT_TRUE(write_text_file(path, "{\"format\":\"gldraw-document\",\"version\":99,\"objects\":[]}"));
     EXPECT_FALSE(document_load_json(&document, path));
     EXPECT_INT_EQ(document.count, 1);

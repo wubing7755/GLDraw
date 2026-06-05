@@ -4,6 +4,8 @@
 #include <document/object.h>
 #include <document/persistence.h>
 
+#include "../support/test_temp_files.h"
+
 #include <stdio.h>
 #include <string.h>
 
@@ -25,27 +27,6 @@
         }                                                                     \
     } while (0)
 
-static int make_temp_path(char* buffer, size_t buffer_size, const char* suffix)
-{
-    char base_name[L_tmpnam];
-
-    if (!buffer || buffer_size == 0u || !suffix) {
-        return 0;
-    }
-
-#ifdef _WIN32
-    if (tmpnam_s(base_name, sizeof(base_name)) != 0) {
-        return 0;
-    }
-#else
-    if (!tmpnam(base_name)) {
-        return 0;
-    }
-#endif
-
-    return snprintf(buffer, buffer_size, "%s%s", base_name, suffix) < (int)buffer_size;
-}
-
 int main(void)
 {
     Document document;
@@ -54,7 +35,7 @@ int main(void)
     GraphicObject* created = NULL;
     GraphicObject* picked = NULL;
     RectF bounds = {-50.0f, -50.0f, 100.0f, 100.0f};
-    char path[L_tmpnam + 16];
+    char path[TEST_TEMP_PATH_MAX];
 
     EXPECT_TRUE(extension_loader_register_fake_star());
 
@@ -72,7 +53,7 @@ int main(void)
     EXPECT_TRUE(picked != NULL);
     EXPECT_STR_EQ(object_type_id(picked), "fake_star");
 
-    EXPECT_TRUE(make_temp_path(path, sizeof(path), ".json"));
+    EXPECT_TRUE(test_temp_make_path(path, sizeof(path), "fake-star", ".json"));
     EXPECT_TRUE(document_save_json(&document, path));
     EXPECT_TRUE(document_load_json(&loaded, path));
     EXPECT_TRUE(loaded.count == 1);

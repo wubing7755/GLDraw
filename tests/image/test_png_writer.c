@@ -1,33 +1,9 @@
 #include <image/png_writer.h>
 
+#include "../support/test_temp_files.h"
+
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
-
-static int make_temp_path(char* buffer, size_t buffer_size, const char* suffix)
-{
-    char base_name[L_tmpnam];
-
-    if (!buffer || buffer_size == 0u || !suffix) {
-        return 0;
-    }
-
-#ifdef _WIN32
-    if (tmpnam_s(base_name, sizeof(base_name)) != 0) {
-        return 0;
-    }
-#else
-    if (!tmpnam(base_name)) {
-        return 0;
-    }
-#endif
-
-    if (snprintf(buffer, buffer_size, "%s%s", base_name, suffix) >= (int)buffer_size) {
-        return 0;
-    }
-
-    return 1;
-}
 
 static unsigned int read_u32_be(const unsigned char bytes[4])
 {
@@ -49,11 +25,11 @@ int main(void)
         255u, 255u, 255u, 255u
     };
     unsigned char header[33];
-    char path[L_tmpnam + 16];
+    char path[TEST_TEMP_PATH_MAX];
     FILE* file = NULL;
     int failed = 0;
 
-    if (!make_temp_path(path, sizeof(path), ".png")) {
+    if (!test_temp_make_path(path, sizeof(path), "png-writer", ".png")) {
         fprintf(stderr, "failed to create temporary path\n");
         return 1;
     }

@@ -178,7 +178,7 @@ int editor_controller_render_scene(Workspace* workspace, EditorRenderScene* out_
     }
 
     context = workspace_tool_context(workspace);
-    out_scene->document = workspace_get_document_const(workspace);
+    out_scene->document = workspace_get_document(workspace);
     out_scene->selection = workspace_get_selection_const(workspace);
     out_scene->canvas = workspace_get_canvas_const(workspace);
     out_scene->selection_preview_active =

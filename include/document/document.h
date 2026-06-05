@@ -149,11 +149,11 @@ int document_set_layer_blend_mode(Document *document,
 int document_insert_object_clone_at(Document *document,
                                     const GraphicObject *snapshot,
                                     int index);
-int document_query_visible_indices(const Document *document,
+int document_query_visible_indices(Document *document,
                                    RectF visible_rect,
                                    int *out_indices,
                                    int max_indices);
-int document_query_point_indices(const Document *document,
+int document_query_point_indices(Document *document,
                                  Vec2 point,
                                  float tolerance,
                                  int *out_indices,

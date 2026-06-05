@@ -147,7 +147,19 @@ DocumentLayer* document_layer_find(Document* document, LayerId layer_id)
 const DocumentLayer* document_layer_find_const(const Document* document,
                                                LayerId layer_id)
 {
-    return document_layer_find((Document*)document, layer_id);
+    int i = 0;
+
+    if (!document || layer_id == 0u) {
+        return NULL;
+    }
+
+    for (i = 0; i < document->layer_count; ++i) {
+        if (document->layers[i].id == layer_id) {
+            return &document->layers[i];
+        }
+    }
+
+    return NULL;
 }
 
 int document_layer_is_locked(const Document* document, LayerId layer_id)

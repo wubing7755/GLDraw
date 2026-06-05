@@ -5,7 +5,7 @@
 #include <app/registration_manifest.h>
 
 #include <app/object_manifest.h>
-#include <app/tool_manifest.h>
+#include <tools/tool_controller.h>
 
 int app_register_all_manifests(void)
 {
@@ -19,7 +19,7 @@ int app_register_all_manifests(void)
         return 0;
     }
 
-    if (!tool_manifest_register_all()) {
+    if (!register_builtin_tools()) {
         return 0;
     }
 

@@ -6,6 +6,7 @@
 #include <commands/command.h>
 #include <input/keymap.h>
 #include <tools/tool.h>
+#include <tools/tool_controller.h>
 #include <ui/editor_viewmodel.h>
 
 #include "../src/ui/ui_menu_def.h"
@@ -71,6 +72,35 @@ static int find_fake_tool_index(void)
     }
 
     return -1;
+}
+
+static int test_tool_registry_preserves_extension_preload(void)
+{
+    const ToolDescriptor* select_tool = NULL;
+    ToolDescriptor conflicting_tool = G_FAKE_TOOL;
+    int count_after_builtins = 0;
+
+    EXPECT_TRUE(register_tool(&G_FAKE_TOOL));
+    EXPECT_TRUE(register_tool(&G_FAKE_TOOL));
+
+    select_tool = tool_registry_lookup(TOOL_ID_SELECT);
+    EXPECT_TRUE(select_tool != NULL);
+    EXPECT_STR_EQ(select_tool->id, TOOL_ID_SELECT);
+    EXPECT_TRUE(tool_registry_lookup(G_FAKE_TOOL.id) != NULL);
+
+    count_after_builtins = tool_registry_count();
+    EXPECT_TRUE(register_builtin_tools());
+    EXPECT_TRUE(register_builtin_tools());
+    EXPECT_TRUE(tool_registry_count() == count_after_builtins);
+
+    EXPECT_TRUE(register_tool(&G_FAKE_TOOL));
+    EXPECT_TRUE(tool_registry_count() == count_after_builtins);
+
+    conflicting_tool.name = "Conflicting Fake Tool";
+    EXPECT_TRUE(!register_tool(&conflicting_tool));
+    EXPECT_TRUE(tool_registry_count() == count_after_builtins);
+
+    return 0;
 }
 
 static int test_dynamic_tool_command_and_menu_registration(void)
@@ -197,6 +227,7 @@ static int test_dynamic_tool_shortcut_and_availability(void)
 
 int main(void)
 {
+    if (test_tool_registry_preserves_extension_preload()) return 1;
     if (test_stable_command_catalog_availability_and_routes()) return 1;
     if (test_dynamic_tool_command_and_menu_registration()) return 1;
     if (test_dynamic_tool_shortcut_and_availability()) return 1;

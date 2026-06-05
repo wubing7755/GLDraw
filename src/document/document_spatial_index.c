@@ -197,30 +197,28 @@ static int document_spatial_rebuild(Document* document)
     return 1;
 }
 
-static int document_spatial_ensure_current(const Document* document)
+static int document_spatial_ensure_current(Document* document)
 {
-    return document ? document_spatial_rebuild((Document*)document) : 0;
+    return document ? document_spatial_rebuild(document) : 0;
 }
 
-static unsigned int document_spatial_next_query_token(const Document* document)
+static unsigned int document_spatial_next_query_token(Document* document)
 {
-    Document* mutable_document = (Document*)document;
-
-    if (!mutable_document) {
+    if (!document) {
         return 0u;
     }
 
-    if (mutable_document->spatial_query_token == 0xffffffffu) {
-        memset(mutable_document->spatial_marks,
+    if (document->spatial_query_token == 0xffffffffu) {
+        memset(document->spatial_marks,
                0,
-               (size_t)mutable_document->spatial_mark_capacity *
-                   sizeof(mutable_document->spatial_marks[0]));
-        mutable_document->spatial_query_token = 1u;
+               (size_t)document->spatial_mark_capacity *
+                   sizeof(document->spatial_marks[0]));
+        document->spatial_query_token = 1u;
     } else {
-        mutable_document->spatial_query_token++;
+        document->spatial_query_token++;
     }
 
-    return mutable_document->spatial_query_token;
+    return document->spatial_query_token;
 }
 
 static int rect_intersects(const RectF* a, const RectF* b)
@@ -266,7 +264,7 @@ void document_spatial_invalidate(Document* document)
     document->spatial_revision = 0u;
 }
 
-int document_query_visible_indices(const Document* document,
+int document_query_visible_indices(Document* document,
                                    RectF visible_rect,
                                    int* out_indices,
                                    int max_indices)
@@ -342,7 +340,7 @@ int document_query_visible_indices(const Document* document,
     return count;
 }
 
-int document_query_point_indices(const Document* document,
+int document_query_point_indices(Document* document,
                                  Vec2 point,
                                  float tolerance,
                                  int* out_indices,

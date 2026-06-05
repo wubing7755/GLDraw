@@ -38,6 +38,7 @@ endfunction()
 gldraw_add_test(gldraw_document_core_tests
     SOURCES
         ${CMAKE_CURRENT_SOURCE_DIR}/tests/document/test_document_core.c
+        ${CMAKE_CURRENT_SOURCE_DIR}/tests/support/test_temp_files.c
     LIBS
         editor_runtime
 )
@@ -45,6 +46,7 @@ gldraw_add_test(gldraw_document_core_tests
 gldraw_add_test(gldraw_png_writer_tests
     SOURCES
         ${CMAKE_CURRENT_SOURCE_DIR}/tests/image/test_png_writer.c
+        ${CMAKE_CURRENT_SOURCE_DIR}/tests/support/test_temp_files.c
     LIBS
         render_core
 )
@@ -88,6 +90,7 @@ if(GLDRAW_ENABLE_SCRIPTING)
     gldraw_add_test(gldraw_script_runtime_tests
         SOURCES
             ${CMAKE_CURRENT_SOURCE_DIR}/tests/script/test_script_runtime.c
+            ${CMAKE_CURRENT_SOURCE_DIR}/tests/support/test_temp_files.c
         LIBS
             editor_tools
     )
@@ -96,6 +99,7 @@ endif()
 gldraw_add_test(gldraw_fake_star_tests
     SOURCES
         ${CMAKE_CURRENT_SOURCE_DIR}/tests/document/test_fake_star.c
+        ${CMAKE_CURRENT_SOURCE_DIR}/tests/support/test_temp_files.c
     LIBS
         render_core
 )
@@ -118,6 +122,7 @@ gldraw_add_test(gldraw_ui_theme_tests
     SOURCES
         ${CMAKE_CURRENT_SOURCE_DIR}/tests/ui/test_ui_theme.c
         ${CMAKE_CURRENT_SOURCE_DIR}/tests/support/test_nuklear_impl.c
+        ${CMAKE_CURRENT_SOURCE_DIR}/tests/support/test_temp_files.c
         ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ui_theme.c
         ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ui_theme_apply.c
         ${CMAKE_CURRENT_SOURCE_DIR}/src/ui/ui_theme_builtin.c

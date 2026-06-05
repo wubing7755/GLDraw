@@ -15,7 +15,7 @@ typedef struct CanvasView CanvasView;
 typedef struct Document Document;
 
 typedef struct EditorRenderScene {
-    const Document* document;
+    Document* document;
     const SelectionSet* selection;
     const CanvasView* canvas;
     int selection_preview_active;
