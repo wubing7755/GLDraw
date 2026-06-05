@@ -3,6 +3,7 @@
 * @wubing7755
 
 /.github/ @wubing7755
+/AGENTS.md @wubing7755
 /CMakeLists.txt @wubing7755
 /CMakePresets.json @wubing7755
 /build.bat @wubing7755
@@ -22,3 +23,5 @@
 /src/app/ @wubing7755
 /tests/ @wubing7755
 /doc/ @wubing7755
+/doc/ai-agents.md @wubing7755
+/doc/agent-playbooks.md @wubing7755

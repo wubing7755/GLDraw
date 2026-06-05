@@ -36,6 +36,14 @@ Closes #xx
 - [ ] UI/rendering screenshots or recordings attached when applicable.
 - [ ] Not run; reason:
 
+## AI Assistance
+- [ ] AI assistance was used.
+- Agent/tool:
+- What the agent did:
+- Required docs read:
+- Human verification performed:
+- [ ] Not applicable.
+
 ## Compatibility and Release Notes
 - File format impact:
 - Packaging or runtime dependency impact:

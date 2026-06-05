@@ -1,7 +1,7 @@
 blank_issues_enabled: false
 contact_links:
   - name: GLDraw Documentation
-    url: https://github.com/wubing7755/GLDraw/blob/master/doc/README.md
+    url: https://github.com/wubing7755/GLDraw/blob/main/doc/README.md
     about: Read the local build, run, and controls documentation before opening new work.
   - name: GLDraw Architecture Guide
     url: https://zread.ai/wubing7755/GLDraw

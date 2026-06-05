@@ -53,6 +53,8 @@ Documentation
 * Contributing: [CONTRIBUTING.md](CONTRIBUTING.md)
 * Testing: [doc/testing.md](doc/testing.md)
 * Release process: [doc/release.md](doc/release.md)
+* AI agent policy: [doc/ai-agents.md](doc/ai-agents.md)
+* AI agent playbooks: [doc/agent-playbooks.md](doc/agent-playbooks.md)
 * Changelog: [CHANGELOG.md](CHANGELOG.md)
 * Security policy: [SECURITY.md](SECURITY.md)
 * Local documentation index: [doc/README.md](doc/README.md)

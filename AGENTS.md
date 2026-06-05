@@ -2,6 +2,29 @@
 
 This file gives Codex repository-specific guidance for GLDraw.
 
+## Required Reading For AI Agents
+
+Before making changes, read:
+
+* `CONTRIBUTING.md` - contributor workflow, PR expectations, and architecture
+  boundaries.
+* `doc/ai-agents.md` - AI agent policy, restrictions, review, and disclosure
+  rules.
+* `doc/agent-playbooks.md` - task-specific AI workflows.
+* `doc/testing.md` - test layers, regression expectations, and manual
+  verification.
+
+For architecture-sensitive work, also read:
+
+* `doc/adr/README.md`
+* Relevant ADR files in `doc/adr/`
+
+For build, CI, packaging, release, dependency, or security work, also read:
+
+* `doc/build.md`
+* `doc/release.md`
+* `SECURITY.md` when dependency or vulnerability handling is involved.
+
 ## Project Shape
 
 GLDraw is a C11 canvas drawing editor built with CMake, GLFW, GLAD, Nuklear,
@@ -129,9 +152,12 @@ Repository-local docs are intentionally short:
 * `doc/README.md` - documentation entrypoint.
 * `doc/build.md` - build, run, dependencies, and troubleshooting.
 * `doc/controls.md` - default shortcuts and pointer behavior.
+* `doc/testing.md` - testing policy and expectations.
+* `doc/ai-agents.md` - AI agent policy.
+* `doc/agent-playbooks.md` - AI-assisted task workflows.
 
 Architecture and source navigation are maintained through Zread:
 https://zread.ai/wubing7755/GLDraw
 
-Update local docs only when build commands, run paths, dependencies, controls,
-or documentation policy change.
+Update local docs when build commands, run paths, dependencies, controls,
+testing policy, release policy, AI agent policy, or documentation policy change.

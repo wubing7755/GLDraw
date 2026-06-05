@@ -62,6 +62,25 @@ Before opening a pull request:
 Reviewers should focus first on behavior, ownership boundaries, and tests. Style
 feedback should point back to the shared formatting rules where possible.
 
+## AI-Assisted Contributions
+
+AI-assisted contributions are welcome when they are scoped, reviewable, and
+verified like any other change. Before editing, AI agents should read AGENTS.md,
+doc/ai-agents.md, doc/agent-playbooks.md, and the documents required by the task
+area.
+
+When meaningful AI assistance was used:
+
+* Disclose it in the pull request template.
+* Name the agent or tool.
+* Summarize what the agent did.
+* List the required docs read.
+* Record human verification and any remaining manual checks.
+
+AI-generated changes must not bypass architecture boundaries, weaken checks, or
+replace maintainer review. Use the AI agent task issue template when preparing
+work that should be handed to an agent.
+
 ## Architecture Boundaries
 
 Keep changes aligned with the current ownership model:
