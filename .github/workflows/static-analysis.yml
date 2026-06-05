@@ -1,0 +1,57 @@
+name: Static Analysis
+
+on:
+  push:
+    branches: [main, master, 'fix/**', 'feature/**']
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  cppcheck:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install cppcheck
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cppcheck
+
+      - name: Run cppcheck
+        run: |
+          find src tests -type f -name '*.c' \
+            ! -path 'src/glad.c' \
+            ! -path 'src/platform/window.c' \
+            ! -path 'src/render/buffer_pool.c' \
+            ! -path 'src/render/render_device_gl.c' \
+            ! -path 'src/render/shader_manager.c' \
+            ! -path 'src/ui/ui_theme_parse.c' \
+            ! -path 'tests/test_nuklear_impl.c' \
+            | sort > cppcheck-files.txt
+
+          echo "Cppcheck will scan $(wc -l < cppcheck-files.txt) C source files."
+
+          cppcheck \
+            --std=c11 \
+            --enable=warning,performance,portability \
+            --max-configs=1 \
+            --quiet \
+            --inline-suppr \
+            --suppress=*:include/nuklear/* \
+            --suppress=missingIncludeSystem \
+            --suppress=memleak:tests/test_ui_logic.c \
+            --suppress=returnDanglingLifetime:src/document/object_properties.c \
+            --suppress=unmatchedSuppression \
+            --error-exitcode=1 \
+            --file-list=cppcheck-files.txt \
+            -I include \
+            -i include/glad \
+            -i include/KHR \
+            -i include/nuklear
