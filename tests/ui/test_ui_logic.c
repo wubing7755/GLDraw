@@ -174,6 +174,7 @@ static int test_editor_viewmodel_builds_selection_properties(void)
     Workspace workspace;
     EditorViewModel view_model = {0};
     LayerId overlay_layer = 0u;
+    LayerId detail_layer = 0u;
     EditorToolView* first_tools = NULL;
     EditorLayerView* first_layers = NULL;
     int first_tool_capacity = 0;
@@ -185,19 +186,29 @@ static int test_editor_viewmodel_builds_selection_properties(void)
     EXPECT_TRUE(document_set_active_layer(&workspace.core.document, overlay_layer));
     EXPECT_TRUE(document_add_object(&workspace.core.document,
                                     make_rect(10.0f, 20.0f, 40.0f, 50.0f)));
+    detail_layer = document_create_layer(&workspace.core.document, "Details");
+    EXPECT_TRUE(detail_layer != 0u);
+    EXPECT_TRUE(document_set_active_layer(&workspace.core.document, detail_layer));
+    EXPECT_TRUE(document_add_object(&workspace.core.document,
+                                    make_rect(60.0f, 20.0f, 20.0f, 20.0f)));
+    EXPECT_TRUE(document_add_object(&workspace.core.document,
+                                    make_rect(90.0f, 20.0f, 20.0f, 20.0f)));
+    EXPECT_TRUE(document_set_active_layer(&workspace.core.document, overlay_layer));
     EXPECT_TRUE(selection_set_add(&workspace.session.selection, 1u));
     EXPECT_TRUE(editor_viewmodel_build(&view_model, &workspace));
 
-    EXPECT_INT_EQ(view_model.summary.object_count, 1);
+    EXPECT_INT_EQ(view_model.summary.object_count, 3);
     EXPECT_INT_EQ(view_model.summary.selection_count, 1);
     EXPECT_TRUE(view_model.has_selection);
     EXPECT_STR_EQ(view_model.summary.selection_type_name, "Rectangle");
     EXPECT_TRUE(view_model.property_count >= 4);
     EXPECT_STR_EQ(view_model.tools[0].id, "select");
     EXPECT_TRUE(view_model.tools[0].active);
-    EXPECT_INT_EQ(view_model.layer_count, 2);
+    EXPECT_INT_EQ(view_model.layer_count, 3);
+    EXPECT_INT_EQ(view_model.layers[0].object_count, 0);
     EXPECT_TRUE(view_model.layers[1].active);
     EXPECT_INT_EQ(view_model.layers[1].object_count, 1);
+    EXPECT_INT_EQ(view_model.layers[2].object_count, 2);
     EXPECT_TRUE(view_model.properties[0].editable);
     EXPECT_TRUE(view_model.tools[2].available);
     EXPECT_TRUE(view_model.tools[3].available);

@@ -112,20 +112,33 @@ static void command_executor_clear_tail(CommandExecutor* executor)
 
 static void command_executor_prune_budget(CommandExecutor* executor)
 {
-    size_t i = 0u;
+    size_t prune_count = 0u;
+    size_t remaining_count = 0u;
 
     if (!executor || executor->memory_budget_bytes == 0u) {
         return;
     }
 
-    while (executor->used_bytes > executor->memory_budget_bytes && executor->cursor > 1u) {
-        executor->used_bytes -= executor->entries[0].bytes;
-        command_executor_discard_entry(&executor->entries[0]);
-        for (i = 1u; i < executor->entry_count; ++i) {
-            executor->entries[i - 1u] = executor->entries[i];
-        }
-        executor->entry_count--;
-        executor->cursor--;
+    while (executor->used_bytes > executor->memory_budget_bytes &&
+           prune_count + 1u < executor->cursor) {
+        executor->used_bytes =
+            (executor->used_bytes >= executor->entries[prune_count].bytes)
+                ? executor->used_bytes - executor->entries[prune_count].bytes
+                : 0u;
+        command_executor_discard_entry(&executor->entries[prune_count]);
+        prune_count++;
+    }
+
+    if (prune_count > 0u) {
+        remaining_count = executor->entry_count - prune_count;
+        memmove(executor->entries,
+                executor->entries + prune_count,
+                remaining_count * sizeof(executor->entries[0]));
+        memset(executor->entries + remaining_count,
+               0,
+               prune_count * sizeof(executor->entries[0]));
+        executor->entry_count = remaining_count;
+        executor->cursor -= prune_count;
     }
     command_executor_refresh_counts(executor);
 }

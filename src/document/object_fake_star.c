@@ -2,6 +2,8 @@
 
 #include <base/math2d.h>
 
+#include "object_internal.h"
+
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
@@ -10,88 +12,33 @@ typedef struct {
     RectF bounds;
 } FakeStarData;
 
-static int fake_star_style_get_scalar(const GraphicObject* object,
-                                      const char* key,
-                                      float* out_value)
-{
-    if (!object || !key || !out_value) {
-        return 0;
-    }
-
-    if (strcmp(key, "stroke_r") == 0) { *out_value = object->style.stroke_color.r; return 1; }
-    if (strcmp(key, "stroke_g") == 0) { *out_value = object->style.stroke_color.g; return 1; }
-    if (strcmp(key, "stroke_b") == 0) { *out_value = object->style.stroke_color.b; return 1; }
-    if (strcmp(key, "stroke_a") == 0) { *out_value = object->style.stroke_color.a; return 1; }
-    if (strcmp(key, "stroke_width") == 0) { *out_value = object->style.stroke_width; return 1; }
-    return 0;
-}
-
-static int fake_star_style_set_scalar(GraphicObject* object,
-                                      const char* key,
-                                      float value)
-{
-    if (!object || !key) {
-        return 0;
-    }
-
-    if (strcmp(key, "stroke_r") == 0) { object->style.stroke_color.r = value; return 1; }
-    if (strcmp(key, "stroke_g") == 0) { object->style.stroke_color.g = value; return 1; }
-    if (strcmp(key, "stroke_b") == 0) { object->style.stroke_color.b = value; return 1; }
-    if (strcmp(key, "stroke_a") == 0) { object->style.stroke_color.a = value; return 1; }
-    if (strcmp(key, "stroke_width") == 0) { object->style.stroke_width = value; return 1; }
-    return 0;
-}
-
 static GraphicObject* fake_star_create(const void* init_data, GraphicStyle style)
 {
     const GraphicObjectDescriptor* descriptor = object_registry_lookup("fake_star");
     const RectF* bounds = (const RectF*)init_data;
     FakeStarData* data = NULL;
-    GraphicObject* object = NULL;
 
     if (!descriptor || !bounds || bounds->w <= 0.0f || bounds->h <= 0.0f) {
         return NULL;
     }
 
     data = (FakeStarData*)calloc(1u, sizeof(*data));
-    object = (GraphicObject*)calloc(1u, sizeof(*object));
-    if (!data || !object) {
-        free(data);
-        free(object);
+    if (!data) {
         return NULL;
     }
 
     data->bounds = *bounds;
-    object->type = descriptor->type;
-    object->layer_id = 1u;
-    object->descriptor = descriptor;
-    object->impl = data;
-    object->style = style;
-    object->revision = 1u;
-    return object;
+    return object_alloc(descriptor->type, descriptor, data, style);
 }
 
 static GraphicObject* fake_star_clone(const GraphicObject* object)
 {
-    const FakeStarData* data = object ? (const FakeStarData*)object->impl : NULL;
-    GraphicObject* clone = data ? fake_star_create(&data->bounds, object->style) : NULL;
-
-    if (clone && object) {
-        clone->id = object->id;
-        clone->layer_id = object->layer_id;
-        clone->revision = object->revision;
-    }
-    return clone;
+    return default_clone_object(object);
 }
 
 static void fake_star_destroy(GraphicObject* object)
 {
-    if (!object) {
-        return;
-    }
-
-    free(object->impl);
-    free(object);
+    default_destroy_object(object);
 }
 
 static void fake_star_translate(GraphicObject* object, Vec2 delta)
@@ -160,7 +107,7 @@ static int fake_star_get_scalar(const GraphicObject* object,
     if (strcmp(key, "y") == 0) { *out_value = data->bounds.y; return 1; }
     if (strcmp(key, "width") == 0) { *out_value = data->bounds.w; return 1; }
     if (strcmp(key, "height") == 0) { *out_value = data->bounds.h; return 1; }
-    return fake_star_style_get_scalar(object, key, out_value);
+    return style_get_scalar(object, key, out_value);
 }
 
 static int fake_star_set_scalar(GraphicObject* object, const char* key, float value)
@@ -175,30 +122,12 @@ static int fake_star_set_scalar(GraphicObject* object, const char* key, float va
     if (strcmp(key, "y") == 0) { data->bounds.y = value; return 1; }
     if (strcmp(key, "width") == 0 && value > 0.0f) { data->bounds.w = value; return 1; }
     if (strcmp(key, "height") == 0 && value > 0.0f) { data->bounds.h = value; return 1; }
-    return fake_star_style_set_scalar(object, key, value);
+    return style_set_scalar(object, key, value);
 }
 
 static int fake_star_serialize(const GraphicObject* object, GraphicPropertyBag* out_properties)
 {
-    float value = 0.0f;
-    static const char* keys[] = {
-        "x", "y", "width", "height",
-        "stroke_r", "stroke_g", "stroke_b", "stroke_a", "stroke_width"
-    };
-    int i = 0;
-
-    if (!object || !out_properties) {
-        return 0;
-    }
-
-    graphic_property_bag_init(out_properties);
-    for (i = 0; i < (int)(sizeof(keys) / sizeof(keys[0])); ++i) {
-        if (object_get_scalar(object, keys[i], &value) &&
-            !graphic_property_bag_set(out_properties, keys[i], value)) {
-            return 0;
-        }
-    }
-    return 1;
+    return default_serialize_from_schema(object, out_properties);
 }
 
 static GraphicObject* fake_star_deserialize(const GraphicPropertyBag* properties,
@@ -206,7 +135,6 @@ static GraphicObject* fake_star_deserialize(const GraphicPropertyBag* properties
 {
     RectF bounds = {0.0f, 0.0f, 0.0f, 0.0f};
     GraphicObject* object = NULL;
-    float value = 0.0f;
 
     if (!properties ||
         !graphic_property_bag_get(properties, "x", &bounds.x) ||
@@ -222,13 +150,7 @@ static GraphicObject* fake_star_deserialize(const GraphicPropertyBag* properties
         return NULL;
     }
 
-    if (graphic_property_bag_get(properties, "stroke_r", &value)) { object->style.stroke_color.r = value; }
-    if (graphic_property_bag_get(properties, "stroke_g", &value)) { object->style.stroke_color.g = value; }
-    if (graphic_property_bag_get(properties, "stroke_b", &value)) { object->style.stroke_color.b = value; }
-    if (graphic_property_bag_get(properties, "stroke_a", &value)) { object->style.stroke_color.a = value; }
-    if (graphic_property_bag_get(properties, "stroke_width", &value) && value > 0.0f) {
-        object->style.stroke_width = value;
-    }
+    default_apply_style_properties(properties, object);
     return object;
 }
 

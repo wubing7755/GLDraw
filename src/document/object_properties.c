@@ -121,6 +121,33 @@ int default_serialize_from_schema(const GraphicObject* object, GraphicPropertyBa
     return 1;
 }
 
+void default_apply_style_properties(const GraphicPropertyBag* properties,
+                                    GraphicObject* object)
+{
+    float value = 0.0f;
+
+    if (!properties || !object) {
+        return;
+    }
+
+    if (graphic_property_bag_get(properties, "stroke_r", &value)) {
+        object->style.stroke_color.r = value;
+    }
+    if (graphic_property_bag_get(properties, "stroke_g", &value)) {
+        object->style.stroke_color.g = value;
+    }
+    if (graphic_property_bag_get(properties, "stroke_b", &value)) {
+        object->style.stroke_color.b = value;
+    }
+    if (graphic_property_bag_get(properties, "stroke_a", &value)) {
+        object->style.stroke_color.a = value;
+    }
+    if (graphic_property_bag_get(properties, "stroke_width", &value) &&
+        value > 0.0f) {
+        object->style.stroke_width = value;
+    }
+}
+
 GraphicObject* default_clone_object(const GraphicObject* object)
 {
     GraphicPropertyBag properties;

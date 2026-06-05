@@ -197,6 +197,32 @@ static int document_spatial_rebuild(Document* document)
     return 1;
 }
 
+static int document_spatial_ensure_current(const Document* document)
+{
+    return document ? document_spatial_rebuild((Document*)document) : 0;
+}
+
+static unsigned int document_spatial_next_query_token(const Document* document)
+{
+    Document* mutable_document = (Document*)document;
+
+    if (!mutable_document) {
+        return 0u;
+    }
+
+    if (mutable_document->spatial_query_token == 0xffffffffu) {
+        memset(mutable_document->spatial_marks,
+               0,
+               (size_t)mutable_document->spatial_mark_capacity *
+                   sizeof(mutable_document->spatial_marks[0]));
+        mutable_document->spatial_query_token = 1u;
+    } else {
+        mutable_document->spatial_query_token++;
+    }
+
+    return mutable_document->spatial_query_token;
+}
+
 static int rect_intersects(const RectF* a, const RectF* b)
 {
     if (!a || !b) {
@@ -245,7 +271,6 @@ int document_query_visible_indices(const Document* document,
                                    int* out_indices,
                                    int max_indices)
 {
-    Document* mutable_document = (Document*)document;
     int count = 0;
     int cell_min_col = 0;
     int cell_max_col = 0;
@@ -253,23 +278,18 @@ int document_query_visible_indices(const Document* document,
     int cell_max_row = 0;
     int row = 0;
     int col = 0;
+    unsigned int query_token = 0u;
 
     if (!document || !out_indices || max_indices <= 0) {
         return 0;
     }
 
-    if (!document_spatial_rebuild(mutable_document) || document->count <= 0 ||
+    if (!document_spatial_ensure_current(document) || document->count <= 0 ||
         document->spatial_cell_count <= 0) {
         return 0;
     }
 
-    if (document->spatial_query_token == 0xffffffffu) {
-        memset(document->spatial_marks, 0,
-               (size_t)document->spatial_mark_capacity * sizeof(document->spatial_marks[0]));
-        mutable_document->spatial_query_token = 1u;
-    } else {
-        mutable_document->spatial_query_token++;
-    }
+    query_token = document_spatial_next_query_token(document);
 
     cell_min_col = (int)floorf((visible_rect.x - document->spatial_bounds.x) /
                                document->spatial_cell_size);
@@ -302,14 +322,14 @@ int document_query_visible_indices(const Document* document,
                     object ? document_layer_find_const(document, object->layer_id) : NULL;
 
                 if (object &&
-                    document->spatial_marks[object_index] != document->spatial_query_token &&
+                    document->spatial_marks[object_index] != query_token &&
                     layer && layer->visible) {
                     RectF object_bounds = object_get_bounds(object);
                     if (!rect_intersects(&visible_rect, &object_bounds)) {
                         entry_index = document->spatial_entries[entry_index].next;
                         continue;
                     }
-                    document->spatial_marks[object_index] = document->spatial_query_token;
+                    document->spatial_marks[object_index] = query_token;
                     if (count < max_indices) {
                         out_indices[count++] = object_index;
                     }

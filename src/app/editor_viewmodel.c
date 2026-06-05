@@ -356,13 +356,32 @@ static int editor_viewmodel_reserve_layers(EditorViewModel* view_model, int need
     return 1;
 }
 
+static int editor_viewmodel_layer_index_for_id(const EditorViewModel* view_model,
+                                               LayerId layer_id)
+{
+    int i = 0;
+
+    if (!view_model) {
+        return -1;
+    }
+
+    for (i = 0; i < view_model->layer_count; ++i) {
+        if (view_model->layers[i].id == layer_id) {
+            return i;
+        }
+    }
+    return -1;
+}
+
 static void editor_viewmodel_build_layers(EditorViewModel* view_model,
                                           const EditorViewModelBuildContext* context)
 {
     int i = 0;
-    int j = 0;
     int doc_layer_count = 0;
     int object_count = 0;
+    LayerId max_layer_id = 0u;
+    int* layer_index_by_id = NULL;
+    size_t layer_lookup_count = 0u;
 
     if (!view_model || !context || !context->document) {
         return;
@@ -391,15 +410,47 @@ static void editor_viewmodel_build_layers(EditorViewModel* view_model,
         layer_view->active =
             (document_active_layer_id(context->document) == layer->id);
         layer_view->object_count = 0;
+        if (layer->id > max_layer_id) {
+            max_layer_id = layer->id;
+        }
+    }
 
-        for (j = 0; j < object_count; ++j) {
-            const GraphicObject* object =
-                document_get_object_at_const(context->document, j);
-            if (object && object->layer_id == layer->id) {
-                layer_view->object_count++;
+    if (max_layer_id > 0u &&
+        max_layer_id <= (LayerId)(doc_layer_count * 8 + 64)) {
+        layer_lookup_count = (size_t)max_layer_id + 1u;
+        layer_index_by_id = (int*)malloc(layer_lookup_count * sizeof(layer_index_by_id[0]));
+        if (layer_index_by_id) {
+            for (i = 0; i < (int)layer_lookup_count; ++i) {
+                layer_index_by_id[i] = -1;
+            }
+            for (i = 0; i < view_model->layer_count; ++i) {
+                layer_index_by_id[view_model->layers[i].id] = i;
             }
         }
     }
+
+    for (i = 0; i < object_count; ++i) {
+        const GraphicObject* object =
+            document_get_object_at_const(context->document, i);
+        int layer_view_index = -1;
+
+        if (!object) {
+            continue;
+        }
+
+        if (layer_index_by_id && object->layer_id <= max_layer_id) {
+            layer_view_index = layer_index_by_id[object->layer_id];
+        } else {
+            layer_view_index =
+                editor_viewmodel_layer_index_for_id(view_model, object->layer_id);
+        }
+
+        if (layer_view_index >= 0) {
+            view_model->layers[layer_view_index].object_count++;
+        }
+    }
+
+    free(layer_index_by_id);
 }
 
 static void editor_viewmodel_build_summary(
