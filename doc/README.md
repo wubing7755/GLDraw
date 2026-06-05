@@ -19,9 +19,11 @@ Quick Start
 * Build and run GLDraw: See build.md
 * Learn basic controls: See controls.md
 * Understand testing expectations: See testing.md
+* Review dependencies: See dependencies.md
 * Prepare a release: See release.md
 * Use AI agents safely: See ai-agents.md and agent-playbooks.md
 * Review stable architecture decisions: See adr/README.md
+* Read historical notes when needed: See archive/README.md
 * Read project architecture: https://zread.ai/wubing7755/GLDraw
 * Check the license: See ../LICENSE.txt
 
@@ -34,6 +36,7 @@ All users and contributors should be familiar with:
 * Build requirements: build.md
 * Runtime controls: controls.md
 * Testing policy: testing.md
+* Dependency policy: dependencies.md
 * Release policy: release.md
 * AI agent policy: ai-agents.md
 * AI agent playbooks: agent-playbooks.md
@@ -51,6 +54,8 @@ Keep this directory short.
   here.
 * Short ADRs may live in adr/ when they record stable contributor-facing
   decisions.
+* Historical notes may live in archive/ when they are retained for reference but
+  no longer define the active workflow.
 * Long architecture pages should stay out of this directory.
 * Source maps, subsystem descriptions, and refactor narratives should be read
   through Zread or generated from the current source tree.

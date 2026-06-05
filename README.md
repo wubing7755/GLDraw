@@ -51,6 +51,7 @@ Documentation
 * Build and run: [doc/build.md](doc/build.md)
 * Controls: [doc/controls.md](doc/controls.md)
 * Contributing: [CONTRIBUTING.md](CONTRIBUTING.md)
+* Dependencies: [doc/dependencies.md](doc/dependencies.md)
 * Testing: [doc/testing.md](doc/testing.md)
 * Release process: [doc/release.md](doc/release.md)
 * AI agent policy: [doc/ai-agents.md](doc/ai-agents.md)

@@ -6,6 +6,7 @@ build-*/
 CMakeCache.txt
 CMakeFiles/
 *.cmake
+!cmake/*.cmake
 Makefile
 *.ninja
 .ninja_deps

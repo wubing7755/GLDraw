@@ -22,6 +22,7 @@ For architecture-sensitive work, also read:
 For build, CI, packaging, release, dependency, or security work, also read:
 
 * `doc/build.md`
+* `doc/dependencies.md`
 * `doc/release.md`
 * `SECURITY.md` when dependency or vulnerability handling is involved.
 
@@ -96,6 +97,9 @@ Start code reading here:
 * `src/commands/command_executor.c` - undo/redo history and command execution.
 * `src/render/render_system.c` - render system lifecycle and scene submission.
 * `src/tools/tool_runtime.c` - active tool lifecycle and dispatch.
+* `CMakeLists.txt` - CMake project entrypoint.
+* `cmake/` - CMake modules for compiler options, dependencies, sources, tests,
+  and packaging.
 
 ## Ownership Rules
 
@@ -152,9 +156,11 @@ Repository-local docs are intentionally short:
 * `doc/README.md` - documentation entrypoint.
 * `doc/build.md` - build, run, dependencies, and troubleshooting.
 * `doc/controls.md` - default shortcuts and pointer behavior.
+* `doc/dependencies.md` - dependency locations and update policy.
 * `doc/testing.md` - testing policy and expectations.
 * `doc/ai-agents.md` - AI agent policy.
 * `doc/agent-playbooks.md` - AI-assisted task workflows.
+* `doc/archive/` - historical notes retained for reference only.
 
 Architecture and source navigation are maintained through Zread:
 https://zread.ai/wubing7755/GLDraw

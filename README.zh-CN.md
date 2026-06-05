@@ -51,6 +51,7 @@ build\Release\bin\GLDraw.exe
 * 构建和运行：[doc/build.md](doc/build.md)
 * 快捷键和基本操作：[doc/controls.md](doc/controls.md)
 * 贡献指南：[CONTRIBUTING.md](CONTRIBUTING.md)
+* 依赖说明：[doc/dependencies.md](doc/dependencies.md)
 * 测试策略：[doc/testing.md](doc/testing.md)
 * 发布流程：[doc/release.md](doc/release.md)
 * AI agent 策略：[doc/ai-agents.md](doc/ai-agents.md)

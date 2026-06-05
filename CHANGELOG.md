@@ -20,6 +20,7 @@ grouped by release.
 * Testing, security, release, and ADR documentation for team collaboration.
 * AI agent policy, playbooks, PR disclosure, task issue template, and ADR for
   AI-assisted contribution boundaries.
+* Dependency documentation and third-party source layout ADR.
 
 ### Changed
 
