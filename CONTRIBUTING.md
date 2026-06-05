@@ -51,6 +51,8 @@ chore(ci): align builds with CMake presets
 
 Before opening a pull request:
 
+* Use a Conventional Commit style PR title: `type(scope): summary`, for example
+  `fix(commands): preserve selection after undo`.
 * Rebase or merge the target branch if the change depends on recent CI or build
   updates.
 * Run the smallest local verification that covers the touched area.

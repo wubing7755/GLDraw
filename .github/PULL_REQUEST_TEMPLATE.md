@@ -1,3 +1,5 @@
+<!-- PR title format: type(scope): summary, for example docs(ai): add agent policy -->
+
 Closes #xx
 
 ## Summary
