@@ -7,12 +7,22 @@
 #include <math.h>
 #include <stdio.h>
 
+static const char *UI_INSPECTOR_EMPTY_HINTS[] = {
+    "No selection",
+    "Shortcuts: V H L R E",
+    "Document: Ctrl+S save, Ctrl+O load",
+    "Wheel zooms at cursor",
+    "Delete removes selection"
+};
+
 static void ui_inspector_empty_hint(struct nk_context *ctx) {
-  nk_label(ctx, "No selection", NK_TEXT_LEFT);
-  nk_label(ctx, "Shortcuts: V H L R E", NK_TEXT_LEFT);
-  nk_label(ctx, "Document: Ctrl+S save, Ctrl+O load", NK_TEXT_LEFT);
-  nk_label(ctx, "Wheel zooms at cursor", NK_TEXT_LEFT);
-  nk_label(ctx, "Delete removes selection", NK_TEXT_LEFT);
+  int i = 0;
+
+  for (i = 0; i < (int)(sizeof(UI_INSPECTOR_EMPTY_HINTS) /
+                        sizeof(UI_INSPECTOR_EMPTY_HINTS[0]));
+       ++i) {
+    nk_label(ctx, UI_INSPECTOR_EMPTY_HINTS[i], NK_TEXT_LEFT);
+  }
 }
 
 static void ui_inspector_overview(struct nk_context *ctx,

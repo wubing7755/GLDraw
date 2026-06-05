@@ -45,6 +45,15 @@ int default_serialize_from_schema(const GraphicObject* object,
                                   GraphicPropertyBag* out_properties);
 
 /**
+ * @brief Apply serialized style properties to an existing object.
+ *
+ * Reads optional "stroke_r", "stroke_g", "stroke_b", "stroke_a", and
+ * positive "stroke_width" values from @p properties.
+ */
+void default_apply_style_properties(const GraphicPropertyBag* properties,
+                                    GraphicObject* object);
+
+/**
  * @brief Allocate and initialize a GraphicObject with the given fields.
  *
  * Takes ownership of @p impl on success; caller must NOT free it.
@@ -54,5 +63,10 @@ GraphicObject* object_alloc(GraphicObjectType type,
                             const GraphicObjectDescriptor* descriptor,
                             void* impl,
                             GraphicStyle style);
+
+/**
+ * @brief Destroy a GraphicObject allocated with object_alloc().
+ */
+void default_destroy_object(GraphicObject* object);
 
 #endif /* GLDRAW_DOCUMENT_OBJECT_INTERNAL_H */

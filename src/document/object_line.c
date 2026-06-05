@@ -50,29 +50,19 @@ static GraphicObject* line_create(const void* init_data, GraphicStyle style)
     const GraphicObjectDescriptor* descriptor = object_registry_lookup("line");
     const Vec2* points = (const Vec2*)init_data;
     LineData* data = NULL;
-    GraphicObject* object = NULL;
 
     if (!descriptor || !points) {
         return NULL;
     }
 
     data = (LineData*)calloc(1u, sizeof(*data));
-    object = (GraphicObject*)calloc(1u, sizeof(*object));
-    if (!data || !object) {
-        free(data);
-        free(object);
+    if (!data) {
         return NULL;
     }
 
     data->p1 = points[0];
     data->p2 = points[1];
-    object->type = descriptor->type;
-    object->layer_id = 1u;
-    object->descriptor = descriptor;
-    object->impl = data;
-    object->style = style;
-    object->revision = 1u;
-    return object;
+    return object_alloc(descriptor->type, descriptor, data, style);
 }
 
 static GraphicObject* line_clone(const GraphicObject* object)
@@ -82,11 +72,7 @@ static GraphicObject* line_clone(const GraphicObject* object)
 
 static void line_destroy(GraphicObject* object)
 {
-    if (!object) {
-        return;
-    }
-    free(object->impl);
-    free(object);
+    default_destroy_object(object);
 }
 
 /* ------------------------------------------------------------------ */
@@ -194,7 +180,6 @@ static GraphicObject* line_deserialize(const GraphicPropertyBag* properties,
 {
     Vec2 points[2] = {{0.0f, 0.0f}, {0.0f, 0.0f}};
     GraphicObject* object = NULL;
-    float value = 0.0f;
 
     if (!properties ||
         !graphic_property_bag_get(properties, "x1", &points[0].x) ||
@@ -209,13 +194,7 @@ static GraphicObject* line_deserialize(const GraphicPropertyBag* properties,
         return NULL;
     }
 
-    if (graphic_property_bag_get(properties, "stroke_r", &value)) { object->style.stroke_color.r = value; }
-    if (graphic_property_bag_get(properties, "stroke_g", &value)) { object->style.stroke_color.g = value; }
-    if (graphic_property_bag_get(properties, "stroke_b", &value)) { object->style.stroke_color.b = value; }
-    if (graphic_property_bag_get(properties, "stroke_a", &value)) { object->style.stroke_color.a = value; }
-    if (graphic_property_bag_get(properties, "stroke_width", &value) && value > 0.0f) {
-        object->style.stroke_width = value;
-    }
+    default_apply_style_properties(properties, object);
     return object;
 }
 

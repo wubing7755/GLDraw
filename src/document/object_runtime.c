@@ -34,6 +34,16 @@ GraphicObject* object_alloc(GraphicObjectType type,
     return object;
 }
 
+void default_destroy_object(GraphicObject* object)
+{
+    if (!object) {
+        return;
+    }
+
+    free(object->impl);
+    free(object);
+}
+
 GraphicStyle object_default_style(void)
 {
     GraphicStyle style;

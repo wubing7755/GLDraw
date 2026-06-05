@@ -354,6 +354,42 @@ static int test_memory_budget_prunes_old_undo_entries(void)
     return 0;
 }
 
+static int test_memory_budget_set_prunes_history_in_bulk(void)
+{
+    Document document;
+    CommandExecutor executor;
+    int i = 0;
+
+    document_init(&document);
+    EXPECT_TRUE(command_executor_init_with_budget(&executor, 1024u * 1024u));
+
+    for (i = 0; i < 5; ++i) {
+        EXPECT_TRUE(command_executor_execute(
+            &executor,
+            command_create_create_object(make_rect((float)i * 20.0f,
+                                                   0.0f,
+                                                   10.0f,
+                                                   10.0f)),
+            &document));
+    }
+    EXPECT_INT_EQ(document.count, 5);
+    EXPECT_INT_EQ((int)executor.undo_count, 5);
+
+    command_executor_set_memory_budget(&executor, 1u);
+    EXPECT_INT_EQ((int)executor.entry_count, 1);
+    EXPECT_INT_EQ((int)executor.undo_count, 1);
+    EXPECT_FALSE(command_executor_can_redo(&executor));
+
+    EXPECT_TRUE(command_executor_undo(&executor, &document));
+    EXPECT_INT_EQ(document.count, 4);
+    EXPECT_FALSE(command_executor_can_undo(&executor));
+    EXPECT_TRUE(command_executor_can_redo(&executor));
+
+    command_executor_shutdown(&executor);
+    document_shutdown(&document);
+    return 0;
+}
+
 static int test_layer_commands_undo_redo(void)
 {
     Document document;
@@ -768,6 +804,7 @@ int main(void)
     if (test_transaction_commit_and_undo()) return 1;
     if (test_transaction_rollback_restores_document()) return 1;
     if (test_memory_budget_prunes_old_undo_entries()) return 1;
+    if (test_memory_budget_set_prunes_history_in_bulk()) return 1;
     if (test_layer_commands_undo_redo()) return 1;
     if (test_command_execute_respects_locked_targets()) return 1;
     if (test_command_can_execute_reports_capability()) return 1;

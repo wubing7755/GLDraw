@@ -607,6 +607,7 @@ static int test_layer_visibility_and_spatial_query(void)
                                            indices,
                                            document.count);
     EXPECT_INT_EQ(count, 1);
+    EXPECT_UINT_EQ(document.spatial_revision, document.revision);
     EXPECT_UINT_EQ(document.objects[indices[0]]->id, visible->id);
 
     free(indices);
