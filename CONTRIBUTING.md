@@ -56,6 +56,9 @@ Before opening a pull request:
 
 * Use a Conventional Commit style PR title: `type(scope): summary`, for example
   `fix(commands): preserve selection after undo`.
+* Use the repository pull request template as the shared review format. Keep the
+  standard sections unless they are clearly not applicable, and mark fields as
+  not applicable or not run instead of deleting review context.
 * Rebase or merge the target branch if the change depends on recent CI or build
   updates.
 * Run the smallest local verification that covers the touched area.
@@ -63,6 +66,21 @@ Before opening a pull request:
   theme changes.
 * Explain any compatibility, file format, packaging, or release impact.
 * Link issues with `Closes #...` or `Refs #...` when applicable.
+
+The pull request body should help reviewers collaborate without reconstructing
+the change from the diff:
+
+* `Summary` should state what changed and why, not list unrelated work.
+* `Change Type` and `Areas Touched` should identify the review owners and risk
+  surface.
+* `Architecture Checklist` should call out boundary-sensitive work or explicitly
+  mark it not applicable.
+* `Testing` should list the checks that actually ran and give a reason for any
+  relevant check that was skipped.
+* `AI Assistance` should disclose meaningful agent use, the required docs read,
+  and the human verification still needed.
+* `Compatibility and Release Notes` should make file format, dependency,
+  packaging, and changelog impact explicit.
 
 Reviewers should focus first on behavior, ownership boundaries, and tests. Style
 feedback should point back to the shared formatting rules where possible.
